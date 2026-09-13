@@ -1,3 +1,4 @@
+export const runtime = 'nodejs';
 import { NextRequest, NextResponse } from "next/server";
 import { executeWithDatabase } from "@/lib/services/db";
 import { withAuth } from "@/lib/api/auth-guard";

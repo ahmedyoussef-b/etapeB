@@ -1,3 +1,4 @@
+export const runtime = 'nodejs';
 import { NextRequest, NextResponse } from "next/server";
 import { safeGetAllProcedures, safeUpsertProcedure, replaySyncQueue } from "@/lib/services/procedures.fallback";
 import { isDatabaseAvailable } from "@/lib/database/connection-manager";

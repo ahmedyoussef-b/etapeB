@@ -1,3 +1,4 @@
+export const runtime = 'nodejs';
 // src/app/api/implante/analyze/route.ts
 // Analyse un répertoire et infère un schéma Prisma
 import { NextRequest, NextResponse } from 'next/server';

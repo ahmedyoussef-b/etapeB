@@ -1,3 +1,4 @@
+export const runtime = 'nodejs';
 import { NextRequest, NextResponse } from "next/server";
 import { safeGetAllMedia, safeCreateMedia, safeGetCategories } from "@/lib/services/images.fallback";
 import { withAuth } from "@/lib/api/auth-guard";

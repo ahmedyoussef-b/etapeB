@@ -1,3 +1,4 @@
+export const runtime = 'nodejs';
 // src/app/api/implante/generate/route.ts
 // Génère le contenu de schema.prisma et seed-from-repertoire.ts depuis les modèles inférés
 import { NextRequest, NextResponse } from 'next/server';

@@ -1,3 +1,4 @@
+export const runtime = 'nodejs';
 // src/app/api/structure/sync/route.ts
 // Synchronisation `.data/` → BDD Prisma avec suivi de progression (SSE)
 import { NextRequest } from 'next/server';

@@ -1,3 +1,4 @@
+export const runtime = 'nodejs';
 import { NextRequest, NextResponse } from "next/server";
 import { LocalDatabaseAdapter } from "@/lib/database/local-adapter";
 import { UnifiedDatabaseService } from "@/lib/database/unified-database.service";

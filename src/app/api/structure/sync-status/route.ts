@@ -1,3 +1,4 @@
+export const runtime = 'nodejs';
 // src/app/api/structure/sync-status/route.ts
 import { NextRequest, NextResponse } from 'next/server';
 import { getAuthenticatedUser, hasPermission, unauthorizedResponse, unauthenticatedResponse } from '@/lib/api/auth-guard';

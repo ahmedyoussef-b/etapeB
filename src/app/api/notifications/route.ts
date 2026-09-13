@@ -1,3 +1,4 @@
+export const runtime = 'nodejs';
 import { NextResponse } from 'next/server';
 import { LocalDatabaseAdapter } from '@/lib/database/local-adapter';
 import { withAuth } from '@/lib/api/auth-guard';

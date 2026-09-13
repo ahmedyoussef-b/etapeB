@@ -1,3 +1,4 @@
+export const runtime = 'nodejs';
 // src/app/api/repository/route.ts
 // Gestion des répertoires de référence — parcours PC, copie, sélection
 import { NextRequest, NextResponse } from 'next/server';

@@ -1,3 +1,4 @@
+export const runtime = 'nodejs';
 import { NextRequest, NextResponse } from "next/server";
 import { safeGetAllReports, safeCreateReport } from "@/lib/services/etat-des-lieux.fallback";
 import { withAuth } from "@/lib/api/auth-guard";
