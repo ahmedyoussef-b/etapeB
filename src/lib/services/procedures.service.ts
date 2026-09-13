@@ -122,10 +122,70 @@ export async function updateProcedure(code: string, procedure: TProcedure): Prom
   });
 }
 
+export type ArchiveOrDeleteResult =
+  | { archived: true; executionCount: number }
+  | { deleted: true };
+
+// Conservé pour compatibilité avec replaySyncQueue (replay d'opérations locales,
+// contexte sans exécutions en base).
 export async function deleteProcedure(code: string): Promise<boolean> {
   return executeWithDatabase(async (prisma) => {
     await prisma.procedure.delete({ where: { code } });
     logger.info('Procedure deleted', { code });
     return true;
+  });
+}
+
+// Soft delete si exécutions existantes, hard delete sinon.
+// Protection réglementaire des preuves d'exécution (Scenario A).
+export async function archiveOrDeleteProcedure(
+  code: string,
+  actorUserId?: string
+): Promise<ArchiveOrDeleteResult | null> {
+  return executeWithDatabase(async (prisma) => {
+    const procedure = await prisma.procedure.findUnique({
+      where: { code },
+      select: { id: true, code: true, title: true, status: true },
+    });
+    if (!procedure) return null;
+
+    const executionCount = await prisma.procedureExecution.count({
+      where: { procedureId: procedure.id },
+    });
+
+    if (executionCount > 0) {
+      // Soft delete : archivage logique
+      await prisma.procedure.update({
+        where: { code },
+        data: { status: 'archived' },
+      });
+      await prisma.auditLog.create({
+        data: {
+          userId: actorUserId ?? null,
+          action: 'PROCEDURE_ARCHIVED',
+          entity: 'Procedure',
+          entityId: procedure.id,
+          before: { status: procedure.status } as Prisma.InputJsonValue,
+          after: { status: 'archived' } as Prisma.InputJsonValue,
+        },
+      });
+      logger.info('Procedure archived (has executions)', { code, executionCount });
+      return { archived: true, executionCount };
+    }
+
+    // Hard delete : aucune exécution
+    await prisma.procedure.delete({ where: { code } });
+    await prisma.auditLog.create({
+      data: {
+        userId: actorUserId ?? null,
+        action: 'PROCEDURE_DELETED',
+        entity: 'Procedure',
+        entityId: procedure.id,
+        before: { code: procedure.code, title: procedure.title } as Prisma.InputJsonValue,
+        after: Prisma.JsonNull,
+      },
+    });
+    logger.info('Procedure deleted (no executions)', { code });
+    return { deleted: true };
   });
 }

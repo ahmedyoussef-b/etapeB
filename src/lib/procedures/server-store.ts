@@ -54,3 +54,24 @@ export async function deleteProcedureLocal(code: string): Promise<boolean> {
     return items;
   }).then((items: any[]) => items.some((p: any) => p.metadata?.code === code));
 }
+
+/**
+ * Soft delete local : marque la procedure comme "archived" sans suppression physique.
+ * Utilise en mode hors-ligne quand la base Prisma est indisponible.
+ * @returns true si la procedure a ete trouvee et archivee, false sinon.
+ */
+export async function archiveProcedureLocal(code: string): Promise<boolean> {
+  let found = false;
+  await fileStore.mutateArray((items: any[]) => {
+    const index = items.findIndex((p: any) => p.metadata?.code === code);
+    if (index === -1) return items;
+    found = true;
+    items[index] = {
+      ...items[index],
+      status: 'archived',
+      updatedAt: new Date().toISOString(),
+    };
+    return items;
+  });
+  return found;
+}

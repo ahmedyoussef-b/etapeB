@@ -1,7 +1,17 @@
-import { getAllProcedures, getProcedureByCode, createProcedure, updateProcedure, deleteProcedure, upsertProcedure } from './procedures.service';
+import {
+  getAllProcedures,
+  getProcedureByCode,
+  createProcedure,
+  updateProcedure,
+  deleteProcedure,
+  upsertProcedure,
+  archiveOrDeleteProcedure,
+  type ArchiveOrDeleteResult,
+} from './procedures.service';
 import * as localStore from '@/lib/procedures/server-store';
 import { isDatabaseAvailable, getDatabaseHealth, canUseFallback, recordFallback, enqueueSyncOperation, drainSyncQueue, executeWithDatabaseTimed } from '@/lib/database/connection-manager';
 import { procedureVersionService, VersionedProcedure } from '@/lib/procedures/services/procedure-version.service';
+import logger from '@/lib/logger';
 
 export async function safeGetAllProcedures() {
   if (!isDatabaseAvailable() || !canUseFallback()) {
@@ -192,30 +202,30 @@ export async function safeListProcedureVersions(code: string): Promise<Versioned
   }
 }
 
-export async function safeDeleteProcedure(code: string) {
+export async function safeDeleteProcedure(
+  code: string,
+  actorUserId?: string
+): Promise<ArchiveOrDeleteResult | null> {
   if (!isDatabaseAvailable() || !canUseFallback()) {
+    // Fallback local : soft delete uniquement (pas de hard delete offline)
     const start = Date.now();
-    const result = await localStore.deleteProcedureLocal(code);
+    const result = await localStore.archiveProcedureLocal(code);
     recordFallback(Date.now() - start);
     if (result) {
-      enqueueSyncOperation({ type: 'delete', code });
+      enqueueSyncOperation({ type: 'archive', code });
     }
-    return result;
+    return result ? { archived: true, executionCount: 0 } : null;
   }
 
   try {
-    const { result } = await executeWithDatabaseTimed(async (prisma) => {
-      return await deleteProcedure(code);
+    const { result } = await executeWithDatabaseTimed(async () => {
+      return await archiveOrDeleteProcedure(code, actorUserId);
     });
     return result;
   } catch (error) {
-    const start = Date.now();
-    const result = await localStore.deleteProcedureLocal(code);
-    recordFallback(Date.now() - start);
-    if (result) {
-      enqueueSyncOperation({ type: 'delete', code });
-    }
-    return result;
+    // Ne PAS basculer en fallback sur erreur FK (reglementaire, pas reseau)
+    logger.error('safeDeleteProcedure failed', { code, error });
+    throw error;
   }
 }
 
@@ -238,7 +248,11 @@ export async function replaySyncQueue() {
             await upsertProcedure(op.data);
           }
         } else if (op.type === 'delete' && op.code) {
+          // Hard delete : uniquement pour procedures sans execution
           await deleteProcedure(op.code);
+        } else if (op.type === 'archive' && op.code) {
+          // Soft delete : replay de l'archivage differe hors-ligne
+          await archiveOrDeleteProcedure(op.code);
         }
       } catch (error) {
         console.error('[SyncQueue] Failed to replay operation:', op, error);

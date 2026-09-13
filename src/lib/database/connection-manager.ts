@@ -12,7 +12,7 @@ interface HealthStatus {
 
 interface SyncOperation {
   id: string;
-  type: 'create' | 'update' | 'delete';
+  type: 'create' | 'update' | 'delete' | 'archive';
   timestamp: number;
   data?: any;
   code?: string;
