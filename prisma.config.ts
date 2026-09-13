@@ -1,17 +1,17 @@
-import 'dotenv/config';
+import { config as dotenvConfig } from 'dotenv';
 import path from 'node:path';
 import type { PrismaConfig } from 'prisma/config';
 
+dotenvConfig();
+dotenvConfig({ path: path.resolve('.env.local'), override: true });
+
 const nodeEnv = process.env.NODE_ENV || 'development';
 
-// Load environment-specific .env file
 if (nodeEnv === 'production') {
-  // In production, ensure Neon URL is used
   if (!process.env.DATABASE_URL && process.env.DATABASE_URL_NEON) {
     process.env.DATABASE_URL = process.env.DATABASE_URL_NEON;
   }
 } else {
-  // In development, ensure local URL is used
   if (!process.env.DATABASE_URL && process.env.DATABASE_URL_LOCAL) {
     process.env.DATABASE_URL = process.env.DATABASE_URL_LOCAL;
   }
