@@ -5,6 +5,15 @@ import { Role, RBAC_MATRIX } from "@/lib/types/rbac";
 import { compare } from "bcryptjs";
 import logger from "@/lib/logger";
 
+// Guard: warn at startup if NEXTAUTH_SECRET is missing
+const authSecret = process.env.NEXTAUTH_SECRET?.trim();
+if (!authSecret) {
+  console.error(
+    '[NextAuth] ⚠️  NEXTAUTH_SECRET is not set! Authentication will fail. ' +
+    'Set it in your Vercel dashboard or .env.local file.'
+  );
+}
+
 const PRISMA_ROLE_TO_APP_ROLE: Record<string, Role> = {
   RONDIER: "rondier",
   CHEF_DE_BLOC: "chef-de-bloc",
@@ -32,7 +41,15 @@ export const authOptions: NextAuthOptions = {
           return null;
         }
 
-        const prisma = getPrismaClient();
+        let prisma;
+        try {
+          prisma = getPrismaClient();
+        } catch (err) {
+          logger.error('Auth failed: database connection unavailable', { 
+            error: err instanceof Error ? err.message : String(err) 
+          });
+          return null;
+        }
         const user = await prisma.user.findUnique({
           where: { email },
           include: { block: true },
@@ -117,5 +134,5 @@ export const authOptions: NextAuthOptions = {
     strategy: "jwt",
     maxAge: 24 * 60 * 60,
   },
-  secret: process.env.NEXTAUTH_SECRET?.trim(),
+  secret: authSecret,
 };

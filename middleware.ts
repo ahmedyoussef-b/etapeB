@@ -18,9 +18,18 @@ const routePermissions: Record<string, Permission> = {
 };
 
 export async function middleware(request: NextRequest) {
+  const secret = process.env.NEXTAUTH_SECRET?.trim();
+
+  // If NEXTAUTH_SECRET is not set, skip auth checks to avoid redirect loops.
+  // The API routes will handle the error with a proper message.
+  if (!secret) {
+    console.error('[Middleware] NEXTAUTH_SECRET is not set — skipping auth check');
+    return NextResponse.next();
+  }
+
   const token = await getToken({
     req: request,
-    secret: process.env.NEXTAUTH_SECRET?.trim(),
+    secret,
   });
   const { pathname } = request.nextUrl;
 
