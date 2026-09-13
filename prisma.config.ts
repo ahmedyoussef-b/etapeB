@@ -17,6 +17,9 @@ if (nodeEnv === 'production') {
   }
 }
 
+// For Prisma CLI migrations, prefer DIRECT_URL (unpooled Neon connection) to support advisory locks and prevent P1002 timeouts
+const datasourceUrl = process.env.DIRECT_URL || process.env.DATABASE_URL || 'postgresql://user:pass@localhost:5432/app';
+
 export default {
   schema: path.join('prisma', 'schema.prisma'),
   migrations: {
@@ -24,6 +27,6 @@ export default {
     seed: 'npx tsx prisma/seed.ts'
   },
   datasource: {
-    url: process.env.DATABASE_URL ?? 'postgresql://user:pass@localhost:5432/app'
+    url: datasourceUrl
   }
 } satisfies PrismaConfig;
