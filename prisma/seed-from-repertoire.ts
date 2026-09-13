@@ -1123,7 +1123,7 @@ async function syncData(root: RepertoireRoot, prisma: PrismaClient) {
       await prisma.user.upsert({
         where: { id: userId },
         update: { ...data, id: userId },
-        create: { id: userId, email: meta.email ?? `${userId}@unknown.local`, name: meta.name ?? userId, ...data }
+        create: { id: userId, email: meta.email ?? `${userId}@unknown.local`, name: meta.name ?? userId, role: 'RONDIER', ...data }
       });
     }
   }
