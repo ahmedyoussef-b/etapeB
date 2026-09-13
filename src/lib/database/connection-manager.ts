@@ -269,7 +269,13 @@ declare global {
 }
 
 export function resolveDatabaseUrl(explicitUrl?: string): string | undefined {
-  return explicitUrl || process.env.DATABASE_URL || process.env.DATABASE_URL_NEON || undefined;
+  return (
+    explicitUrl ||
+    process.env.DATABASE_URL ||
+    process.env.DATABASE_URL_NEON ||
+    process.env.DATABASE_URL_LOCAL ||
+    undefined
+  );
 }
 
 export function getSharedPrismaClient(databaseUrl?: string): PrismaClient | null {
