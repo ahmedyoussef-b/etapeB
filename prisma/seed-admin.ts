@@ -1,0 +1,32 @@
+import { PrismaClient } from '@prisma/client';
+import bcrypt from 'bcryptjs';
+
+const prisma = new PrismaClient();
+
+async function seedAdmin() {
+  console.log('🌱 Seed admin par défaut...');
+
+  const adminExists = await prisma.user.findFirst({
+    where: { role: 'ADMIN' }
+  });
+
+  if (!adminExists) {
+    const hashedPassword = await bcrypt.hash('Admin123!', 10);
+    
+    await prisma.user.create({
+      data: {
+        email: 'admin@nexaflow.local',
+        name: 'Administrateur',
+        role: 'ADMIN',
+        password: hashedPassword,
+      },
+    });
+    console.log('✅ Admin créé par défaut');
+  } else {
+    console.log('ℹ️ Admin déjà présent, aucun changement');
+  }
+}
+
+seedAdmin()
+  .catch(console.error)
+  .finally(() => prisma.$disconnect());

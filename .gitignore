@@ -1,0 +1,78 @@
+# === Dependencies ===
+node_modules/
+.pnp
+.pnp.js
+
+# === Next.js ===
+.next/
+out/
+build/
+dist/
+
+# === Environment (SECRETS - NE JAMAIS COMMITER) ===
+.env
+.env.local
+.env.production
+.env.development
+.env.test
+.env.*.local
+
+# === Database local data ===
+.data/
+.data11/
+.dev/
+.snapshot-reference/
+
+# === Dossiers de test locaux ===
+.test-bootstrap-db/
+.test-data/
+.test-debug-data/
+.test-sync/
+.test-*/
+.test-data-unified/
+.test-sync-data/
+
+# === Config locale repository ===
+repository-config.json
+
+# === Base vectorielle ChromaDB ===
+data/chromadb/
+
+# === Fichiers generes/temporaires ===
+_gen.js
+*.tmp
+temp_section.txt
+.tmp-*.ts
+
+# === Prisma ===
+prisma/schema.v3-backup.prisma
+
+# === Logs ===
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# === Tests ===
+coverage/
+test-results/
+playwright-report/
+.vitest/
+
+# === IDE ===
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# === OS ===
+.DS_Store
+Thumbs.db
+
+# === Build info ===
+*.tsbuildinfo
+next-env.d.ts
+
+# === Scripts locaux ===
+scripts/check-*.js
