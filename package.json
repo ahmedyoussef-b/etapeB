@@ -15,7 +15,7 @@
     "db:generate": "prisma generate",
     "db:push": "prisma db push",
     "db:migrate": "prisma migrate dev --name init",
-    "db:seed": "npx tsx --transpile-only prisma/seed.ts",
+    "db:seed": "npx tsx --tsconfig tsconfig.seed.json prisma/seed.ts",
     "db:sync-repertoire": "npx tsx prisma/seed-from-repertoire.ts",
     "db:studio": "prisma studio",
     "db:reset": "prisma migrate reset && npm run db:seed",
