@@ -1,9 +1,11 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import { syncAll } from '@/services/sync-engine';
 import { FreshnessIndicator } from './FreshnessIndicator';
+import { startNotificationPoller } from '@/services/notification-poller';
+import { useNotificationCenter, NotificationBell } from './NotificationCenter';
 
 interface SyncStatusProps {
   userId: string;
@@ -15,8 +17,29 @@ export function SyncStatus({ userId }: SyncStatusProps) {
   const [progress, setProgress] = useState({ current: 0, total: 0 });
   const [message, setMessage] = useState('');
 
+  const notifications = useNotificationCenter();
+  const pollerRef = useRef<{ stop: () => void } | null>(null);
+
   useEffect(() => {
     loadLastSync();
+
+    // Démarrer le poller
+    pollerRef.current = startNotificationPoller({
+      userId,
+      intervalMs: 300000, // 5 min
+      onNewData: (count, delta) => {
+        notifications.push(
+          `${delta} nouvelle(s) donnée(s) disponible(s) — ${count} en attente`
+        );
+      },
+      onError: (error) => {
+        console.error('[poller] error:', error);
+      },
+    });
+
+    return () => {
+      pollerRef.current?.stop();
+    };
   }, [userId]);
 
   async function loadLastSync() {
@@ -62,6 +85,14 @@ export function SyncStatus({ userId }: SyncStatusProps) {
         userId={userId}
         lastSyncAt={lastSyncAt}
         onSyncClick={handleSync}
+      />
+
+      <NotificationBell
+        unreadCount={notifications.unreadCount}
+        notifications={notifications.notifications}
+        onMarkRead={notifications.markRead}
+        onMarkAllRead={notifications.markAllRead}
+        onClearAll={notifications.clearAll}
       />
 
       {isSyncing && progress.total > 0 && (
