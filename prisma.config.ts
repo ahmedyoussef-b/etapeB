@@ -23,7 +23,7 @@ export default {
   schema: path.join('prisma', 'schema.prisma'),
   migrations: {
     path: path.join('prisma', 'migrations'),
-    seed: 'node prisma/seed.js'
+    seed: 'npx tsx --transpile-only prisma/seed.ts'
   },
   datasource: {
     url: datasourceUrl

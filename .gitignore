@@ -46,7 +46,6 @@ temp_section.txt
 
 # === Prisma ===
 prisma/schema.v3-backup.prisma
-prisma/seed.js
 
 # === Logs ===
 logs/
