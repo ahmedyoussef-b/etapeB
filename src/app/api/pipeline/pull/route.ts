@@ -14,6 +14,14 @@ export async function POST(request: NextRequest) {
     return unauthorizedResponse();
   }
 
+  // En production Vercel, le FS est read-only : refuser l'écriture
+  if (process.env.VERCEL === '1') {
+    return NextResponse.json(
+      { error: 'Cette fonctionnalité est désactivée en production (FS read-only).' },
+      { status: 403 }
+    );
+  }
+
   try {
     const token = process.env.GITHUB_TOKEN;
     const owner = process.env.GITHUB_OWNER || 'ahmedyoussef-b';

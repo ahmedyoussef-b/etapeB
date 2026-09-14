@@ -29,6 +29,14 @@ function mapAdapterPathToWeb(path: string): string {
 }
 
 export const POST = withAuth(async (request: NextRequest) => {
+  // En production Vercel, le FS est read-only : refuser l'upload local
+  if (process.env.VERCEL === '1') {
+    return NextResponse.json(
+      { error: 'Cette fonctionnalité est désactivée en production (FS read-only).' },
+      { status: 403 }
+    );
+  }
+
   try {
     const body = await request.json();
     const { file, targetPath, source, repository } = body;

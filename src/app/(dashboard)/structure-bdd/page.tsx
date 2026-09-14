@@ -15,7 +15,18 @@ type StructureSource = "local" | "web";
 
 export default function StructureBDDPage() {
   const [viewMode, setViewMode] = useState<ViewMode>("split");
-  const [source, setSource] = useState<StructureSource>("local");
+  const [source, setSource] = useState<StructureSource>(() => {
+    // En production Vercel, forcer 'web'
+    if (typeof window !== "undefined" && process.env.NEXT_PUBLIC_VERCEL_ENV) {
+      return "web";
+    }
+    // En local, lire depuis localStorage
+    if (typeof window !== "undefined") {
+      const stored = localStorage.getItem("bdd-source");
+      if (stored === "local" || stored === "web") return stored;
+    }
+    return "local";
+  });
   const [selectedNode, setSelectedNode] = useState<TreeNode | null>(null);
   const [activeRepo, setActiveRepo] = useState<string | null>(null);
 const [resetting, setResetting] = useState(false);
@@ -28,7 +39,9 @@ const [resetting, setResetting] = useState(false);
   const handleSourceChange = useCallback((newSource: StructureSource) => {
     setSource(newSource);
     setSelectedNode(null);
-    localStorage.setItem("bdd-source", newSource);
+    if (!process.env.NEXT_PUBLIC_VERCEL_ENV) {
+      localStorage.setItem("bdd-source", newSource);
+    }
   }, []);
 
   const handleSelect = useCallback((node: TreeNode) => {

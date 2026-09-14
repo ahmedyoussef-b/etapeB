@@ -17,17 +17,27 @@ interface RepositoryConfig {
 }
 
 async function readConfig(): Promise<RepositoryConfig> {
+  const defaultConfig: RepositoryConfig = {
+    activeRepository: '.data',
+    repositories: [],
+    lastChanged: new Date().toISOString(),
+  };
+
   try {
     const raw = await fs.readFile(CONFIG_FILE, 'utf-8');
     return JSON.parse(raw) as RepositoryConfig;
   } catch {
-    const defaultConfig: RepositoryConfig = {
-      activeRepository: '.data',
-      repositories: [],
-      lastChanged: new Date().toISOString()
-    };
-    await fs.mkdir(REPOSITORIES_DIR, { recursive: true });
-    await fs.writeFile(CONFIG_FILE, JSON.stringify(defaultConfig, null, 2), 'utf-8');
+    // En production Vercel, le FS est read-only : ne pas tenter d'écrire
+    if (process.env.VERCEL === '1') {
+      return defaultConfig;
+    }
+    // En local : créer le fichier si absent
+    try {
+      await fs.mkdir(REPOSITORIES_DIR, { recursive: true });
+      await fs.writeFile(CONFIG_FILE, JSON.stringify(defaultConfig, null, 2), 'utf-8');
+    } catch {
+      // Ignore silencieusement si l'écriture échoue
+    }
     return defaultConfig;
   }
 }

@@ -43,6 +43,14 @@ async function getAdapter(source: string, repository?: string) {
 }
 
 export const POST = withAuth(async (request: NextRequest) => {
+  // En production Vercel, le FS est read-only : refuser les mutations locales
+  if (process.env.VERCEL === '1') {
+    return NextResponse.json(
+      { error: 'Cette fonctionnalité est désactivée en production (FS read-only).' },
+      { status: 403 }
+    );
+  }
+
   let requestSource = 'local';
   try {
     const body = await request.json();
