@@ -9,6 +9,7 @@ import { ThemeProvider } from "@/components/theme-provider";
 import { ToastProvider } from "@/components/notifications/toast-provider";
 import { AlertPoller } from "@/components/notifications/alert-poller";
 import { PublishButton } from "@/components/PublishButton";
+import { SyncStatus } from "@/components/SyncStatus";
 
 type Role = "admin" | "chef-de-quart" | "chef-de-bloc" | "rondier";
 
@@ -113,6 +114,7 @@ export default function DashboardLayout({
             </div>
           </main>
           {isTauri && <PublishButton />}
+          {isTauri && <SyncStatus userId={session?.user?.id || 'anonymous'} />}
         </div>
       </ToastProvider>
     </ThemeProvider>

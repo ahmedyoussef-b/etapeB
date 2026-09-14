@@ -7,6 +7,24 @@ import { publishToCloud, PublishFile } from '@/services/publisher';
 
 type Status = 'idle' | 'scanning' | 'publishing' | 'done' | 'error';
 
+interface FileContent {
+  path: string;
+  size: number;
+  hash: string;
+  textContent: string | null;
+  base64Content: string | null;
+}
+
+function extractRelativePath(fullPath: string): string {
+  // Ex: C:\Users\...\NexaFlow\repository\bank\file.json → bank/file.json
+  const normalized = fullPath.replace(/\\/g, '/');
+  const idx = normalized.indexOf('/repository/');
+  if (idx >= 0) {
+    return normalized.substring(idx + '/repository/'.length);
+  }
+  return normalized;
+}
+
 export function PublishButton() {
   const [status, setStatus] = useState<Status>('idle');
   const [pendingFiles, setPendingFiles] = useState<string[]>([]);
@@ -32,27 +50,44 @@ export function PublishButton() {
     }
 
     setStatus('publishing');
-    setMessage('Publication en cours...');
+    setMessage(`Lecture de ${pendingFiles.length} fichier(s)...`);
 
-    // Pour l'instant, on envoie juste les chemins
-    // (le vrai contenu sera lu depuis .data/ dans une prochaine étape)
-    const files: PublishFile[] = pendingFiles.map((path) => ({
-      path,
-      textContent: '(contenu à implémenter)',
-      hash: 'placeholder',
-      size: 0,
-      version: 'v1',
-    }));
+    try {
+      const files: PublishFile[] = [];
 
-    const result = await publishToCloud(files);
+      for (const fullPath of pendingFiles) {
+        // Extraire le chemin relatif (à partir de "repository/")
+        const relativePath = extractRelativePath(fullPath);
+        
+        // Lire le contenu via Tauri
+        const content = await invoke<FileContent>('read_file_content', { 
+          path: fullPath 
+        });
 
-    if (result.success) {
-      setStatus('done');
-      setMessage(`${result.fileCount} fichier(s) publié(s) - ${result.version}`);
-      setPendingFiles([]);
-    } else {
+        files.push({
+          path: relativePath,
+          textContent: content.textContent || undefined,
+          content: content.base64Content || undefined,
+          hash: content.hash,
+          size: content.size,
+          version: 'v1',
+        });
+      }
+
+      setMessage(`Publication de ${files.length} fichier(s)...`);
+      const result = await publishToCloud(files);
+
+      if (result.success) {
+        setStatus('done');
+        setMessage(`${result.fileCount} fichier(s) publié(s) — ${result.version}`);
+        setPendingFiles([]);
+      } else {
+        setStatus('error');
+        setMessage(`Erreur: ${result.error}`);
+      }
+    } catch (error) {
       setStatus('error');
-      setMessage(`Erreur: ${result.error}`);
+      setMessage(`Erreur: ${(error as Error).message}`);
     }
   }
 
