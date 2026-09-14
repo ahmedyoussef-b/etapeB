@@ -402,3 +402,43 @@ model HumanResource {
 
   @@map("human_resources")
 }
+
+model PublishQueue {
+  id            String   @id @default(cuid())
+  path          String
+  content       Bytes?
+  textContent   String?  @db.Text
+  hash          String
+  size          Int
+  version       String
+  publishedAt   DateTime @default(now())
+  expiresAt     DateTime
+  downloadCount Int      @default(0)
+  transferredTo String[] @default([])
+
+  @@index([publishedAt])
+  @@index([expiresAt])
+  @@index([path])
+}
+
+model UserSyncState {
+  id              String   @id @default(cuid())
+  userId          String   @unique
+  lastSyncAt      DateTime @default(now())
+  lastSyncVersion String?
+  pendingCount    Int      @default(0)
+  syncedFileIds   String[] @default([])
+
+  @@index([userId])
+}
+
+model SystemVersion {
+  id          String   @id @default(cuid())
+  version     String   @unique
+  publishedAt DateTime @default(now())
+  publishedBy String
+  changelog   String?  @db.Text
+  fileCount   Int      @default(0)
+
+  @@index([publishedAt])
+}
