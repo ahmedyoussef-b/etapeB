@@ -7,7 +7,13 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useTheme } from "@/components/theme-provider";
 
-export function DashboardTopNav({ onToggleSidebar }: { onToggleSidebar?: () => void }) {
+export function DashboardTopNav({ 
+  onToggleSidebar,
+  extra,
+}: { 
+  onToggleSidebar?: () => void;
+  extra?: React.ReactNode;
+}) {
   const router = useRouter();
   const { theme, setTheme } = useTheme();
 
@@ -22,7 +28,8 @@ export function DashboardTopNav({ onToggleSidebar }: { onToggleSidebar?: () => v
         )}
       </div>
 
-      <div className="flex items-center gap-1 sm:gap-2">
+      <div className="flex items-center gap-2 sm:gap-3">
+        {extra}
         <Button variant="ghost" size="icon" className="rounded-xl hover:bg-muted" onClick={() => setTheme(theme === "light" ? "dark" : "light")}>
           {theme === "light" ? <Moon className="h-5 w-5 text-foreground/70" /> : <Sun className="h-5 w-5 text-foreground/70" />}
           <span className="sr-only">Toggle theme</span>

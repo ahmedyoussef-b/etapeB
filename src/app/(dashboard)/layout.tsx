@@ -108,13 +108,15 @@ export default function DashboardLayout({
             <DashboardSidebar collapsed={!sidebarOpen} />
           </div>
           <main className="flex flex-1 flex-col overflow-hidden min-w-0">
-            <DashboardTopNav onToggleSidebar={toggleSidebar} />
+            <DashboardTopNav 
+              onToggleSidebar={toggleSidebar} 
+              extra={isTauri ? <SyncStatus userId={session?.user?.id || 'anonymous'} /> : undefined}
+            />
             <div className="flex-1 overflow-y-auto">
               {children}
             </div>
           </main>
           {isTauri && <PublishButton />}
-          {isTauri && <SyncStatus userId={session?.user?.id || 'anonymous'} />}
         </div>
       </ToastProvider>
     </ThemeProvider>

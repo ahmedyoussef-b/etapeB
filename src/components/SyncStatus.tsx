@@ -2,40 +2,37 @@
 
 import { useState, useEffect } from 'react';
 import { invoke } from '@tauri-apps/api/core';
-import { getPendingCount, syncAll } from '@/services/sync-engine';
+import { syncAll } from '@/services/sync-engine';
+import { FreshnessIndicator } from './FreshnessIndicator';
 
 interface SyncStatusProps {
   userId: string;
 }
 
-type SyncState = 'idle' | 'syncing' | 'done' | 'error';
-
 export function SyncStatus({ userId }: SyncStatusProps) {
-  const [state, setState] = useState<SyncState>('idle');
-  const [pendingCount, setPendingCount] = useState(0);
+  const [lastSyncAt, setLastSyncAt] = useState<string | null>(null);
+  const [isSyncing, setIsSyncing] = useState(false);
   const [progress, setProgress] = useState({ current: 0, total: 0 });
   const [message, setMessage] = useState('');
 
   useEffect(() => {
-    refreshCount();
-    
-    // Polling toutes les 5 minutes
-    const interval = setInterval(refreshCount, 5 * 60 * 1000);
-    return () => clearInterval(interval);
+    loadLastSync();
   }, [userId]);
 
-  async function refreshCount() {
+  async function loadLastSync() {
     try {
-      const count = await getPendingCount(userId);
-      setPendingCount(count);
+      const data = await fetch(
+        `https://etape-b.vercel.app/api/sync/count?userId=${encodeURIComponent(userId)}`
+      ).then(r => r.json());
+      setLastSyncAt(data.lastSyncAt);
     } catch (error) {
-      console.error('Erreur pending count:', error);
+      console.error('[sync-status] load error:', error);
     }
   }
 
   async function handleSync() {
-    setState('syncing');
-    setProgress({ current: 0, total: pendingCount });
+    setIsSyncing(true);
+    setProgress({ current: 0, total: 0 });
     setMessage('Synchronisation...');
 
     try {
@@ -44,56 +41,46 @@ export function SyncStatus({ userId }: SyncStatusProps) {
         setProgress({ current, total });
       });
 
+      await loadLastSync();
+
       if (result.errors.length === 0) {
-        setState('done');
-        setMessage(`${result.downloaded}/${result.total} fichier(s) synchronisé(s)`);
+        setMessage(`${result.downloaded}/${result.total} synchronisé(s)`);
       } else {
-        setState('error');
         setMessage(`${result.downloaded}/${result.total} — ${result.errors.length} erreur(s)`);
       }
-
-      await refreshCount();
     } catch (error) {
-      setState('error');
       setMessage(`Erreur: ${(error as Error).message}`);
+    } finally {
+      setIsSyncing(false);
+      setTimeout(() => setMessage(''), 5000);
     }
   }
 
-  const badgeColor = 
-    state === 'error' ? 'bg-red-500' :
-    state === 'syncing' ? 'bg-yellow-500' :
-    pendingCount > 0 ? 'bg-orange-500' :
-    'bg-green-500';
-
   return (
-    <div className="fixed bottom-4 left-4 bg-white shadow-lg rounded-lg p-4 border z-50">
-      <div className="flex items-center gap-2 mb-2">
-        <span className={`w-3 h-3 rounded-full ${badgeColor}`} />
-        <span className="font-semibold">Synchronisation</span>
-      </div>
-      
-      <div className="text-sm text-gray-600 mb-2">
-        {message || (pendingCount > 0 
-          ? `${pendingCount} fichier(s) en attente` 
-          : 'À jour')}
-      </div>
+    <div className="flex items-center gap-3">
+      <FreshnessIndicator
+        userId={userId}
+        lastSyncAt={lastSyncAt}
+        onSyncClick={handleSync}
+      />
 
-      {state === 'syncing' && progress.total > 0 && (
-        <div className="w-full bg-gray-200 rounded-full h-2 mb-2">
-          <div 
-            className="bg-blue-600 h-2 rounded-full transition-all"
-            style={{ width: `${(progress.current / progress.total) * 100}%` }}
-          />
+      {isSyncing && progress.total > 0 && (
+        <div className="flex items-center gap-2">
+          <div className="w-32 bg-gray-200 rounded-full h-1.5">
+            <div
+              className="bg-blue-600 h-1.5 rounded-full transition-all"
+              style={{ width: `${(progress.current / progress.total) * 100}%` }}
+            />
+          </div>
+          <span className="text-xs text-gray-600">
+            {progress.current}/{progress.total}
+          </span>
         </div>
       )}
 
-      <button
-        onClick={handleSync}
-        disabled={state === 'syncing' || pendingCount === 0}
-        className="w-full px-3 py-1 text-sm bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50"
-      >
-        {state === 'syncing' ? 'Synchronisation...' : 'Synchroniser maintenant'}
-      </button>
+      {message && (
+        <span className="text-xs text-gray-600">{message}</span>
+      )}
     </div>
   );
 }
