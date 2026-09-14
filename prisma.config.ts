@@ -5,7 +5,7 @@ import type { PrismaConfig } from 'prisma/config';
 // Load .env files for local development (CLI usage: prisma migrate, prisma db push, etc.)
 // On Vercel, env vars come from the dashboard — dotenv silently skips missing files.
 dotenvConfig();
-dotenvConfig({ path: path.resolve('.env.local') });
+dotenvConfig({ path: path.resolve('.env.local'), override: true });
 
 // Resolve the database URL for Prisma CLI (migrations, seed, etc.)
 // Priority: DIRECT_URL (unpooled, required for migrations with advisory locks)
