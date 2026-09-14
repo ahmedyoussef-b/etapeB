@@ -8,8 +8,10 @@ import { DashboardTopNav } from "@/components/dashboard/top-nav";
 import { ThemeProvider } from "@/components/theme-provider";
 import { ToastProvider } from "@/components/notifications/toast-provider";
 import { AlertPoller } from "@/components/notifications/alert-poller";
+import { PublishButton } from "@/components/PublishButton";
 
 type Role = "admin" | "chef-de-quart" | "chef-de-bloc" | "rondier";
+
 
 function deriveRoleFromPath(pathname: string): Role {
   if (pathname.startsWith("/admin") || pathname.startsWith("/pipeline")) return "admin";
@@ -29,7 +31,13 @@ export default function DashboardLayout({
   const [hydrated, setHydrated] = useState(false);
   const [role, setRole] = useState<Role>(deriveRoleFromPath(pathname));
   const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [isTauri, setIsTauri] = useState(false);
   const router = useRouter();
+
+  useEffect(() => {
+    setIsTauri(typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window);
+  }, []);
+
 
   const sessionRole = (session?.user?.role as Role) || "rondier";
   const pathRole = deriveRoleFromPath(pathname);
@@ -104,6 +112,7 @@ export default function DashboardLayout({
               {children}
             </div>
           </main>
+          {isTauri && <PublishButton />}
         </div>
       </ToastProvider>
     </ThemeProvider>

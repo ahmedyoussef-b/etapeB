@@ -74,5 +74,11 @@ Thumbs.db
 *.tsbuildinfo
 next-env.d.ts
 
+# === Rust / Tauri ===
+target/
+src-tauri/target/
+src-tauri/gen/
+
+
 # === Scripts locaux ===
 scripts/check-*.js
