@@ -1,84 +1,93 @@
-import { ThumbsUp, ThumbsDown, AlertCircle, Loader2 } from 'lucide-react';
-import type { Message } from '../../services/conversation-store';
+'use client';
+
+import { useState } from 'react';
+import type { Message } from '@/services/conversation-store';
+import { SourceCard } from './SourceCard';
 
 interface ChatMessageProps {
   message: Message;
-  onFeedback?: (msgId: string, feedback: 'positive' | 'negative') => void;
+  onFeedback: (messageId: string, feedback: 'positive' | 'negative' | null) => void;
+  isStreaming?: boolean;
 }
 
-export default function ChatMessage({ message, onFeedback }: ChatMessageProps) {
+export function ChatMessage({ message, onFeedback, isStreaming }: ChatMessageProps) {
+  const [copied, setCopied] = useState(false);
+  
   const isUser = message.role === 'user';
-  const isLoading = message.role === 'assistant' && !message.content && !message.error;
-
-  return (
-    <div
-      className={`flex gap-3 ${isUser ? 'flex-row-reverse' : ''}`}
-      data-message-id={message.id}
-    >
-      <div
-        className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-xs font-bold ${
-          isUser
-            ? 'bg-primary text-primary-foreground'
-            : 'bg-muted text-muted-foreground'
-        }`}
-      >
-        {isUser ? 'U' : '🤖'}
-      </div>
-      <div className={`flex max-w-[80%] flex-col ${isUser ? 'items-end' : 'items-start'}`}>
-        <div
-          className={`rounded-2xl px-4 py-3 text-sm leading-relaxed ${
-            isUser
-              ? 'bg-primary text-primary-foreground'
-              : 'bg-card text-foreground border border-border'
-          }`}
-        >
-          {isLoading && (
-            <span className="flex items-center gap-2 text-muted-foreground">
-              <Loader2 className="h-4 w-4 animate-spin" />
-              Génération en cours...
-            </span>
-          )}
-          {!isLoading && message.error && (
-            <span className="flex items-center gap-2 text-red-400">
-              <AlertCircle className="h-4 w-4" />
-              {message.error}
-            </span>
-          )}
-          {!isLoading && !message.error && message.content}
+  
+  async function handleCopy() {
+    try {
+      await navigator.clipboard.writeText(message.content);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch (error) {
+      console.error('Copy error:', error);
+    }
+  }
+  
+  if (isUser) {
+    return (
+      <div className="flex justify-end mb-4">
+        <div className="max-w-2xl bg-blue-600 text-white rounded-2xl rounded-tr-sm px-4 py-3">
+          <div className="text-sm whitespace-pre-wrap">{message.content}</div>
         </div>
-        <span className="mt-1 text-[10px] text-muted-foreground">
-          {new Date(message.timestamp).toLocaleTimeString('fr-FR', {
-            hour: '2-digit',
-            minute: '2-digit',
-          })}
-        </span>
-
-        {!isUser && message.role === 'assistant' && (
-          <div className="mt-1 flex gap-1">
-            {message.feedback !== 'positive' && (
-              <button
-                onClick={() => onFeedback?.(message.id, 'positive')}
-                className="rounded p-1 text-muted-foreground hover:bg-muted hover:text-primary transition-colors"
-                title="Utile"
-              >
-                <ThumbsUp className="h-3.5 w-3.5" />
-              </button>
+      </div>
+    );
+  }
+  
+  return (
+    <div className="flex justify-start mb-4">
+      <div className="max-w-3xl bg-white border rounded-2xl rounded-tl-sm px-4 py-3 shadow-sm">
+        {message.error ? (
+          <div className="text-red-600 text-sm">
+            ⚠️ {message.error}
+          </div>
+        ) : (
+          <div className="text-sm whitespace-pre-wrap">
+            {message.content}
+            {isStreaming && (
+              <span className="inline-block w-2 h-4 bg-gray-400 ml-1 animate-pulse" />
             )}
-            {message.feedback !== 'negative' && (
-              <button
-                onClick={() => onFeedback?.(message.id, 'negative')}
-                className="rounded p-1 text-muted-foreground hover:bg-muted hover:text-red-500 transition-colors"
-                title="Utile"
-              >
-                <ThumbsDown className="h-3.5 w-3.5" />
-              </button>
-            )}
-            {message.feedback === 'positive' && (
-              <ThumbsUp className="h-3.5 w-3.5 text-primary" />
-            )}
-            {message.feedback === 'negative' && (
-              <ThumbsDown className="h-3.5 w-3.5 text-red-500" />
-            )}
+          </div>
+        )}
+        
+        {message.sources && message.sources.length > 0 && (
+          <div className="mt-3 pt-3 border-t">
+            <div className="text-xs font-medium text-gray-500 mb-2">
+              📚 Sources ({message.sources.length})
+            </div>
+            <div className="space-y-2">
+              {message.sources.map((s, i) => (
+                <SourceCard key={i} source={s} />
+              ))}
+            </div>
+          </div>
+        )}
+        
+        {!message.error && (
+          <div className="flex items-center gap-2 mt-3 pt-2 border-t">
+            <button
+              onClick={() => onFeedback(message.id, message.feedback === 'positive' ? null : 'positive')}
+              className={`px-2 py-1 text-xs rounded hover:bg-gray-100 ${
+                message.feedback === 'positive' ? 'bg-green-100 text-green-700' : 'text-gray-500'
+              }`}
+            >
+              👍
+            </button>
+            <button
+              onClick={() => onFeedback(message.id, message.feedback === 'negative' ? null : 'negative')}
+              className={`px-2 py-1 text-xs rounded hover:bg-gray-100 ${
+                message.feedback === 'negative' ? 'bg-red-100 text-red-700' : 'text-gray-500'
+              }`}
+            >
+              👎
+            </button>
+            <button
+              onClick={handleCopy}
+              className="px-2 py-1 text-xs rounded hover:bg-gray-100 text-gray-500"
+            >
+              {copied ? '✓ Copié' : '📋 Copier'}
+            </button>
           </div>
         )}
       </div>

@@ -5,7 +5,6 @@ import {
   Download,
   WifiOff,
   Wifi,
-  Sparkles,
   AlertCircle,
 } from "lucide-react";
 import {
@@ -21,14 +20,12 @@ import {
   generateMessageId,
   type Conversation,
   type Message,
-  type RagSource,
 } from "@/services/conversation-store";
 import { askRagStream } from "@/services/rag-stream";
 import { isTauriEnv } from "@/services/local-rag";
-import ConversationSidebar from "@/components/qr/ConversationSidebar";
-import ChatInput from "@/components/qr/ChatInput";
-import ChatMessage from "@/components/qr/ChatMessage";
-import SourceCard from "@/components/qr/SourceCard";
+import { ConversationSidebar } from "@/components/qr/ConversationSidebar";
+import { ChatInput } from "@/components/qr/ChatInput";
+import { ChatMessage } from "@/components/qr/ChatMessage";
 
 export default function QAPage() {
   const [conversations, setConversations] = useState<Conversation[]>(() =>
@@ -104,82 +101,82 @@ export default function QAPage() {
 
   const handleSend = useCallback(
     async (question: string) => {
-    if (!activeId || isStreaming) return;
+      if (!activeId || isStreaming) return;
 
-    const convId = activeId;
-    const msgId = generateMessageId();
-    const userMessage: Message = {
-      id: generateMessageId(),
-      role: "user",
-      content: question,
-      timestamp: Date.now(),
-    };
-    const assistantMessage: Message = {
-      id: msgId,
-      role: "assistant",
-      content: "",
-      timestamp: Date.now(),
-      error: undefined,
-    };
+      const convId = activeId;
+      const msgId = generateMessageId();
+      const userMessage: Message = {
+        id: generateMessageId(),
+        role: "user",
+        content: question,
+        timestamp: Date.now(),
+      };
+      const assistantMessage: Message = {
+        id: msgId,
+        role: "assistant",
+        content: "",
+        timestamp: Date.now(),
+        error: undefined,
+      };
 
-    addMessage(convId, userMessage);
-    addMessage(convId, assistantMessage);
-    setConversations(listConversations());
+      addMessage(convId, userMessage);
+      addMessage(convId, assistantMessage);
+      setConversations(listConversations());
 
-    setIsStreaming(true);
+      setIsStreaming(true);
 
-    if (offline) {
-      setShowOfflineBanner(true);
-    }
+      if (offline) {
+        setShowOfflineBanner(true);
+      }
 
-    const cleanup = await askRagStream(question, convId, {
-      onToken: (token) => {
-        const updated = getConversation(convId);
-        if (!updated) return;
-        const msg = updated.messages.find((m) => m.id === msgId);
-        if (msg) {
-          msg.content = assistantMessage.content + token;
-          updateMessageContent(convId, msgId, msg.content);
-          setConversations(listConversations());
-        }
-      },
-      onDone: (sources, fullAnswer) => {
-        const updated = getConversation(convId);
-        if (!updated) return;
-        const msg = updated.messages.find((m) => m.id === msgId);
-        if (msg) {
-          msg.content = fullAnswer;
-          if (sources.length > 0) {
-            msg.sources = sources;
+      const cleanup = await askRagStream(question, convId, {
+        onToken: (token) => {
+          const updated = getConversation(convId);
+          if (!updated) return;
+          const msg = updated.messages.find((m) => m.id === msgId);
+          if (msg) {
+            msg.content = assistantMessage.content + token;
+            updateMessageContent(convId, msgId, msg.content);
+            setConversations(listConversations());
           }
-          updateMessageContent(convId, msgId, msg.content);
-          if (msg.sources) {
-            updateMessageSources(convId, msgId, msg.sources);
+        },
+        onDone: (sources, fullAnswer) => {
+          const updated = getConversation(convId);
+          if (!updated) return;
+          const msg = updated.messages.find((m) => m.id === msgId);
+          if (msg) {
+            msg.content = fullAnswer;
+            if (sources.length > 0) {
+              msg.sources = sources;
+            }
+            updateMessageContent(convId, msgId, msg.content);
+            if (msg.sources) {
+              updateMessageSources(convId, msgId, msg.sources);
+            }
           }
-        }
-        setIsStreaming(false);
-        refreshConversations();
-      },
-      onError: (error) => {
-        const updated = getConversation(convId);
-        if (!updated) return;
-        const msg = updated.messages.find((m) => m.id === msgId);
-        if (msg) {
-          msg.error = error;
-          updateMessageContent(convId, msgId, "Erreur : " + error);
-        }
-        setIsStreaming(false);
-        refreshConversations();
-      },
-    });
+          setIsStreaming(false);
+          refreshConversations();
+        },
+        onError: (error) => {
+          const updated = getConversation(convId);
+          if (!updated) return;
+          const msg = updated.messages.find((m) => m.id === msgId);
+          if (msg) {
+            msg.error = error;
+            updateMessageContent(convId, msgId, "Erreur : " + error);
+          }
+          setIsStreaming(false);
+          refreshConversations();
+        },
+      });
 
-    cleanup();
-  },
+      cleanup();
+    },
     [activeId, isStreaming, offline, refreshConversations]
   );
 
   const handleFeedback = useCallback(
-    (msgId: string, feedback: "positive" | "negative") => {
+    (msgId: string, feedback: "positive" | "negative" | null) => {
       if (!activeId) return;
       updateMessageFeedback(activeId, msgId, feedback);
       refreshConversations();
@@ -201,20 +198,15 @@ export default function QAPage() {
     URL.revokeObjectURL(url);
   }, [activeId]);
 
-  const handleSourceClick = useCallback((source: RagSource) => {
-    const path = source.path;
-    if (typeof window !== "undefined") {
-      window.location.href = `/structure-bdd?path=${encodeURIComponent(path)}`;
-    }
-  }, []);
-
   return (
     <div className="flex h-[calc(100vh-4rem)]">
       <ConversationSidebar
+        conversations={conversations}
         activeId={activeId}
         onSelect={handleSelect}
         onCreate={handleCreate}
         onDelete={handleDelete}
+        onExport={handleExport}
       />
 
       <div className="flex flex-1 flex-col">
@@ -260,7 +252,6 @@ export default function QAPage() {
             <div className="flex-1 overflow-y-auto p-6 space-y-4">
               {currentConversation.messages.length === 0 && (
                 <div className="flex flex-col items-center justify-center h-full text-muted-foreground">
-                  <Sparkles className="h-10 w-10 mb-3 opacity-30" />
                   <p className="text-sm">Posez votre première question</p>
                 </div>
               )}
@@ -270,6 +261,7 @@ export default function QAPage() {
                   key={msg.id}
                   message={msg}
                   onFeedback={handleFeedback}
+                  isStreaming={isStreaming && msg.role === "assistant" && !msg.error}
                 />
               ))}
             </div>
@@ -279,11 +271,7 @@ export default function QAPage() {
                 <ChatInput
                   onSend={handleSend}
                   disabled={isStreaming}
-                  placeholder={
-                    offline
-                      ? "Recherche locale uniquement..."
-                      : "Poser une question..."
-                  }
+                  isStreaming={isStreaming}
                 />
               </div>
             )}

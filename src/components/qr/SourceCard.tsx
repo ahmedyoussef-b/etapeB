@@ -1,63 +1,54 @@
-import { FileText, FileCode, FileJson, FileSpreadsheet, FileType2, Image, File } from 'lucide-react';
-import type { RagSource } from '../../services/conversation-store';
+'use client';
 
-function getFileIcon(extension: string) {
-  switch (extension.toLowerCase()) {
-    case '.ts':
-    case '.tsx':
-    case '.js':
-    case '.jsx':
-    case '.mjs':
-    case '.cjs':
-      return FileCode;
-    case '.json':
-    case '.jsonl':
-      return FileJson;
-    case '.csv':
-    case '.xlsx':
-    case '.xls':
-      return FileSpreadsheet;
-    case '.png':
-    case '.jpg':
-    case '.jpeg':
-    case '.gif':
-    case '.svg':
-    case '.webp':
-      return Image;
-    default:
-      return File;
-  }
-}
+import Link from 'next/link';
+import type { RagSource } from '@/services/conversation-store';
 
 interface SourceCardProps {
   source: RagSource;
-  onClick?: () => void;
 }
 
-export default function SourceCard({ source, onClick }: SourceCardProps) {
-  const extension = source.filename.includes('.')
-    ? '.' + source.filename.split('.').pop()
-    : '';
-  const Icon = getFileIcon(extension);
-  const similarity = Math.round(source.similarity * 100);
+function getFileIcon(filename: string): string {
+  const ext = filename.split('.').pop()?.toLowerCase() || '';
+  if (ext === 'json') return '📋';
+  if (ext === 'md') return '📝';
+  if (ext === 'pdf') return '📕';
+  if (['jpg', 'jpeg', 'png', 'gif'].includes(ext)) return '🖼️';
+  return '📄';
+}
 
+export function SourceCard({ source }: SourceCardProps) {
+  const score = Math.round(source.similarity * 100);
+  const href = `/structure-bdd?path=${encodeURIComponent(source.path)}`;
+  
   return (
-    <div
-      className="rounded-lg border border-border bg-background p-3 text-xs space-y-1.5 cursor-pointer hover:border-primary/30 transition-colors"
-      onClick={onClick}
+    <Link
+      href={href}
+      className="block p-3 border rounded-lg hover:bg-gray-50 transition-colors"
     >
-      <div className="flex items-center justify-between">
-        <span className="flex items-center gap-1.5 font-mono text-foreground font-medium">
-          <Icon className="h-3.5 w-3.5 text-primary" />
-          {source.path}
-        </span>
-        <span className="text-[10px] border border-border rounded px-1.5 py-0.5 bg-muted/40 text-muted-foreground">
-          Similarité: {similarity}%
-        </span>
+      <div className="flex items-start gap-2">
+        <span className="text-xl">{getFileIcon(source.filename)}</span>
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center justify-between gap-2">
+            <span className="text-sm font-medium truncate">
+              {source.filename}
+            </span>
+            <span className={`text-xs px-2 py-0.5 rounded ${
+              score > 70 ? 'bg-green-100 text-green-700' :
+              score > 40 ? 'bg-yellow-100 text-yellow-700' :
+              'bg-gray-100 text-gray-700'
+            }`}>
+              {score}%
+            </span>
+          </div>
+          <div className="text-xs text-gray-500 truncate mt-0.5">
+            📁 {source.directory || '/'}
+          </div>
+          <div className="text-xs text-gray-600 mt-2 line-clamp-2">
+            {source.chunk.substring(0, 100)}
+            {source.chunk.length > 100 ? '...' : ''}
+          </div>
+        </div>
       </div>
-      <p className="text-muted-foreground line-clamp-2 bg-muted/40 p-2 rounded">
-        {source.chunk}
-      </p>
-    </div>
+    </Link>
   );
 }
