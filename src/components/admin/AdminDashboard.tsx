@@ -28,7 +28,7 @@ export function AdminDashboard() {
 
       {/* Onglets Shadcn */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-        <TabsList className="grid grid-cols-2 md:grid-cols-4 p-1 rounded-2xl bg-muted/70 border border-border/50 h-auto gap-1">
+        <TabsList className="inline-flex h-10 items-center justify-center rounded-md bg-muted/70 border border-border/50 gap-1">
           <TabsTrigger
             value="publish-queue"
             className="rounded-xl py-2.5 text-xs sm:text-sm font-medium flex items-center justify-center gap-2 data-active:bg-background data-active:shadow-sm transition-all"
