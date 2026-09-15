@@ -23,13 +23,7 @@ import {
   type Message,
   type RagSource,
 } from "@/services/conversation-store";
-import {
-  askLocalRagStream,
-  onStreamToken,
-  onStreamDone,
-  onStreamError,
-  type StreamResult,
-} from "@/services/rag-stream";
+import { askRagStream } from "@/services/rag-stream";
 import { isTauriEnv } from "@/services/local-rag";
 import ConversationSidebar from "@/components/qr/ConversationSidebar";
 import ChatInput from "@/components/qr/ChatInput";
@@ -110,97 +104,77 @@ export default function QAPage() {
 
   const handleSend = useCallback(
     async (question: string) => {
-      if (!activeId || isStreaming) return;
+    if (!activeId || isStreaming) return;
 
-      const convId = activeId;
-      const msgId = generateMessageId();
-      const userMessage: Message = {
-        id: generateMessageId(),
-        role: "user",
-        content: question,
-        timestamp: Date.now(),
-      };
-      const assistantMessage: Message = {
-        id: msgId,
-        role: "assistant",
-        content: "",
-        timestamp: Date.now(),
-        error: undefined,
-      };
+    const convId = activeId;
+    const msgId = generateMessageId();
+    const userMessage: Message = {
+      id: generateMessageId(),
+      role: "user",
+      content: question,
+      timestamp: Date.now(),
+    };
+    const assistantMessage: Message = {
+      id: msgId,
+      role: "assistant",
+      content: "",
+      timestamp: Date.now(),
+      error: undefined,
+    };
 
-      addMessage(convId, userMessage);
-      addMessage(convId, assistantMessage);
-      setConversations(listConversations());
+    addMessage(convId, userMessage);
+    addMessage(convId, assistantMessage);
+    setConversations(listConversations());
 
-      setIsStreaming(true);
+    setIsStreaming(true);
 
-      if (offline) {
-        setShowOfflineBanner(true);
-      }
+    if (offline) {
+      setShowOfflineBanner(true);
+    }
 
-      const result = await askLocalRagStream(
-        { question, conversationId: convId },
-        {
-          onToken: (token) => {
-            const updated = getConversation(convId);
-            if (!updated) return;
-            const msg = updated.messages.find((m) => m.id === msgId);
-            if (msg) {
-              msg.content = assistantMessage.content + token;
-              updateMessageContent(convId, msgId, msg.content);
-              setConversations(listConversations());
-            }
-          },
-          onDone: (data: StreamResult) => {
-            const updated = getConversation(convId);
-            if (!updated) return;
-            const msg = updated.messages.find((m) => m.id === msgId);
-            if (msg) {
-              if (data.fullAnswer) {
-                msg.content = data.fullAnswer;
-              }
-              if (data.sources && data.sources.length > 0) {
-                msg.sources = data.sources;
-              }
-              updateMessageContent(convId, msgId, msg.content);
-              if (msg.sources) {
-                updateMessageSources(convId, msgId, msg.sources);
-              }
-            }
-            setIsStreaming(false);
-            refreshConversations();
-          },
-          onError: (error: string) => {
-            const updated = getConversation(convId);
-            if (!updated) return;
-            const msg = updated.messages.find((m) => m.id === msgId);
-            if (msg) {
-              msg.error = error;
-              updateMessageContent(convId, msgId, "Erreur : " + error);
-            }
-            setIsStreaming(false);
-            refreshConversations();
-          },
-        }
-      );
-
-      if (result && result.fullAnswer && !isStreaming) {
+    const cleanup = await askRagStream(question, convId, {
+      onToken: (token) => {
         const updated = getConversation(convId);
         if (!updated) return;
         const msg = updated.messages.find((m) => m.id === msgId);
         if (msg) {
-          msg.content = result.fullAnswer;
-          if (result.sources.length > 0) {
-            msg.sources = result.sources;
+          msg.content = assistantMessage.content + token;
+          updateMessageContent(convId, msgId, msg.content);
+          setConversations(listConversations());
+        }
+      },
+      onDone: (sources, fullAnswer) => {
+        const updated = getConversation(convId);
+        if (!updated) return;
+        const msg = updated.messages.find((m) => m.id === msgId);
+        if (msg) {
+          msg.content = fullAnswer;
+          if (sources.length > 0) {
+            msg.sources = sources;
           }
           updateMessageContent(convId, msgId, msg.content);
           if (msg.sources) {
             updateMessageSources(convId, msgId, msg.sources);
           }
         }
+        setIsStreaming(false);
         refreshConversations();
-      }
-    },
+      },
+      onError: (error) => {
+        const updated = getConversation(convId);
+        if (!updated) return;
+        const msg = updated.messages.find((m) => m.id === msgId);
+        if (msg) {
+          msg.error = error;
+          updateMessageContent(convId, msgId, "Erreur : " + error);
+        }
+        setIsStreaming(false);
+        refreshConversations();
+      },
+    });
+
+    cleanup();
+  },
     [activeId, isStreaming, offline, refreshConversations]
   );
 
