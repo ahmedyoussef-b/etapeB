@@ -84,3 +84,6 @@ src-tauri/.fastembed_cache/
 
 # === Scripts locaux ===
 scripts/check-*.js
+
+# === Embedded git repo (reference copy) ===
+docs/app/
