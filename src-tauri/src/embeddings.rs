@@ -52,7 +52,7 @@ pub fn generate_embeddings_batch(texts: Vec<String>) -> Result<Vec<Vec<f32>>, St
 }
 
 // ─── Clé Groq ────────────────────────────────────────────────────────────────
-fn get_groq_api_key() -> Result<String, String> {
+pub fn get_groq_api_key() -> Result<String, String> {
     // 1. Variable d'environnement
     if let Ok(key) = std::env::var("GROQ_API_KEY") {
         if !key.trim().is_empty() {
@@ -88,7 +88,7 @@ fn get_groq_api_key() -> Result<String, String> {
     Err("GROQ_API_KEY introuvable".to_string())
 }
 
-fn get_groq_model() -> String {
+pub fn get_groq_model() -> String {
     if let Ok(model) = std::env::var("GROQ_MODEL") {
         if !model.trim().is_empty() {
             return model.trim().to_string();

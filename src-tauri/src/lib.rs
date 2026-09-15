@@ -2,10 +2,12 @@ mod auto_vectorizer;
 mod embeddings;
 mod vectorizer;
 mod watcher;
+mod groq_stream;
 
 use auto_vectorizer::{VectorizationConsistencyReport, VectorizationStats};
 use std::path::PathBuf;
-use vectorizer::{LocalChromaStore, SearchResult};
+use tauri::Emitter;
+use crate::vectorizer::{LocalChromaStore, SearchResult};
 
 #[derive(serde::Serialize, serde::Deserialize, Clone, Debug)]
 pub struct RagAnswer {
@@ -177,6 +179,61 @@ async fn ask_local_rag(question: String) -> Result<RagAnswer, String> {
 }
 
 #[tauri::command]
+async fn ask_local_rag_stream(
+    app: tauri::AppHandle,
+    question: String,
+    conversation_id: String,
+) -> Result<(), String> {
+    // Adaptive top_k based on question length
+    let top_k = if question.len() < 50 { 5 } else { 3 };
+    // Reuse search_local_rag logic (already async)
+    let sources = search_local_rag(question.clone(), Some(top_k), None).await?;
+
+    if sources.is_empty() {
+        // Emit done with default message
+        let _ = app.emit(
+            "rag-stream-done",
+            serde_json::json!({
+                "conversation_id": conversation_id,
+                "sources": [],
+                "full_answer": "Aucun document pertinent trouvé dans la base locale."
+            })
+        );
+        return Ok(());
+    }
+
+    // Build context string from sources
+    let context = sources
+        .iter()
+        .enumerate()
+        .map(|(i, r)| {
+            format!(
+                "[Source {}]\nDossier: {}\nFichier: {}\nContenu: {}\n",
+                i + 1,
+                r.directory,
+                r.filename,
+                r.chunk
+            )
+        })
+        .collect::<Vec<_>>()
+        .join("\n---\n");
+
+    let prompt = format!(
+        "Tu es un assistant technique. Réponds en français, en te basant UNIQUEMENT sur les sources.\n\n\
+        Les dossiers et noms de fichiers reflètent le contexte.\n\n\
+        Si les sources ne contiennent pas l'information, indique-le.\n\n\
+        SOURCES LOCALES :\n{}\n\nQUESTION :\n{}\n\nRÉPONSE :",
+        context,
+        question,
+    );
+
+    // Call streaming helper
+    groq_stream::stream_groq_response(app, prompt, conversation_id, sources).await
+}
+
+
+
+#[tauri::command]
 async fn get_vectorization_stats() -> Result<VectorizationStats, String> {
     let user_path = get_user_data_path();
     let repo_path = PathBuf::from(&user_path).join("repository");
@@ -275,6 +332,7 @@ pub fn run() {
             get_vectorization_stats,
             check_vectorization_consistency,
             trigger_local_vectorization,
+            ask_local_rag_stream,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

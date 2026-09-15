@@ -1,13 +1,5 @@
 import { invoke } from '@tauri-apps/api/core';
-
-export interface RagSource {
-  path: string;
-  directory: string;
-  filename: string;
-  chunk: string;
-  chunkIndex: number;
-  similarity: number;
-}
+import type { RagSource } from './conversation-store';
 
 export interface RagAnswer {
   answer: string;
@@ -30,6 +22,16 @@ export async function askLocalRag(question: string): Promise<RagAnswer> {
     throw new Error("Le RAG local est disponible uniquement dans l'application bureau Tauri.");
   }
   return invoke<RagAnswer>('ask_local_rag', { question });
+}
+
+export async function askLocalRagStream(
+  question: string,
+  conversationId: string
+): Promise<void> {
+  if (!isTauriEnv()) {
+    throw new Error("Le RAG local est disponible uniquement dans l'application bureau Tauri.");
+  }
+  return invoke<void>('ask_local_rag_stream', { question, conversationId });
 }
 
 export async function searchLocalRag(
