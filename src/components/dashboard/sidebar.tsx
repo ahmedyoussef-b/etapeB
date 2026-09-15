@@ -47,6 +47,7 @@ const NAV_ITEMS: NavItem[] = [
   { href: "/etat-des-lieux", label: "État des lieux", icon: ClipboardList, permissions: ["etat-lieux:*"] },
   { href: "/logs", label: "Logs", icon: Activity, permissions: ["logs:view"] },
   { href: "/chat-ia", label: "Chat IA", icon: MessageSquare, permissions: ["chat-ia:*"] },
+  { href: "/admin", label: "Supervision", icon: Activity, permissions: ["users:manage"] },
   { href: "/admin/users", label: "Utilisateurs", icon: UserPlus, permissions: ["users:manage"] },
   { href: "/profile", label: "Profil", icon: User, permissions: ["dashboard:view"] },
 ];

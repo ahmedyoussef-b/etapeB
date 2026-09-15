@@ -157,44 +157,62 @@ pub fn cosine_similarity(a: &[f32], b: &[f32]) -> f32 {
 }
 
 pub fn chunk_content(content: &str) -> Vec<String> {
-    const MAX_CHUNK_SIZE: usize = 1500;
-    const OVERLAP: usize = 100;
+    const MAX_CHUNK_CHARS: usize = 1500;
+    const OVERLAP_CHARS: usize = 100;
 
     let trimmed = content.trim();
     if trimmed.is_empty() {
         return vec![];
     }
 
-    if trimmed.len() <= MAX_CHUNK_SIZE {
+    // Collect char boundary offsets so we never slice mid-codepoint
+    let char_boundaries: Vec<usize> = trimmed
+        .char_indices()
+        .map(|(i, _)| i)
+        .chain(std::iter::once(trimmed.len()))
+        .collect();
+
+    let total_chars = char_boundaries.len() - 1; // last entry is len(), not a char start
+
+    if total_chars <= MAX_CHUNK_CHARS {
         return vec![trimmed.to_string()];
     }
 
-    let mut chunks = vec![];
-    let mut start = 0;
+    let mut chunks: Vec<String> = vec![];
+    let mut char_start: usize = 0; // index into char_boundaries
 
-    while start < trimmed.len() {
-        let end = std::cmp::min(start + MAX_CHUNK_SIZE, trimmed.len());
-        let actual_end = if end < trimmed.len() {
-            trimmed[start..end]
-                .rfind('\n')
-                .map(|p| start + p)
-                .unwrap_or(end)
-        } else {
-            end
-        };
+    while char_start < total_chars {
+        let char_end = std::cmp::min(char_start + MAX_CHUNK_CHARS, total_chars);
 
-        let chunk = trimmed[start..actual_end].trim();
+        // Try to break at the last newline within the window (char indices)
+        let byte_start = char_boundaries[char_start];
+        let byte_end   = char_boundaries[char_end];
+
+        let actual_char_end = trimmed[byte_start..byte_end]
+            .rfind('\n')
+            .map(|byte_offset| {
+                // byte_start + byte_offset is a safe char boundary (rfind returns char boundaries)
+                let abs_byte = byte_start + byte_offset;
+                // Convert abs_byte back to a char index
+                char_boundaries.partition_point(|&b| b <= abs_byte).saturating_sub(1)
+            })
+            .filter(|&ci| ci > char_start) // must advance
+            .unwrap_or(char_end);
+
+        let byte_s = char_boundaries[char_start];
+        let byte_e = char_boundaries[actual_char_end];
+        let chunk = trimmed[byte_s..byte_e].trim();
         if !chunk.is_empty() {
             chunks.push(chunk.to_string());
         }
 
-        start = if actual_end > start + OVERLAP {
-            actual_end - OVERLAP
+        char_start = if actual_char_end > char_start + OVERLAP_CHARS {
+            actual_char_end - OVERLAP_CHARS
         } else {
-            actual_end
+            actual_char_end
         };
 
-        if start >= trimmed.len() {
+        if char_start >= total_chars {
             break;
         }
     }
@@ -284,9 +302,12 @@ pub async fn vectorize_file(
         .map(|t| chrono::DateTime::<chrono::Utc>::from(t).to_rfc3339())
         .unwrap_or_else(|_| chrono::Utc::now().to_rfc3339());
 
+    let embeddings = crate::embeddings::generate_embeddings_batch(chunks.clone())
+        .map_err(|e| format!("Erreur vectorisation: {}", e))?;
+
     let mut vector_records = Vec::new();
 
-    for (i, chunk) in chunks.iter().enumerate() {
+    for (i, (chunk, embedding)) in chunks.into_iter().zip(embeddings.into_iter()).enumerate() {
         let metadata = ChunkMetadata {
             path: relative_path.clone(),
             directory: parent_dir.clone(),
@@ -299,12 +320,10 @@ pub async fn vectorize_file(
             file_size,
         };
 
-        let embedding = crate::embeddings::generate_embedding(chunk).await?;
-
         let id = format!("{}_{}", relative_path.replace('/', "_"), i);
         vector_records.push(VectorRecord {
             id,
-            chunk: chunk.clone(),
+            chunk,
             embedding,
             metadata,
         });

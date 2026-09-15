@@ -3,7 +3,7 @@ mod embeddings;
 mod vectorizer;
 mod watcher;
 
-use auto_vectorizer::VectorizationStats;
+use auto_vectorizer::{VectorizationConsistencyReport, VectorizationStats};
 use std::path::PathBuf;
 use vectorizer::{LocalChromaStore, SearchResult};
 
@@ -119,8 +119,8 @@ async fn search_local_rag(
         return Ok(vec![]);
     }
 
-    // 1. Générer l'embedding de la question
-    let query_embedding = embeddings::generate_embedding(&query).await?;
+    // 1. Générer l'embedding local de la question (ONNX all-MiniLM-L6-v2, 100% offline)
+    let query_embedding = embeddings::generate_embedding_local(&query)?;
 
     // 2. Chercher dans la base locale
     let top_k = top_k.unwrap_or(5);
@@ -168,7 +168,7 @@ async fn ask_local_rag(question: String) -> Result<RagAnswer, String> {
         context, question
     );
 
-    let answer = embeddings::generate_gemini_response(&prompt).await?;
+    let answer = embeddings::generate_ai_response(&prompt).await?;
 
     Ok(RagAnswer {
         answer,
@@ -183,30 +183,47 @@ async fn get_vectorization_stats() -> Result<VectorizationStats, String> {
     let chroma_path = PathBuf::from(&user_path).join("chroma");
     let meta_file = chroma_path.join("meta.json");
 
+    let current_files = auto_vectorizer::scan_repository(&repo_path);
     let meta_state = auto_vectorizer::read_meta_state(&meta_file);
     let store = LocalChromaStore::load(&chroma_path);
-
-    let mut total_files = 0;
-    if repo_path.exists() {
-        for entry in walkdir::WalkDir::new(&repo_path).into_iter().filter_map(|e| e.ok()) {
-            if entry.file_type().is_file() {
-                let ext = entry.path().extension().and_then(|e| e.to_str()).unwrap_or("").to_lowercase();
-                if !matches!(
-                    ext.as_str(),
-                    "jpg" | "jpeg" | "png" | "gif" | "webp" | "pdf" | "zip" | "tar" | "gz" | "exe" | "dll"
-                ) {
-                    total_files += 1;
-                }
-            }
-        }
-    }
+    let vectorized_files = current_files
+        .iter()
+        .filter(|(path, file)| file.hash.is_some() && meta_state.contains_key(*path))
+        .count();
+    let total_chunks = store
+        .records
+        .values()
+        .filter(|record| current_files.contains_key(&record.metadata.path))
+        .count();
+    let last_update = meta_file
+        .metadata()
+        .and_then(|metadata| metadata.modified())
+        .map(|modified| chrono::DateTime::<chrono::Utc>::from(modified).to_rfc3339())
+        .ok()
+        .or_else(|| {
+            store
+                .records
+                .values()
+                .map(|record| record.metadata.last_modified.clone())
+                .max()
+        })
+        .unwrap_or_else(|| chrono::Utc::now().to_rfc3339());
 
     Ok(VectorizationStats {
-        total_files,
-        vectorized_files: meta_state.len(),
-        total_chunks: store.records.len(),
-        last_update: chrono::Utc::now().to_rfc3339(),
+        total_files: current_files.len(),
+        vectorized_files,
+        total_chunks,
+        last_update,
     })
+}
+
+#[tauri::command]
+async fn check_vectorization_consistency() -> Result<VectorizationConsistencyReport, String> {
+    let user_path = get_user_data_path();
+    let repo_path = PathBuf::from(&user_path).join("repository");
+    let meta_file = PathBuf::from(&user_path).join("chroma").join("meta.json");
+
+    Ok(auto_vectorizer::check_consistency(&repo_path, &meta_file))
 }
 
 #[tauri::command]
@@ -256,6 +273,7 @@ pub fn run() {
             search_local_rag,
             ask_local_rag,
             get_vectorization_stats,
+            check_vectorization_consistency,
             trigger_local_vectorization,
         ])
         .run(tauri::generate_context!())

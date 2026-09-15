@@ -44,11 +44,25 @@ export async function POST(request: Request) {
     });
 
     // 3. Incrémenter downloadCount et transféré pour chaque fichier
-    await prisma.publishQueue.updateMany({
+    const rows = await prisma.publishQueue.findMany({
       where: { id: { in: body.fileIds } },
-      data: {
-        downloadCount: { increment: 1 },
-      },
+      select: { id: true, transferredTo: true },
+    });
+
+    await prisma.$transaction(async (tx) => {
+      for (const row of rows) {
+        if (!row.transferredTo.includes(body.userId)) {
+          await tx.publishQueue.update({
+            where: { id: row.id },
+            data: { transferredTo: { push: body.userId } },
+          });
+        }
+      }
+
+      await tx.publishQueue.updateMany({
+        where: { id: { in: body.fileIds } },
+        data: { downloadCount: { increment: 1 } },
+      });
     });
 
     return NextResponse.json({

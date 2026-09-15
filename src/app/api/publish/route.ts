@@ -4,6 +4,7 @@ import { authOptions } from "@/lib/auth/options";
 import { getPrismaClient } from "@/lib/services/db";
 
 export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
 
 interface PublishFile {
   path: string;

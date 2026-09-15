@@ -48,6 +48,11 @@ export async function middleware(request: NextRequest) {
   const role = token.role as keyof typeof RBAC_MATRIX;
   const userPermissions = token.permissions || RBAC_MATRIX[role] || [];
 
+  const isAdminRoute = pathname === "/admin" || pathname.startsWith("/admin/");
+  if (isAdminRoute && role !== "admin") {
+    return NextResponse.redirect(new URL("/dashboard", request.url));
+  }
+
   for (const [routePattern, requiredPermission] of Object.entries(routePermissions)) {
     if (matchRoute(pathname, routePattern)) {
       const hasAccess = userPermissions.includes(requiredPermission);

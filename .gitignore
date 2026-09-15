@@ -78,6 +78,8 @@ next-env.d.ts
 target/
 src-tauri/target/
 src-tauri/gen/
+src-tauri/.fastembed_cache/
+.fastembed_cache/
 
 
 # === Scripts locaux ===

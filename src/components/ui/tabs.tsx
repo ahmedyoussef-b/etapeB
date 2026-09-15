@@ -12,8 +12,8 @@ function Tabs({
 }: TabsPrimitive.Root.Props) {
   return (
     <TabsPrimitive.Root
+      orientation={orientation}
       data-slot="tabs"
-      data-orientation={orientation}
       className={cn(
         "group/tabs flex gap-2 data-horizontal:flex-col",
         className
@@ -69,9 +69,14 @@ function TabsTrigger({ className, ...props }: TabsPrimitive.Tab.Props) {
   )
 }
 
-function TabsContent({ className, ...props }: TabsPrimitive.Panel.Props) {
+function TabsContent({
+  className,
+  keepMounted = true,
+  ...props
+}: TabsPrimitive.Panel.Props) {
   return (
     <TabsPrimitive.Panel
+      keepMounted={keepMounted}
       data-slot="tabs-content"
       className={cn("flex-1 text-sm outline-none", className)}
       {...props}

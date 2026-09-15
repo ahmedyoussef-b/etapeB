@@ -47,6 +47,31 @@ export async function searchLocalRag(
   });
 }
 
+export interface VectorizationConsistencyReport {
+  totalFiles: number;
+  vectorizedFiles: number;
+  consistentFiles: string[];
+  missingFiles: string[];
+  modifiedFiles: string[];
+  orphanedFiles: string[];
+  isConsistent: boolean;
+}
+
+export async function checkVectorizationConsistency(): Promise<VectorizationConsistencyReport> {
+  if (!isTauriEnv()) {
+    return {
+      totalFiles: 0,
+      vectorizedFiles: 0,
+      consistentFiles: [],
+      missingFiles: [],
+      modifiedFiles: [],
+      orphanedFiles: [],
+      isConsistent: false,
+    };
+  }
+  return invoke<VectorizationConsistencyReport>('check_vectorization_consistency');
+}
+
 export async function getVectorizationStats(): Promise<VectorizationStats> {
   if (!isTauriEnv()) {
     return {
