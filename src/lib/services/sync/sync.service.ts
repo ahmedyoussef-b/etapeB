@@ -4,6 +4,7 @@ import { UnifiedDatabaseService, BlockMeta, EquipmentMeta, GroupMeta, GroupEquip
 import { getPrismaClient } from '@/lib/services/db';
 import * as nodePath from 'node:path';
 import { promises as fs } from 'node:fs';
+import { createHash } from 'crypto';
 
 export type EntityType = 'blocks' | 'equipments' | 'groups' | 'groupEquipments' | 'procedures' | 'users' | 'teams';
 
@@ -67,6 +68,10 @@ const emptyCounts = (): Record<EntityType, number> => ({
   users: 0,
   teams: 0
 });
+
+function sha256(content: string | Buffer): string {
+  return createHash('sha256').update(content).digest('hex');
+}
 
 export class SyncService {
   private localAdapter: LocalDatabaseAdapter;
@@ -373,7 +378,21 @@ export class SyncService {
           if (!existsInLocal) {
             // Fichier absent du Local : copier directement
             await this.localAdapter.mkdir(webFile.folder);
+            const originalHash = sha256(webFile.data);
             await this.localAdapter.write(localFilePath, webFile.data);
+            const written = await this.localAdapter.read(localFilePath);
+            if (sha256(written) !== originalHash) {
+              console.error(`[SyncFiles] Hash mismatch after write: ${localFilePath}`);
+              result.errors++;
+              result.results.push({
+                success: false,
+                sourcePath: webFile.path,
+                targetPath: localFilePath,
+                action: 'error',
+                message: 'Hash mismatch après écriture'
+              });
+              continue;
+            }
             await this.webAdapter.delete(webFile.path);
             result.copied++;
             result.results.push({
@@ -391,14 +410,43 @@ export class SyncService {
             await this.localAdapter.mkdir(dedupFolder);
 
             // Déplacer l'ancien fichier existant vers le dossier de déduplication
+            let existingName = '';
             const existingData = await this.localAdapter.read(localFilePath);
-            const existingName = extension ? `${baseName}_v1.${extension}` : `${baseName}_v1`;
+            existingName = extension ? `${baseName}_v1.${extension}` : `${baseName}_v1`;
+            const existingHash = sha256(existingData);
             await this.localAdapter.write(`${dedupFolder}/${existingName}`, existingData);
+            const writtenV1 = await this.localAdapter.read(`${dedupFolder}/${existingName}`);
+            if (sha256(writtenV1) !== existingHash) {
+              console.error(`[SyncFiles] Hash mismatch after write: ${dedupFolder}/${existingName}`);
+              result.errors++;
+              result.results.push({
+                success: false,
+                sourcePath: webFile.path,
+                targetPath: `${dedupFolder}/${existingName}`,
+                action: 'error',
+                message: 'Hash mismatch après écriture (v1)'
+              });
+              continue;
+            }
             await this.localAdapter.delete(localFilePath);
 
             // Copier le nouveau fichier depuis le Web
             const newName = extension ? `${baseName}_v2.${extension}` : `${baseName}_v2`;
+            const newHash = sha256(webFile.data);
             await this.localAdapter.write(`${dedupFolder}/${newName}`, webFile.data);
+            const writtenV2 = await this.localAdapter.read(`${dedupFolder}/${newName}`);
+            if (sha256(writtenV2) !== newHash) {
+              console.error(`[SyncFiles] Hash mismatch after write: ${dedupFolder}/${newName}`);
+              result.errors++;
+              result.results.push({
+                success: false,
+                sourcePath: webFile.path,
+                targetPath: `${dedupFolder}/${newName}`,
+                action: 'error',
+                message: 'Hash mismatch après écriture (v2)'
+              });
+              continue;
+            }
             await this.webAdapter.delete(webFile.path);
 
             // Écrire un manifest des versions

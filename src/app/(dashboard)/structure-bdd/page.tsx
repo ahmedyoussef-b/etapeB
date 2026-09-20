@@ -11,6 +11,33 @@ import { useToastHelpers } from "@/components/notifications/toast-provider";
 import { StructureSource } from "@/lib/database/structure-types";
 import { fetchRepositoryInfo, treeAction } from "@/lib/api/local-first";
 
+const SYNC_TIMEOUT_MS = 60_000;
+
+async function fetchWithRetry(
+  url: string,
+  options: RequestInit,
+  maxAttempts = 3,
+  delayMs = 1000,
+): Promise<Response> {
+  let lastError: unknown;
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    try {
+      const res = await fetch(url, options);
+      if (res.status >= 500) {
+        throw new Error(`Server error ${res.status}`);
+      }
+      return res;
+    } catch (err) {
+      lastError = err;
+      if (attempt < maxAttempts) {
+        console.warn(`[SyncFiles] Attempt ${attempt} failed, retrying in ${delayMs}ms...`);
+        await new Promise(r => setTimeout(r, delayMs));
+      }
+    }
+  }
+  throw lastError;
+}
+
 type ViewMode = "split" | "implante";
 
 export default function StructureBDDPage() {
@@ -29,7 +56,7 @@ export default function StructureBDDPage() {
   });
   const isVercel = !!process.env.NEXT_PUBLIC_VERCEL_ENV;
   const [selectedNode, setSelectedNode] = useState<TreeNode | null>(null);
-  const [activeRepo, setActiveRepo] = useState<string | null>(null);
+  const [activeRepo, setActiveRepo] = useState<string>('repository');
 const [resetting, setResetting] = useState(false);
     const [syncingFiles, setSyncingFiles] = useState(false);
     const [refreshKey, setRefreshKey] = useState(0);
@@ -96,10 +123,11 @@ const [resetting, setResetting] = useState(false);
   const handleSyncFiles = useCallback(async () => {
     setSyncingFiles(true);
     try {
-      const res = await fetch('/api/sync', {
+      const res = await fetchWithRetry('/api/sync', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ mode: 'files', repository: activeRepo, force: false }),
+        signal: AbortSignal.timeout(SYNC_TIMEOUT_MS),
       });
       const json = await res.json();
       console.log('[SyncFiles] result', json);
@@ -113,16 +141,22 @@ const [resetting, setResetting] = useState(false);
         } else {
           toast.success(summary, 'Synchronisation des fichiers');
         }
+        setRefreshKey(k => k + 1);
+        refetchStatus();
       } else {
         toast.error(json?.error || 'Erreur lors de la synchronisation');
       }
     } catch (err) {
+      if (err instanceof DOMException && (err.name === 'TimeoutError' || err.name === 'AbortError')) {
+        toast.error(`Synchronisation expirée après ${SYNC_TIMEOUT_MS / 1000}s. Réessayez.`);
+      } else {
+        toast.error('Erreur lors de la synchronisation');
+      }
       console.error('[SyncFiles] error', err);
-      toast.error('Erreur lors de la synchronisation');
     } finally {
       setSyncingFiles(false);
     }
-  }, [activeRepo, toast]);
+  }, [activeRepo, toast, refetchStatus]);
 
   const isLocalEditable = source === "local" && activeRepo !== ".data";
 
