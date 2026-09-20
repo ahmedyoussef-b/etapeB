@@ -551,7 +551,7 @@ export class SyncService {
     }
   }
 
-  private async scanWebFiles(scanPaths: string[]): Promise<{ path: string; name: string; folder: string; data: Buffer }[]> {
+  async scanWebFiles(scanPaths: string[]): Promise<{ path: string; name: string; folder: string; data: Buffer }[]> {
     const files: { path: string; name: string; folder: string; data: Buffer }[] = [];
 
     // 1. Direct Prisma Document scan for all uploaded/versioned files
