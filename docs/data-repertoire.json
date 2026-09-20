@@ -1,0 +1,488 @@
+{
+  "$schema": "https://nexaflow.io/schemas/repertoire-v2.json",
+  "version": "2.0.0",
+  "created": "2026-09-04T00:00:00.000Z",
+  "updated": "2026-09-04T00:00:00.000Z",
+  "source": {
+    "document": "IMG_20250404_003152_283 - Copie.pdf",
+    "extraction_method": "Analyse visuelle des synoptiques et tooltips Windows",
+    "validator": "Validation par corrélation nom/libellé avec les fenêtres système",
+    "status": "validated"
+  },
+  
+  "metadata": {
+    "total_blocks": 5,
+    "total_groups": 11,
+    "total_equipments": 135,
+    "total_system_functions": 5,
+    "validation_date": "2026-09-04T00:00:00.000Z"
+  },
+
+  "Centrale": {
+    "path": "Centrale",
+    "type": "ROOT",
+    "label_fr": "Centrale",
+    "label_en": "Power Plant",
+    "description_fr": "Structure par blocs fonctionnels de la centrale",
+    "description_en": "Functional block structure of the power plant",
+    "children": [
+      {
+        "code": "A0",
+        "path": "Centrale/A0",
+        "type": "BLOCK",
+        "label_fr": "Alimentation",
+        "label_en": "Power Supply",
+        "description_fr": "Poste bloc A - Alimentation électrique et contrôle",
+        "description_en": "Block A - Electrical power supply and control",
+        "children": [
+          {
+            "code": "LJP",
+            "path": "Centrale/A0/LJP",
+            "type": "SUBSYSTEM",
+            "label_fr": "POSTE BLOC A",
+            "label_en": "BLOCK A STATION",
+            "children": [
+              {
+                "code": "A0LJPUS002",
+                "path": "Centrale/A0/LJP/A0LJPUS002",
+                "type": "EQUIPMENT",
+                "label_fr": "A0LJPUS002",
+                "label_en": "A0LJPUS002"
+              },
+              {
+                "code": "A0LJPUS101",
+                "path": "Centrale/A0/LJP/A0LJPUS101",
+                "type": "EQUIPMENT",
+                "label_fr": "A0LJPUS101",
+                "label_en": "A0LJPUS101"
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "code": "B0",
+        "path": "Centrale/B0",
+        "type": "BLOCK",
+        "label_fr": "Bloc 0",
+        "label_en": "Block 0",
+        "description_fr": "Systèmes communs et distribution électrique du site",
+        "description_en": "Common systems and electrical distribution",
+        "children": [
+          { "code": "CFI", "path": "Centrale/B0/CFI", "type": "EQUIPMENT", "label_fr": "FILTRATION EAU DE REFRIGERATION", "label_en": "COOLING WATER FILTRATION" },
+          { "code": "CRF", "path": "Centrale/B0/CRF", "type": "EQUIPMENT", "label_fr": "CIRCUIT EAU DE REFRIGERATION", "label_en": "COOLING WATER CIRCUIT" },
+          { "code": "DVC", "path": "Centrale/B0/DVC", "type": "EQUIPMENT", "label_fr": "CLIMATISATION DES BATIMENTS", "label_en": "BUILDING AIR CONDITIONING" },
+          { "code": "GIS", "path": "Centrale/B0/GIS", "type": "EQUIPMENT", "label_fr": "GIS : Distribution 125Vcc", "label_en": "GIS: 125Vdc Distribution" },
+          { "code": "KBS", "path": "Centrale/B0/KBS", "type": "EQUIPMENT", "label_fr": "REGROUPEMENT ANALOGIQUE CMN SITE", "label_en": "ANALOG GROUPING SITE CMN" },
+          { "code": "KCZ", "path": "Centrale/B0/KCZ", "type": "EQUIPMENT", "label_fr": "AUTOMATES LOGIQUES CMN DE BLOC", "label_en": "LOGIC CONTROLLERS BLOCK CMN" },
+          { "code": "KIT", "path": "Centrale/B0/KIT", "type": "EQUIPMENT", "label_fr": "CALCULATEUR DE SUPERVISION TCI", "label_en": "TCI SUPERVISION COMPUTER" },
+          { "code": "KRG", "path": "Centrale/B0/KRG", "type": "EQUIPMENT", "label_fr": "REGULATION DE CHARGE DU BLOC", "label_en": "BLOCK LOAD REGULATION" },
+          { "code": "KSA", "path": "Centrale/B0/KSA", "type": "EQUIPMENT", "label_fr": "TRAITEMENTS DES ALARMES DU BLOC", "label_en": "BLOCK ALARM PROCESSING" },
+          { "code": "KSC", "path": "Centrale/B0/KSC", "type": "EQUIPMENT", "label_fr": "ORDRE VAL PUPITRE", "label_en": "CONSOLE ORDER VAL" },
+          { "code": "LBA", "path": "Centrale/B0/LBA", "type": "EQUIPMENT", "label_fr": "PROD ET DISTR 125V CC BLOC", "label_en": "125Vdc PROD & DISTR BLOCK" },
+          { "code": "LBB", "path": "Centrale/B0/LBB", "type": "EQUIPMENT", "label_fr": "PROD ET DISTR 125V CC BLOC", "label_en": "125Vdc PROD & DISTR BLOCK" },
+          { "code": "LCA", "path": "Centrale/B0/LCA", "type": "EQUIPMENT", "label_fr": "PROD ET DISTR 48V CC BLOC", "label_en": "48Vdc PROD & DISTR BLOCK" },
+          { "code": "LCB", "path": "Centrale/B0/LCB", "type": "EQUIPMENT", "label_fr": "PROD ET DISTR 48V CC BLOC", "label_en": "48Vdc PROD & DISTR BLOCK" },
+          { "code": "LGA", "path": "Centrale/B0/LGA", "type": "EQUIPMENT", "label_fr": "DISTRIBUTION MT NORMALE BLOC", "label_en": "BLOCK MV DISTRIBUTION" },
+          { "code": "LJP", "path": "Centrale/B0/LJP", "type": "EQUIPMENT", "label_fr": "POSTE EXTERIEUR", "label_en": "OUTDOOR SUBSTATION" },
+          { "code": "LKA", "path": "Centrale/B0/LKA", "type": "EQUIPMENT", "label_fr": "DISTRIBUTION BT NORMALE BLOC", "label_en": "BLOCK LV DISTRIBUTION" },
+          { "code": "LKB", "path": "Centrale/B0/LKB", "type": "EQUIPMENT", "label_fr": "DISTRIBUTION BT NORMALE BLOC", "label_en": "BLOCK LV DISTRIBUTION" },
+          { "code": "LKN", "path": "Centrale/B0/LKN", "type": "EQUIPMENT", "label_fr": "DISTRIBUTION ECLAIRAGE NORMAL", "label_en": "NORMAL LIGHTING DISTRIBUTION" },
+          { "code": "LLA", "path": "Centrale/B0/LLA", "type": "EQUIPMENT", "label_fr": "DISTRIBUTION BT SECOURS BLOC", "label_en": "BLOCK EMERGENCY LV DISTR" },
+          { "code": "LLB", "path": "Centrale/B0/LLB", "type": "EQUIPMENT", "label_fr": "DISTRIBUTION BT SECOURS BLOC", "label_en": "BLOCK EMERGENCY LV DISTR" },
+          { "code": "LLN", "path": "Centrale/B0/LLN", "type": "EQUIPMENT", "label_fr": "DISTRIBUTION ECLAIRAGE SECOURS", "label_en": "EMERGENCY LIGHTING DISTR" },
+          { "code": "LLP", "path": "Centrale/B0/LLP", "type": "EQUIPMENT", "label_fr": "PRODUCTION BT SECOURS BLOC", "label_en": "BLOCK EMERGENCY LV PROD" },
+          { "code": "LNA", "path": "Centrale/B0/LNA", "type": "EQUIPMENT", "label_fr": "PROD ET DISTR 220V SECOURU", "label_en": "220V EMERGENCY PROD & DISTR" },
+          { "code": "LSI", "path": "Centrale/B0/LSI", "type": "EQUIPMENT", "label_fr": "DISTRIBUTION ECLAIRAGE SECURITE", "label_en": "SAFETY LIGHTING DISTRIBUTION" },
+          { "code": "SAP", "path": "Centrale/B0/SAP", "type": "EQUIPMENT", "label_fr": "PROD ET DISTR AIR DE TRAVAIL", "label_en": "SERVICE AIR PROD & DISTR" },
+          { "code": "SAR", "path": "Centrale/B0/SAR", "type": "EQUIPMENT", "label_fr": "PROD ET DISTR AIR DE REGUL", "label_en": "CONTROL AIR PROD & DISTR" },
+          { "code": "SER", "path": "Centrale/B0/SER", "type": "EQUIPMENT", "label_fr": "STOCKAGE ET DISTR EAU DEM", "label_en": "DM WATER STORAGE & DISTR" },
+          { "code": "SIR", "path": "Centrale/B0/SIR", "type": "EQUIPMENT", "label_fr": "CONDITIONNEMENT CHIMIQUE", "label_en": "CHEMICAL CONDITIONING" },
+          { "code": "SIT", "path": "Centrale/B0/SIT", "type": "EQUIPMENT", "label_fr": "CTRL CHIM ET ECHANT CMN SITE", "label_en": "CHEM CONTROL & SAMPLING SITE" },
+          { "code": "SKD", "path": "Centrale/B0/SKD", "type": "EQUIPMENT", "label_fr": "STOCKAGE ET TRANSFERT DU FIOUL", "label_en": "FUEL OIL STORAGE & TRANSFER" },
+          { "code": "TEST_MODBUS", "path": "Centrale/B0/TEST_MODBUS", "type": "EQUIPMENT", "label_fr": "Essais CSS-F Modbus", "label_en": "CSS-F Modbus Tests" },
+          { "code": "TKG", "path": "Centrale/B0/TKG", "type": "EQUIPMENT", "label_fr": "TRAITEMENTS COMBUSTIBLES GAZEUX", "label_en": "GASEOUS FUEL TREATMENT" },
+          { "code": "TPF", "path": "Centrale/B0/TPF", "type": "EQUIPMENT", "label_fr": "ALIMENTATION EN FIOUL DU BLOC", "label_en": "BLOCK FUEL OIL SUPPLY" },
+          { "code": "TPG", "path": "Centrale/B0/TPG", "type": "EQUIPMENT", "label_fr": "ALIMENTATION EN GAZ DU BLOC", "label_en": "BLOCK GAS SUPPLY" }
+        ]
+      },
+      {
+        "code": "B1",
+        "path": "Centrale/B1",
+        "type": "BLOCK",
+        "label_fr": "Bloc 1",
+        "label_en": "Block 1",
+        "description_fr": "Tranche Chaudière Récupération 1 et Turbine Gaz 1",
+        "description_en": "Unit Heat Recovery Boiler 1 and Gas Turbine 1",
+        "children": [
+          { "code": "ACO", "path": "Centrale/B1/ACO", "type": "EQUIPMENT", "label_fr": "RECUP DES PURGES ET CONDENSATS", "label_en": "BLOWDOWN & CONDENSATE RECOVERY" },
+          { "code": "CRF", "path": "Centrale/B1/CRF", "type": "EQUIPMENT", "label_fr": "UO POUR TRANSFERT CONTROCAD", "label_en": "UO FOR CONTROCAD TRANSFER" },
+          { "code": "ELE", "path": "Centrale/B1/ELE", "type": "EQUIPMENT", "label_fr": "Mesures électriques CMS7003", "label_en": "CMS7003 Electrical Measurements" },
+          { "code": "FBP", "path": "Centrale/B1/FBP", "type": "EQUIPMENT", "label_fr": "PRECHAUFFAGE EAU CONDENSEE CR 1", "label_en": "CONDENSATE PREHEATING CR 1" },
+          { "code": "FLB", "path": "Centrale/B1/FLB", "type": "EQUIPMENT", "label_fr": "CIRCUITS BASSE PRESSION CR 1", "label_en": "LOW PRESSURE CIRCUITS CR 1" },
+          { "code": "FRG", "path": "Centrale/B1/FRG", "type": "EQUIPMENT", "label_fr": "CONTROL ANALOGIQUE CR 1", "label_en": "ANALOG CONTROL CR 1" },
+          { "code": "FSE", "path": "Centrale/B1/FSE", "type": "EQUIPMENT", "label_fr": "SYSTEME SECURITE GENERALE CR 1", "label_en": "GENERAL SAFETY SYSTEM CR 1" },
+          { "code": "FSR", "path": "Centrale/B1/FSR", "type": "EQUIPMENT", "label_fr": "CIRCUITS HAUTE PRESSION CR 1", "label_en": "HIGH PRESSURE CIRCUITS CR 1" },
+          { "code": "GBP", "path": "Centrale/B1/GBP", "type": "EQUIPMENT", "label_fr": "CONTOURNEMENT BP CR 1", "label_en": "LP BYPASS CR 1" },
+          { "code": "GHP", "path": "Centrale/B1/GHP", "type": "EQUIPMENT", "label_fr": "CONTOURNEMENT HP CR 1", "label_en": "HP BYPASS CR 1" },
+          { "code": "GIS", "path": "Centrale/B1/GIS", "type": "EQUIPMENT", "label_fr": "Poste blindé", "label_en": "GIS Switchgear" },
+          { "code": "KBS", "path": "Centrale/B1/KBS", "type": "EQUIPMENT", "label_fr": "REGROUPEMENT ANALOGIQUE CR 1", "label_en": "ANALOG GROUPING CR 1" },
+          { "code": "KCZ", "path": "Centrale/B1/KCZ", "type": "EQUIPMENT", "label_fr": "AUTOMATES LOGIQUES CR 1", "label_en": "LOGIC CONTROLLERS CR 1" },
+          { "code": "KOS", "path": "Centrale/B1/KOS", "type": "EQUIPMENT", "label_fr": "UO POUR TRANSFERT CONTROCAD", "label_en": "UO FOR CONTROCAD TRANSFER" },
+          { "code": "KRG", "path": "Centrale/B1/KRG", "type": "EQUIPMENT", "label_fr": "Regulation charge de bloc TG1", "label_en": "TG1 Block Load Regulation" },
+          { "code": "LGA", "path": "Centrale/B1/LGA", "type": "EQUIPMENT", "label_fr": "DISTRIBUTION MT NORMALE TG 1", "label_en": "TG1 MV DISTRIBUTION" },
+          { "code": "LJP", "path": "Centrale/B1/LJP", "type": "EQUIPMENT", "label_fr": "POSTE EXTERIEUR TRAVEE TG 1", "label_en": "TG1 OUTDOOR SUBSTATION" },
+          { "code": "LKA", "path": "Centrale/B1/LKA", "type": "EQUIPMENT", "label_fr": "DISTRIBUTION BT NORMALE TG 1", "label_en": "TG1 LV DISTRIBUTION" },
+          { "code": "LLA", "path": "Centrale/B1/LLA", "type": "EQUIPMENT", "label_fr": "DISTRIBUTION BT SECOURS TG 1", "label_en": "TG1 EMERGENCY LV DISTR" },
+          { "code": "SIT", "path": "Centrale/B1/SIT", "type": "EQUIPMENT", "label_fr": "CTRL CHIM ET ECHANT CR 1", "label_en": "CHEM CONTROL & SAMPLING CR 1" },
+          { "code": "TCA", "path": "Centrale/B1/TCA", "type": "EQUIPMENT", "label_fr": "ASPIRATION D'AIR TG 1", "label_en": "TG1 AIR INTAKE" },
+          { "code": "TEV", "path": "Centrale/B1/TEV", "type": "EQUIPMENT", "label_fr": "EVACUATION ENERGIE ALTR TG 1", "label_en": "TG1 ALTR ENERGY DISCHARGE" },
+          { "code": "TEX", "path": "Centrale/B1/TEX", "type": "EQUIPMENT", "label_fr": "EXCITATION ALTERNATEUR TG 1", "label_en": "TG1 ALTERNATOR EXCITATION" },
+          { "code": "TGR", "path": "Centrale/B1/TGR", "type": "EQUIPMENT", "label_fr": "GRAISSAGE ALTERNATEUR ET TG 1", "label_en": "TG1 & ALTERNATOR LUBRICATION" },
+          { "code": "TGU", "path": "Centrale/B1/TGU", "type": "EQUIPMENT", "label_fr": "AUXILIAIRES TG 1", "label_en": "TG1 AUXILIARIES" },
+          { "code": "TNT", "path": "Centrale/B1/TNT", "type": "EQUIPMENT", "label_fr": "NETTOYAGE / LAVAGE TG 1", "label_en": "TG1 CLEANING / WASHING" },
+          { "code": "TPA", "path": "Centrale/B1/TPA", "type": "EQUIPMENT", "label_fr": "PROT ALTERNATEUR TG 1", "label_en": "TG1 ALTERNATOR PROTECTION" },
+          { "code": "TPF", "path": "Centrale/B1/TPF", "type": "EQUIPMENT", "label_fr": "ALIMENTATION EN FIOUL TG 1", "label_en": "TG1 FUEL OIL SUPPLY" },
+          { "code": "TPG", "path": "Centrale/B1/TPG", "type": "EQUIPMENT", "label_fr": "ALIMENTATION EN GAZ TG 1", "label_en": "TG1 GAS SUPPLY" },
+          { "code": "TPT", "path": "Centrale/B1/TPT", "type": "EQUIPMENT", "label_fr": "DETECT ET PROT INCENDIE TG 1", "label_en": "TG1 FIRE DETECTION & PROT" },
+          { "code": "TRA", "path": "Centrale/B1/TRA", "type": "EQUIPMENT", "label_fr": "REFRI ALTERNATEUR TG 1", "label_en": "TG1 ALTERNATOR COOLING" },
+          { "code": "TRE", "path": "Centrale/B1/TRE", "type": "EQUIPMENT", "label_fr": "CTRL LOGIQUE ET ANALOGIQUE TG 1", "label_en": "TG1 LOGIC & ANALOG CONTROL" },
+          { "code": "TRI", "path": "Centrale/B1/TRI", "type": "EQUIPMENT", "label_fr": "REFRI DES AUXILIAIRES TG 1", "label_en": "TG1 AUX COOLING" },
+          { "code": "TRT", "path": "Centrale/B1/TRT", "type": "EQUIPMENT", "label_fr": "UO POUR TRANSFERT CONTROCAD", "label_en": "UO FOR CONTROCAD TRANSFER" },
+          { "code": "TTA", "path": "Centrale/B1/TTA", "type": "EQUIPMENT", "label_fr": "GAZ D'ECHAPPEMENT TG 1", "label_en": "TG1 EXHAUST GAS" },
+          { "code": "TVC", "path": "Centrale/B1/TVC", "type": "EQUIPMENT", "label_fr": "CLIM COMPART CONTROLE-CDE TG 1", "label_en": "TG1 CONTROL ROOM CLIM" },
+          { "code": "TVM", "path": "Centrale/B1/TVM", "type": "EQUIPMENT", "label_fr": "VENTIL COMPARTIMENTS TG 1", "label_en": "TG1 COMPARTMENT VENTILATION" },
+          { "code": "WP", "path": "Centrale/B1/WP", "type": "EQUIPMENT", "label_fr": "VAPEUR PRINCIPALE CR 1", "label_en": "CR1 MAIN STEAM" }
+        ]
+      },
+      {
+        "code": "B2",
+        "path": "Centrale/B2",
+        "type": "BLOCK",
+        "label_fr": "Bloc 2",
+        "label_en": "Block 2",
+        "description_fr": "Tranche Chaudière Récupération 2 et Turbine Gaz 2",
+        "description_en": "Unit Heat Recovery Boiler 2 and Gas Turbine 2",
+        "children": [
+          { "code": "ACO", "path": "Centrale/B2/ACO", "type": "EQUIPMENT", "label_fr": "RECUP DES PURGES ET CONDENSATS", "label_en": "BLOWDOWN & CONDENSATE RECOVERY" },
+          { "code": "CET", "path": "Centrale/B2/CET", "type": "EQUIPMENT", "label_fr": "ETANCHEITE TV", "label_en": "TV SEALING" },
+          { "code": "CRF", "path": "Centrale/B2/CRF", "type": "EQUIPMENT", "label_fr": "UO POUR TRANSFERT CONTROCAD", "label_en": "UO FOR CONTROCAD TRANSFER" },
+          { "code": "ELE", "path": "Centrale/B2/ELE", "type": "EQUIPMENT", "label_fr": "Mesures électriques CMS7003", "label_en": "CMS7003 Electrical Measurements" },
+          { "code": "FBP", "path": "Centrale/B2/FBP", "type": "EQUIPMENT", "label_fr": "PRECHAUFFAGE EAU CONDENSEE CR 2", "label_en": "CONDENSATE PREHEATING CR 2" },
+          { "code": "FLB", "path": "Centrale/B2/FLB", "type": "EQUIPMENT", "label_fr": "CIRCUITS BASSE PRESSION CR 2", "label_en": "LOW PRESSURE CIRCUITS CR 2" },
+          { "code": "FRG", "path": "Centrale/B2/FRG", "type": "EQUIPMENT", "label_fr": "CONTROL ANALOGIQUE CR 2", "label_en": "ANALOG CONTROL CR 2" },
+          { "code": "FSE", "path": "Centrale/B2/FSE", "type": "EQUIPMENT", "label_fr": "SYSTEME SECURITE GENERALE CR 2", "label_en": "GENERAL SAFETY SYSTEM CR 2" },
+          { "code": "FSR", "path": "Centrale/B2/FSR", "type": "EQUIPMENT", "label_fr": "CIRCUITS HAUTE PRESSION CR 2", "label_en": "HIGH PRESSURE CIRCUITS CR 2" },
+          { "code": "GBP", "path": "Centrale/B2/GBP", "type": "EQUIPMENT", "label_fr": "CONTOURNEMENT BP CR 2", "label_en": "LP BYPASS CR 2" },
+          { "code": "GHP", "path": "Centrale/B2/GHP", "type": "EQUIPMENT", "label_fr": "CONTOURNEMENT HP CR 2", "label_en": "HP BYPASS CR 2" },
+          { "code": "GIS", "path": "Centrale/B2/GIS", "type": "EQUIPMENT", "label_fr": "Poste blindé", "label_en": "GIS Switchgear" },
+          { "code": "KBS", "path": "Centrale/B2/KBS", "type": "EQUIPMENT", "label_fr": "REGROUPEMENT ANALOGIQUE CR 2", "label_en": "ANALOG GROUPING CR 2" },
+          { "code": "KCZ", "path": "Centrale/B2/KCZ", "type": "EQUIPMENT", "label_fr": "AUTOMATES LOGIQUES CR 2", "label_en": "LOGIC CONTROLLERS CR 2" },
+          { "code": "KOS", "path": "Centrale/B2/KOS", "type": "EQUIPMENT", "label_fr": "UO POUR TRANSFERT CONTROCAD", "label_en": "UO FOR CONTROCAD TRANSFER" },
+          { "code": "KRG", "path": "Centrale/B2/KRG", "type": "EQUIPMENT", "label_fr": "Regulation charge de bloc TG2", "label_en": "TG2 Block Load Regulation" },
+          { "code": "LGA", "path": "Centrale/B2/LGA", "type": "EQUIPMENT", "label_fr": "DISTRIBUTION MT NORMALE TG 2", "label_en": "TG2 MV DISTRIBUTION" },
+          { "code": "LJP", "path": "Centrale/B2/LJP", "type": "EQUIPMENT", "label_fr": "POSTE EXTERIEUR TRAVEE TG 2", "label_en": "TG2 OUTDOOR SUBSTATION" },
+          { "code": "LKA", "path": "Centrale/B2/LKA", "type": "EQUIPMENT", "label_fr": "DISTRIBUTION BT NORMALE TG 2", "label_en": "TG2 LV DISTRIBUTION" },
+          { "code": "LLA", "path": "Centrale/B2/LLA", "type": "EQUIPMENT", "label_fr": "DISTRIBUTION BT SECOURS TG 2", "label_en": "TG2 EMERGENCY LV DISTR" },
+          { "code": "SIT", "path": "Centrale/B2/SIT", "type": "EQUIPMENT", "label_fr": "CTRL CHIM ET ECHANT CR 2", "label_en": "CHEM CONTROL & SAMPLING CR 2" },
+          { "code": "TCA", "path": "Centrale/B2/TCA", "type": "EQUIPMENT", "label_fr": "ASPIRATION D'AIR TG 2", "label_en": "TG2 AIR INTAKE" },
+          { "code": "TEV", "path": "Centrale/B2/TEV", "type": "EQUIPMENT", "label_fr": "EVACUATION ENERGIE ALTR TG 2", "label_en": "TG2 ALTR ENERGY DISCHARGE" },
+          { "code": "TEX", "path": "Centrale/B2/TEX", "type": "EQUIPMENT", "label_fr": "EXCITATION ALTERNATEUR TG 2", "label_en": "TG2 ALTERNATOR EXCITATION" },
+          { "code": "TGR", "path": "Centrale/B2/TGR", "type": "EQUIPMENT", "label_fr": "GRAISSAGE ALTERNATEUR ET TG 2", "label_en": "TG2 & ALTERNATOR LUBRICATION" },
+          { "code": "TGU", "path": "Centrale/B2/TGU", "type": "EQUIPMENT", "label_fr": "AUXILIAIRES TG 2", "label_en": "TG2 AUXILIARIES" },
+          { "code": "TNT", "path": "Centrale/B2/TNT", "type": "EQUIPMENT", "label_fr": "NETTOYAGE / LAVAGE TG 2", "label_en": "TG2 CLEANING / WASHING" },
+          { "code": "TPA", "path": "Centrale/B2/TPA", "type": "EQUIPMENT", "label_fr": "PROT ALTERNATEUR TG 2", "label_en": "TG2 ALTERNATOR PROTECTION" },
+          { "code": "TPF", "path": "Centrale/B2/TPF", "type": "EQUIPMENT", "label_fr": "ALIMENTATION EN FIOUL TG 2", "label_en": "TG2 FUEL OIL SUPPLY" },
+          { "code": "TPG", "path": "Centrale/B2/TPG", "type": "EQUIPMENT", "label_fr": "ALIMENTATION EN GAZ TG 2", "label_en": "TG2 GAS SUPPLY" },
+          { "code": "TPT", "path": "Centrale/B2/TPT", "type": "EQUIPMENT", "label_fr": "DETECT ET PROT INCENDIE TG 2", "label_en": "TG2 FIRE DETECTION & PROT" },
+          { "code": "TRA", "path": "Centrale/B2/TRA", "type": "EQUIPMENT", "label_fr": "REFRI ALTERNATEUR TG 2", "label_en": "TG2 ALTERNATOR COOLING" },
+          { "code": "TRE", "path": "Centrale/B2/TRE", "type": "EQUIPMENT", "label_fr": "CTRL LOGIQUE ET ANALOGIQUE TG 2", "label_en": "TG2 LOGIC & ANALOG CONTROL" },
+          { "code": "TRI", "path": "Centrale/B2/TRI", "type": "EQUIPMENT", "label_fr": "REFRI DES AUXILIAIRES TG 2", "label_en": "TG2 AUX COOLING" },
+          { "code": "TRT", "path": "Centrale/B2/TRT", "type": "EQUIPMENT", "label_fr": "REPRISE DES EGOUTTURES TG 2", "label_en": "TG2 DRAIN RECOVERY" },
+          { "code": "TTA", "path": "Centrale/B2/TTA", "type": "EQUIPMENT", "label_fr": "GAZ D'ECHAPPEMENT TG 2", "label_en": "TG2 EXHAUST GAS" },
+          { "code": "TVC", "path": "Centrale/B2/TVC", "type": "EQUIPMENT", "label_fr": "CLIM COMPART CONTROLE-CDE TG 2", "label_en": "TG2 CONTROL ROOM CLIM" },
+          { "code": "TVM", "path": "Centrale/B2/TVM", "type": "EQUIPMENT", "label_fr": "VENTIL COMPARTIMENTS TG 2", "label_en": "TG2 COMPARTMENT VENTILATION" },
+          { "code": "WP", "path": "Centrale/B2/WP", "type": "EQUIPMENT", "label_fr": "VAPEUR PRINCIPALE CR 2", "label_en": "CR2 MAIN STEAM" }
+        ]
+      },
+      {
+        "code": "B3",
+        "path": "Centrale/B3",
+        "type": "BLOCK",
+        "label_fr": "Bloc 3",
+        "label_en": "Block 3",
+        "description_fr": "Turbine Vapeur et Poste d'Eau",
+        "description_en": "Steam Turbine and Water Treatment",
+        "children": [
+          { "code": "ACO", "path": "Centrale/B3/ACO", "type": "EQUIPMENT", "label_fr": "RECUP DES PURGES ET CONDENSATS", "label_en": "BLOWDOWN & CONDENSATE RECOVERY" },
+          { "code": "ADG", "path": "Centrale/B3/ADG", "type": "EQUIPMENT", "label_fr": "BACHE ALIMENTAIRE ET DEGAZAGE", "label_en": "FEEDWATER TANK & DEGASSING" },
+          { "code": "APB", "path": "Centrale/B3/APB", "type": "EQUIPMENT", "label_fr": "EAU ALIMENTAIRE BASSE PRESSION", "label_en": "LOW PRESSURE FEEDWATER" },
+          { "code": "APH", "path": "Centrale/B3/APH", "type": "EQUIPMENT", "label_fr": "EAU ALIMENTAIRE HAUTE PRESSION", "label_en": "HIGH PRESSURE FEEDWATER" },
+          { "code": "ARG", "path": "Centrale/B3/ARG", "type": "EQUIPMENT", "label_fr": "CONTROL ANALOGIQUE POSTE D'EAU", "label_en": "WATER TREATMENT ANALOG CONTROL" },
+          { "code": "CAP", "path": "Centrale/B3/CAP", "type": "EQUIPMENT", "label_fr": "APPOINT ET REJET CONDENSEUR", "label_en": "CONDENSER MAKEUP & DISCHARGE" },
+          { "code": "CAR", "path": "Centrale/B3/CAR", "type": "EQUIPMENT", "label_fr": "ARROSAGE BOITES ECHAPPEMENT TV", "label_en": "TV EXHAUST BOX SPRAYING" },
+          { "code": "CET", "path": "Centrale/B3/CET", "type": "EQUIPMENT", "label_fr": "ETANCHEITE TV", "label_en": "TV SEALING" },
+          { "code": "CEX", "path": "Centrale/B3/CEX", "type": "EQUIPMENT", "label_fr": "CONDENSATION ET EXTRACTION", "label_en": "CONDENSATION & EXTRACTION" },
+          { "code": "CFI", "path": "Centrale/B3/CFI", "type": "EQUIPMENT", "label_fr": "FILTRATION EAU DE REFRIGERATION", "label_en": "COOLING WATER FILTRATION" },
+          { "code": "CJK", "path": "Centrale/B3/CJK", "type": "EQUIPMENT", "label_fr": "CELLULE TV", "label_en": "TV CELL" },
+          { "code": "CRF", "path": "Centrale/B3/CRF", "type": "EQUIPMENT", "label_fr": "CIRCUIT EAU DE REFRIGERATION", "label_en": "COOLING WATER CIRCUIT" },
+          { "code": "CTA", "path": "Centrale/B3/CTA", "type": "EQUIPMENT", "label_fr": "NETTOYAGE CONTINU DU CONDENSEUR", "label_en": "CONTINUOUS CONDENSER CLEANING" },
+          { "code": "CVI", "path": "Centrale/B3/CVI", "type": "EQUIPMENT", "label_fr": "VIDE DU CONDENSEUR", "label_en": "CONDENSER EVACUATION" },
+          { "code": "ELE", "path": "Centrale/B3/ELE", "type": "EQUIPMENT", "label_fr": "Mesures électriques CMS7003", "label_en": "CMS7003 Electrical Measurements" },
+          { "code": "FBP", "path": "Centrale/B3/FBP", "type": "EQUIPMENT", "label_fr": "PRECHAUFFAGE EAU CONDENSEE PE", "label_en": "CONDENSATE PREHEATING PE" },
+          { "code": "GBP", "path": "Centrale/B3/GBP", "type": "EQUIPMENT", "label_fr": "CONTOURNEMENT BP TV", "label_en": "TV LP BYPASS" },
+          { "code": "GEV", "path": "Centrale/B3/GEV", "type": "EQUIPMENT", "label_fr": "EVACUATION ENERGIE ALTR TV", "label_en": "TV ALTR ENERGY DISCHARGE" },
+          { "code": "GEX", "path": "Centrale/B3/GEX", "type": "EQUIPMENT", "label_fr": "EVACUATION ENERGIE ALTR TV", "label_en": "TV ALTR ENERGY DISCHARGE" },
+          { "code": "GFR", "path": "Centrale/B3/GFR", "type": "EQUIPMENT", "label_fr": "EXCITATION ALTERNATEUR TV", "label_en": "TV ALTERNATOR EXCITATION" },
+          { "code": "GGR", "path": "Centrale/B3/GGR", "type": "EQUIPMENT", "label_fr": "GRAISSAGE,SOULEVEMENT,VIRAGE TV", "label_en": "TV LUBRICATION, JACKING, TURNING" },
+          { "code": "GHP", "path": "Centrale/B3/GHP", "type": "EQUIPMENT", "label_fr": "CONTOURNEMENT HP TV", "label_en": "TV HP BYPASS" },
+          { "code": "GMA", "path": "Centrale/B3/GMA", "type": "EQUIPMENT", "label_fr": "SURVEILLANCE MECANIQUE TV", "label_en": "TV MECHANICAL MONITORING" },
+          { "code": "GPA", "path": "Centrale/B3/GPA", "type": "EQUIPMENT", "label_fr": "PROT ALTERNATEUR TV", "label_en": "TV ALTERNATOR PROTECTION" },
+          { "code": "GPV", "path": "Centrale/B3/GPV", "type": "EQUIPMENT", "label_fr": "CIRCUIT PRINCIPAL VAPEUR TV", "label_en": "TV MAIN STEAM CIRCUIT" },
+          { "code": "GRA", "path": "Centrale/B3/GRA", "type": "EQUIPMENT", "label_fr": "REFRI ALTERNATEUR TV", "label_en": "TV ALTERNATOR COOLING" },
+          { "code": "GTH", "path": "Centrale/B3/GTH", "type": "EQUIPMENT", "label_fr": "TRAITEMENT H-LUB GROUPE TURGEN", "label_en": "TURBINE-GENERATOR H-LUB TREATMENT" },
+          { "code": "HMI", "path": "Centrale/B3/HMI", "type": "EQUIPMENT", "label_fr": "VARIABLES HMI", "label_en": "HMI VARIABLES" },
+          { "code": "KBS", "path": "Centrale/B3/KBS", "type": "EQUIPMENT", "label_fr": "REGROUPEMENT ANALOGIQUE PE/TV", "label_en": "PE/TV ANALOG GROUPING" },
+          { "code": "KCA", "path": "Centrale/B3/KCA", "type": "EQUIPMENT", "label_fr": "REGROUPEMENT ANALOGIQUE PE/TV", "label_en": "PE/TV ANALOG GROUPING" },
+          { "code": "KCZ", "path": "Centrale/B3/KCZ", "type": "EQUIPMENT", "label_fr": "AUTOMATES LOGIQUES PE ET TV", "label_en": "PE & TV LOGIC CONTROLLERS" },
+          { "code": "KOS", "path": "Centrale/B3/KOS", "type": "EQUIPMENT", "label_fr": "UO POUR TRANSFERT CONTROCAD", "label_en": "UO FOR CONTROCAD TRANSFER" },
+          { "code": "KRG", "path": "Centrale/B3/KRG", "type": "EQUIPMENT", "label_fr": "Regulation charge de bloc totale", "label_en": "Total Block Load Regulation" },
+          { "code": "KSC", "path": "Centrale/B3/KSC", "type": "EQUIPMENT", "label_fr": "AU CYCLE COMBINE", "label_en": "COMBINED CYCLE" },
+          { "code": "LBA", "path": "Centrale/B3/LBA", "type": "EQUIPMENT", "label_fr": "PROD ET DISTR 125V CC PE/TV", "label_en": "PE/TV 125Vdc PROD & DISTR" },
+          { "code": "LBB", "path": "Centrale/B3/LBB", "type": "EQUIPMENT", "label_fr": "PROD ET DISTR 125V CC PE/TV", "label_en": "PE/TV 125Vdc PROD & DISTR" },
+          { "code": "LCA", "path": "Centrale/B3/LCA", "type": "EQUIPMENT", "label_fr": "PROD ET DISTR 48V CC PE/TV", "label_en": "PE/TV 48Vdc PROD & DISTR" },
+          { "code": "LCB", "path": "Centrale/B3/LCB", "type": "EQUIPMENT", "label_fr": "PROD ET DISTR 48V CC PE/TV", "label_en": "PE/TV 48Vdc PROD & DISTR" },
+          { "code": "LGA", "path": "Centrale/B3/LGA", "type": "EQUIPMENT", "label_fr": "DISTRIBUTION MT NORMALE PE/TV", "label_en": "PE/TV MV DISTRIBUTION" },
+          { "code": "LJP", "path": "Centrale/B3/LJP", "type": "EQUIPMENT", "label_fr": "POSTE EXTERIEUR TRAVEE TV", "label_en": "TV OUTDOOR SUBSTATION" },
+          { "code": "LKA", "path": "Centrale/B3/LKA", "type": "EQUIPMENT", "label_fr": "DISTRIBUTION BT NORMALE PE/TV", "label_en": "PE/TV LV DISTRIBUTION" },
+          { "code": "LNA", "path": "Centrale/B3/LNA", "type": "EQUIPMENT", "label_fr": "PROD ET DISTR 220V SECOURU", "label_en": "220V EMERGENCY PROD & DISTR" },
+          { "code": "SER", "path": "Centrale/B3/SER", "type": "EQUIPMENT", "label_fr": "DISTR EAU DEM AU BLOC", "label_en": "BLOCK DM WATER DISTRIBUTION" },
+          { "code": "SIT", "path": "Centrale/B3/SIT", "type": "EQUIPMENT", "label_fr": "CTRL CHIM ET ECHANT POSTE D'EAU", "label_en": "WATER TREATMENT CHEM CONTROL" },
+          { "code": "SRI", "path": "Centrale/B3/SRI", "type": "EQUIPMENT", "label_fr": "REFRI EAU DEM NORIA BLOC 3", "label_en": "BLOCK 3 DM WATER COOLING" },
+          { "code": "SVA", "path": "Centrale/B3/SVA", "type": "EQUIPMENT", "label_fr": "DISTRIBUTION VAPEUR AUXILIAIRE", "label_en": "AUXILIARY STEAM DISTRIBUTION" },
+          { "code": "SXS", "path": "Centrale/B3/SXS", "type": "EQUIPMENT", "label_fr": "DRAINAGE SALLE DES MACHINES", "label_en": "MACHINE ROOM DRAINAGE" },
+          { "code": "VRI", "path": "Centrale/B3/VRI", "type": "EQUIPMENT", "label_fr": "VARIABLES VRI", "label_en": "VRI VARIABLES" },
+          { "code": "WP", "path": "Centrale/B3/WP", "type": "EQUIPMENT", "label_fr": "VAPEUR PRINCIPALE", "label_en": "MAIN STEAM" }
+        ]
+      }
+    ]
+  },
+
+  "Groupes": {
+    "path": "Groupes",
+    "type": "ROOT",
+    "label_fr": "Groupes Fonctionnels",
+    "label_en": "Functional Groups",
+    "description_fr": "Organisation par groupes fonctionnels de la centrale",
+    "description_en": "Organisation by functional groups of the power plant",
+    "children": [
+      {
+        "code": "ORDINATEUR_DE_SUPERVISION_TCI",
+        "path": "Groupes/ORDINATEUR DE SUPERVISION - TCI",
+        "type": "GROUP",
+        "label_fr": "ORDINATEUR DE SUPERVISION - TCI",
+        "label_en": "TCI SUPERVISION COMPUTER",
+        "description_fr": "Supervision et contrôle par ordinateur TCI",
+        "description_en": "TCI computer supervision and control",
+        "children": [
+          { "code": "B0SY11", "path": "Groupes/ORDINATEUR DE SUPERVISION - TCI/B0SY11", "type": "EQUIPMENT", "label_fr": "B0SY11", "label_en": "B0SY11", "description_fr": "Plan circuits en image spécifique" },
+          { "code": "B0SY21", "path": "Groupes/ORDINATEUR DE SUPERVISION - TCI/B0SY21", "type": "EQUIPMENT", "label_fr": "B0SY21", "label_en": "B0SY21", "description_fr": "Plan circuits en image spécifique" },
+          { "code": "B0SY31", "path": "Groupes/ORDINATEUR DE SUPERVISION - TCI/B0SY31", "type": "EQUIPMENT", "label_fr": "B0SY31", "label_en": "B0SY31", "description_fr": "Plan circuits en image spécifique" },
+          { "code": "B0SY32", "path": "Groupes/ORDINATEUR DE SUPERVISION - TCI/B0SY32", "type": "EQUIPMENT", "label_fr": "B0SY32", "label_en": "B0SY32", "description_fr": "Plan circuits en image spécifique" }
+        ]
+      },
+      {
+        "code": "SUPERVISION_DU_BLOC",
+        "path": "Groupes/SUPERVISION DU BLOC",
+        "type": "GROUP",
+        "label_fr": "SUPERVISION DU BLOC",
+        "label_en": "BLOCK SUPERVISION",
+        "description_fr": "Vues générales de supervision du bloc",
+        "description_en": "Block general supervision views",
+        "children": [
+          { "code": "B0GN02", "path": "Groupes/SUPERVISION DU BLOC/B0GN02", "type": "EQUIPMENT", "label_fr": "B0GN02", "label_en": "B0GN02", "description_fr": "Plan circuits en image spécifique" },
+          { "code": "B0GN11", "path": "Groupes/SUPERVISION DU BLOC/B0GN11", "type": "EQUIPMENT", "label_fr": "VUE GENERALE DU BLOC", "label_en": "BLOCK GENERAL VIEW", "description_fr": "Plan circuits en image spécifique" }
+        ]
+      },
+      {
+        "code": "TURBINE_GAZ_1",
+        "path": "Groupes/TURBINE GAZ 1",
+        "type": "GROUP",
+        "label_fr": "TURBINE GAZ 1",
+        "label_en": "GAS TURBINE 1",
+        "description_fr": "Turbine à gaz 1 et ses auxiliaires",
+        "description_en": "Gas turbine 1 and auxiliaries",
+        "children": [
+          { "code": "B1TG11", "path": "Groupes/TURBINE GAZ 1/B1TG11", "type": "EQUIPMENT", "label_fr": "VUE GENERALE TG 1", "label_en": "TG1 GENERAL VIEW" },
+          { "code": "B1TG21", "path": "Groupes/TURBINE GAZ 1/B1TG21", "type": "EQUIPMENT", "label_fr": "LUBRIFICATION TG 1", "label_en": "TG1 LUBRICATION" },
+          { "code": "B1TG31", "path": "Groupes/TURBINE GAZ 1/B1TG31", "type": "EQUIPMENT", "label_fr": "VIBRATION ET TEMPERATURE TG 1", "label_en": "TG1 VIBRATION & TEMPERATURE" },
+          { "code": "B1TG32", "path": "Groupes/TURBINE GAZ 1/B1TG32", "type": "EQUIPMENT", "label_fr": "TEMPERATURE INTER-ROUES TG 1", "label_en": "TG1 INTERSTAGE TEMPERATURE" },
+          { "code": "B1TG33", "path": "Groupes/TURBINE GAZ 1/B1TG33", "type": "EQUIPMENT", "label_fr": "TEMPERATURE ECHAPPEMENT TG 1", "label_en": "TG1 EXHAUST TEMPERATURE" }
+        ]
+      },
+      {
+        "code": "CHAUDIERE_DE_RECUPERATION_1",
+        "path": "Groupes/CHAUDIERE DE RECUPERATION 1",
+        "type": "GROUP",
+        "label_fr": "CHAUDIERE DE RECUPERATION 1",
+        "label_en": "HEAT RECOVERY BOILER 1",
+        "description_fr": "Chaudière de récupération 1",
+        "description_en": "Heat recovery boiler 1",
+        "children": [
+          { "code": "B1CR11", "path": "Groupes/CHAUDIERE DE RECUPERATION 1/B1CR11", "type": "EQUIPMENT", "label_fr": "VUE GENERALE CR 1", "label_en": "CR1 GENERAL VIEW" },
+          { "code": "B1CR21", "path": "Groupes/CHAUDIERE DE RECUPERATION 1/B1CR21", "type": "EQUIPMENT", "label_fr": "SYSTEME VAPEUR HP CR 1", "label_en": "CR1 HP STEAM SYSTEM" },
+          { "code": "B1CR22", "path": "Groupes/CHAUDIERE DE RECUPERATION 1/B1CR22", "type": "EQUIPMENT", "label_fr": "SYSTEME VAPEUR BP CR 1", "label_en": "CR1 LP STEAM SYSTEM" },
+          { "code": "B1CR31", "path": "Groupes/CHAUDIERE DE RECUPERATION 1/B1CR31", "type": "EQUIPMENT", "label_fr": "TEMPERATURE METAL CHAUDIERE 1", "label_en": "BOILER 1 METAL TEMPERATURE" }
+        ]
+      },
+      {
+        "code": "TURBINE_GAZ_2",
+        "path": "Groupes/TURBINE GAZ 2",
+        "type": "GROUP",
+        "label_fr": "TURBINE GAZ 2",
+        "label_en": "GAS TURBINE 2",
+        "description_fr": "Turbine à gaz 2 et ses auxiliaires",
+        "description_en": "Gas turbine 2 and auxiliaries",
+        "children": [
+          { "code": "B2TG11", "path": "Groupes/TURBINE GAZ 2/B2TG11", "type": "EQUIPMENT", "label_fr": "VUE GENERALE TG 2", "label_en": "TG2 GENERAL VIEW" },
+          { "code": "B2TG21", "path": "Groupes/TURBINE GAZ 2/B2TG21", "type": "EQUIPMENT", "label_fr": "LUBRIFICATION TG 2", "label_en": "TG2 LUBRICATION" },
+          { "code": "B2TG31", "path": "Groupes/TURBINE GAZ 2/B2TG31", "type": "EQUIPMENT", "label_fr": "B2TG31", "label_en": "B2TG31" },
+          { "code": "B2TG32", "path": "Groupes/TURBINE GAZ 2/B2TG32", "type": "EQUIPMENT", "label_fr": "B2TG32", "label_en": "B2TG32" },
+          { "code": "B2TG33", "path": "Groupes/TURBINE GAZ 2/B2TG33", "type": "EQUIPMENT", "label_fr": "B2TG33", "label_en": "B2TG33" }
+        ]
+      },
+      {
+        "code": "CHAUDIERE_DE_RECUPERATION_2",
+        "path": "Groupes/CHAUDIERE DE RECUPERATION 2",
+        "type": "GROUP",
+        "label_fr": "CHAUDIERE DE RECUPERATION 2",
+        "label_en": "HEAT RECOVERY BOILER 2",
+        "description_fr": "Chaudière de récupération 2",
+        "description_en": "Heat recovery boiler 2",
+        "children": [
+          { "code": "B2CR11", "path": "Groupes/CHAUDIERE DE RECUPERATION 2/B2CR11", "type": "EQUIPMENT", "label_fr": "VUE GENERALE CR 2", "label_en": "CR2 GENERAL VIEW" },
+          { "code": "B2CR21", "path": "Groupes/CHAUDIERE DE RECUPERATION 2/B2CR21", "type": "EQUIPMENT", "label_fr": "B2CR21", "label_en": "B2CR21" },
+          { "code": "B2CR22", "path": "Groupes/CHAUDIERE DE RECUPERATION 2/B2CR22", "type": "EQUIPMENT", "label_fr": "B2CR22", "label_en": "B2CR22" },
+          { "code": "B2CR31", "path": "Groupes/CHAUDIERE DE RECUPERATION 2/B2CR31", "type": "EQUIPMENT", "label_fr": "B2CR31", "label_en": "B2CR31" }
+        ]
+      },
+      {
+        "code": "POSTE_DEAU",
+        "path": "Groupes/POSTE D'EAU",
+        "type": "GROUP",
+        "label_fr": "POSTE D'EAU",
+        "label_en": "WATER TREATMENT",
+        "description_fr": "Gestion et distribution de l'eau",
+        "description_en": "Water management and distribution",
+        "children": [
+          { "code": "B3PE11", "path": "Groupes/POSTE D'EAU/B3PE11", "type": "EQUIPMENT", "label_fr": "VUE GENERALE DU POSTE D'EAU", "label_en": "WATER TREATMENT GENERAL VIEW" },
+          { "code": "B3PE20", "path": "Groupes/POSTE D'EAU/B3PE20", "type": "EQUIPMENT", "label_fr": "Stockage d'eau déminée", "label_en": "DM Water Storage" },
+          { "code": "B3PE21", "path": "Groupes/POSTE D'EAU/B3PE21", "type": "EQUIPMENT", "label_fr": "SYSTEME EXTR EAU CONDENSEUR", "label_en": "Condenser Water Extraction" },
+          { "code": "B3PE22", "path": "Groupes/POSTE D'EAU/B3PE22", "type": "EQUIPMENT", "label_fr": "SYSTEME EAU ALIMENTAIRE", "label_en": "Feedwater System" },
+          { "code": "B3PE23", "path": "Groupes/POSTE D'EAU/B3PE23", "type": "EQUIPMENT", "label_fr": "VIDE ET APPOINT CONDENSEUR", "label_en": "Condenser Evacuation & Makeup" },
+          { "code": "B3PE24", "path": "Groupes/POSTE D'EAU/B3PE24", "type": "EQUIPMENT", "label_fr": "SYSTEME EAU DE CIRCULATION", "label_en": "Circulating Water System" },
+          { "code": "B3PE25", "path": "Groupes/POSTE D'EAU/B3PE25", "type": "EQUIPMENT", "label_fr": "SYSTEME EAU DE REFRIGERATION", "label_en": "Cooling Water System" },
+          { "code": "B3PE26", "path": "Groupes/POSTE D'EAU/B3PE26", "type": "EQUIPMENT", "label_fr": "RECHAUFFAGE DES CONDENSATS", "label_en": "Condensate Reheating" }
+        ]
+      },
+      {
+        "code": "TURBINE_VAPEUR",
+        "path": "Groupes/TURBINE VAPEUR",
+        "type": "GROUP",
+        "label_fr": "TURBINE VAPEUR",
+        "label_en": "STEAM TURBINE",
+        "description_fr": "Turbine à vapeur et ses auxiliaires",
+        "description_en": "Steam turbine and auxiliaries",
+        "children": [
+          { "code": "B1TV21", "path": "Groupes/TURBINE VAPEUR/B1TV21", "type": "EQUIPMENT", "label_fr": "CONTOURNEMENT HP CR 1", "label_en": "CR1 HP BYPASS" },
+          { "code": "B1TV22", "path": "Groupes/TURBINE VAPEUR/B1TV22", "type": "EQUIPMENT", "label_fr": "CONTOURNEMENT BP CR 1", "label_en": "CR1 LP BYPASS" },
+          { "code": "B2TV21", "path": "Groupes/TURBINE VAPEUR/B2TV21", "type": "EQUIPMENT", "label_fr": "CONTOURNEMENT HP CR 2", "label_en": "CR2 HP BYPASS" },
+          { "code": "B2TV22", "path": "Groupes/TURBINE VAPEUR/B2TV22", "type": "EQUIPMENT", "label_fr": "CONTOURNEMENT BP CR 2", "label_en": "CR2 LP BYPASS" },
+          { "code": "B3TV11", "path": "Groupes/TURBINE VAPEUR/B3TV11", "type": "EQUIPMENT", "label_fr": "VUE GENERALE TURBINE A VAPEUR", "label_en": "STEAM TURBINE GENERAL VIEW" },
+          { "code": "B3TV21", "path": "Groupes/TURBINE VAPEUR/B3TV21", "type": "EQUIPMENT", "label_fr": "SYSTEME DE PURGES TV", "label_en": "TV BLEED SYSTEM" },
+          { "code": "B3TV23", "path": "Groupes/TURBINE VAPEUR/B3TV23", "type": "EQUIPMENT", "label_fr": "SYSTEME HUILE DE REGULATION TV", "label_en": "TV CONTROL OIL SYSTEM" },
+          { "code": "B3TV24", "path": "Groupes/TURBINE VAPEUR/B3TV24", "type": "EQUIPMENT", "label_fr": "LUBRIFICATION ET SOULEVEMENT TV", "label_en": "TV LUBRICATION & JACKING" },
+          { "code": "B3TV31", "path": "Groupes/TURBINE VAPEUR/B3TV31", "type": "EQUIPMENT", "label_fr": "SURVEILLANCE LIGNE D'ARBRE TV", "label_en": "TV SHAFT LINE MONITORING" }
+        ]
+      },
+      {
+        "code": "REGULATION_ET_CALCULS",
+        "path": "Groupes/REGULATION ET CALCULS",
+        "type": "GROUP",
+        "label_fr": "REGULATION ET CALCULS",
+        "label_en": "REGULATION & CALCULATIONS",
+        "description_fr": "Régulation et calculs économiques",
+        "description_en": "Regulation and economic calculations",
+        "children": [
+          { "code": "B0ASR1", "path": "Groupes/REGULATION ET CALCULS/B0ASR1", "type": "EQUIPMENT", "label_fr": "B0ASR1", "label_en": "B0ASR1" },
+          { "code": "B0GN31", "path": "Groupes/REGULATION ET CALCULS/B0GN31", "type": "EQUIPMENT", "label_fr": "CALCULS ECONOMIQUES 1/2", "label_en": "ECONOMIC CALCULATIONS 1/2" },
+          { "code": "B0GN32", "path": "Groupes/REGULATION ET CALCULS/B0GN32", "type": "EQUIPMENT", "label_fr": "CALCULS ECONOMIQUES 2/2", "label_en": "ECONOMIC CALCULATIONS 2/2" },
+          { "code": "B0GNR1", "path": "Groupes/REGULATION ET CALCULS/B0GNR1", "type": "EQUIPMENT", "label_fr": "REGULATION DES AUXILIAIRES SITE", "label_en": "SITE AUXILIARIES REGULATION" },
+          { "code": "B1CRR1", "path": "Groupes/REGULATION ET CALCULS/B1CRR1", "type": "EQUIPMENT", "label_fr": "B1 REGULATION DU BLOC", "label_en": "B1 BLOCK REGULATION" },
+          { "code": "B2CRR1", "path": "Groupes/REGULATION ET CALCULS/B2CRR1", "type": "EQUIPMENT", "label_fr": "B2 REGULATION DU BLOC", "label_en": "B2 BLOCK REGULATION" },
+          { "code": "B3PER1", "path": "Groupes/REGULATION ET CALCULS/B3PER1", "type": "EQUIPMENT", "label_fr": "B3 REGULATION POSTE D'EAU", "label_en": "B3 WATER TREATMENT REGULATION" }
+        ]
+      },
+      {
+        "code": "DISTRIBUTION_ELECTRIQUE",
+        "path": "Groupes/DISTRIBUTION ELECTRIQUE",
+        "type": "GROUP",
+        "label_fr": "DISTRIBUTION ELECTRIQUE",
+        "label_en": "ELECTRICAL DISTRIBUTION",
+        "description_fr": "Distribution électrique haute et basse tension",
+        "description_en": "HV and LV electrical distribution",
+        "children": [
+          { "code": "B0EL11", "path": "Groupes/DISTRIBUTION ELECTRIQUE/B0EL11", "type": "EQUIPMENT", "label_fr": "DISTRIBUTION ELECTRIQUE 15.5/6.6", "label_en": "15.5/6.6 ELECTRICAL DISTRIBUTION" },
+          { "code": "B0EL21", "path": "Groupes/DISTRIBUTION ELECTRIQUE/B0EL21", "type": "EQUIPMENT", "label_fr": "DISTRIBUTION B0LGA", "label_en": "B0LGA DISTRIBUTION" },
+          { "code": "B0EL22", "path": "Groupes/DISTRIBUTION ELECTRIQUE/B0EL22", "type": "EQUIPMENT", "label_fr": "Groupe électrogène", "label_en": "Diesel Generator Set" },
+          { "code": "B1EL21", "path": "Groupes/DISTRIBUTION ELECTRIQUE/B1EL21", "type": "EQUIPMENT", "label_fr": "DISTRIBUTION B1LGA", "label_en": "B1LGA DISTRIBUTION" },
+          { "code": "B2EL21", "path": "Groupes/DISTRIBUTION ELECTRIQUE/B2EL21", "type": "EQUIPMENT", "label_fr": "DISTRIBUTION B2LGA", "label_en": "B2LGA DISTRIBUTION" },
+          { "code": "B3EL21", "path": "Groupes/DISTRIBUTION ELECTRIQUE/B3EL21", "type": "EQUIPMENT", "label_fr": "DISTRIBUTION B3LGA", "label_en": "B3LGA DISTRIBUTION" },
+          { "code": "B3EL22", "path": "Groupes/DISTRIBUTION ELECTRIQUE/B3EL22", "type": "EQUIPMENT", "label_fr": "Distribution courant continu", "label_en": "DC Distribution" }
+        ]
+      },
+      {
+        "code": "CONTROSTEAM",
+        "path": "Groupes/CONTROSTEAM",
+        "type": "GROUP",
+        "label_fr": "CONTROSTEAM",
+        "label_en": "CONTROSTEAM",
+        "description_fr": "Régulation et sécurité vapeur",
+        "description_en": "Steam regulation and safety",
+        "children": [
+          { "code": "B3TV41", "path": "Groupes/CONTROSTEAM/B3TV41", "type": "EQUIPMENT", "label_fr": "B3TV REGULATION", "label_en": "B3TV REGULATION" },
+          { "code": "B3TV42", "path": "Groupes/CONTROSTEAM/B3TV42", "type": "EQUIPMENT", "label_fr": "B3TV SECURITEES", "label_en": "B3TV SAFETIES" },
+          { "code": "B3TV43", "path": "Groupes/CONTROSTEAM/B3TV43", "type": "EQUIPMENT", "label_fr": "B3TV CET", "label_en": "B3TV CET" },
+          { "code": "B3TV44", "path": "Groupes/CONTROSTEAM/B3TV44", "type": "EQUIPMENT", "label_fr": "B3TV INSTRUMENTATION", "label_en": "B3TV INSTRUMENTATION" },
+          { "code": "B3TV45", "path": "Groupes/CONTROSTEAM/B3TV45", "type": "EQUIPMENT", "label_fr": "B3TV TEST SECURITES FONDAMENTALES", "label_en": "B3TV FUNDAMENTAL SAFETIES TEST" },
+          { "code": "B3TV46EXP", "path": "Groupes/CONTROSTEAM/B3TV46EXP", "type": "EQUIPMENT", "label_fr": "B3TV TESTS VANNES ARRET", "label_en": "B3TV STOP VALVES TESTS" }
+        ]
+      }
+    ]
+  },
+
+  "SYSTEM": {
+    "path": "SYSTEM",
+    "type": "ROOT",
+    "label_fr": "SYSTEM",
+    "label_en": "SYSTEM",
+    "description_fr": "Unités opératives du système (fonctions d'automates)",
+    "description_en": "System operative units (PLC functions)",
+    "children": [
+      { "code": "KCZ001", "path": "SYSTEM/KCZ001", "type": "FUNCTION", "label_fr": "AA01-1 SYSTEM FUNCTION", "label_en": "AA01-1 SYSTEM FUNCTION" },
+      { "code": "KCZ010", "path": "SYSTEM/KCZ010", "type": "FUNCTION", "label_fr": "AA10-1 SYSTEM FUNCTION", "label_en": "AA10-1 SYSTEM FUNCTION" },
+      { "code": "KCZ030", "path": "SYSTEM/KCZ030", "type": "FUNCTION", "label_fr": "NA001 SYSTEM FUNCTION", "label_en": "NA001 SYSTEM FUNCTION" },
+      { "code": "KIT1", "path": "SYSTEM/KIT1", "type": "FUNCTION", "label_fr": "SYSTEM OU", "label_en": "SYSTEM OU" },
+      { "code": "KIT11", "path": "SYSTEM/KIT11", "type": "FUNCTION", "label_fr": "SYSTEM OU", "label_en": "SYSTEM OU" }
+    ]
+  },
+
+  "SHARE": {
+    "path": "SHARE",
+    "type": "ROOT",
+    "label_fr": "SHARE",
+    "label_en": "SHARE",
+    "description_fr": "Ressources partagées du projet",
+    "description_en": "Project shared resources"
+  }
+}

@@ -1,0 +1,109 @@
+[
+  {
+    "metadata": {
+      "title": "Vérification visuelle hebdomadaire d'une centrale",
+      "code": "GUIDE-CENTRALE-001",
+      "description": "Procédure guide de vérification visuelle hebdomadaire d'une centrale hydraulique.",
+      "category": "inspection",
+      "priority": "moyenne",
+      "estimatedTimeMinutes": 30,
+      "requiredRoles": ["technicien"],
+      "globalSafetyInstructions": [
+        "Porter les EPI obligatoires (casque, gants, chaussures de sécurité).",
+        "Couper l'alimentation avant toute intervention."
+      ]
+    },
+    "steps": [
+      {
+        "id": "step-1",
+        "title": "Inspection visuelle extérieure",
+        "subtitle": "État général de la centrale",
+        "instructions": "Vérifier l'absence de fuites, de corrosion visible et l'état des protections.",
+        "type": "inspection_visuelle",
+        "isMandatory": true,
+        "dependencies": [],
+        "mediaRequirements": [
+          { "type": "photo", "mandatory": true }
+        ],
+        "alarms": [],
+        "attachments": [],
+        "order": 1,
+        "timerEnabled": false,
+        "timerSeconds": 0
+      },
+      {
+        "id": "step-2",
+        "title": "Contrôle des paramètres",
+        "subtitle": "Pression et température",
+        "instructions": "Relever la pression et la température, saisir les valeurs mesurées.",
+        "type": "mesure_numerique",
+        "isMandatory": true,
+        "dependencies": ["step-1"],
+        "mediaRequirements": [],
+        "alarms": [
+          {
+            "condition": "pression > 10 bar",
+            "threshold": "10",
+            "type": "WARNING",
+            "message": "Pression élevée détectée."
+          }
+        ],
+        "attachments": [],
+        "order": 2,
+        "timerEnabled": true,
+        "timerSeconds": 300
+      }
+    ]
+  },
+  {
+    "metadata": {
+      "title": "Maintenance préventive mensuelle",
+      "code": "GUIDE-MAINT-002",
+      "description": "Procédure guide de maintenance préventive mensuelle des équipements.",
+      "category": "maintenance",
+      "priority": "haute",
+      "estimatedTimeMinutes": 90,
+      "requiredRoles": ["technicien", "chef_equipe"],
+      "globalSafetyInstructions": [
+        "Consigner l'installation avant intervention (LOTO).",
+        "Vérifier l'absence de tension."
+      ]
+    },
+    "steps": [
+      {
+        "id": "step-1",
+        "title": "Validation sécurité",
+        "subtitle": "Consignation LOTO",
+        "instructions": "Appliquer la procédure de consignation et valider avec le chef d'équipe.",
+        "type": "validation_securite",
+        "isMandatory": true,
+        "dependencies": [],
+        "mediaRequirements": [
+          { "type": "signature", "mandatory": true }
+        ],
+        "alarms": [],
+        "attachments": [],
+        "order": 1,
+        "timerEnabled": false,
+        "timerSeconds": 0
+      },
+      {
+        "id": "step-2",
+        "title": "Saisie des opérations réalisées",
+        "subtitle": "Checklist maintenance",
+        "instructions": "Renseigner les opérations effectuées et leur résultat.",
+        "type": "saisie_donnees",
+        "isMandatory": false,
+        "dependencies": ["step-1"],
+        "mediaRequirements": [
+          { "type": "photo", "mandatory": false }
+        ],
+        "alarms": [],
+        "attachments": [],
+        "order": 2,
+        "timerEnabled": false,
+        "timerSeconds": 0
+      }
+    ]
+  }
+]

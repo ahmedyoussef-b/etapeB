@@ -1,0 +1,1 @@
+{"compilerOptions": {"skipLibCheck": true, "moduleResolution": "bundler", "target": "ES2022", "module": "ESNext", "esModuleInterop": true, "strict": false, "noImplicitAny": false}, "include": ["prisma/seed.ts", "next-env.d.ts", ".next/types/**/*.ts"], "exclude": ["node_modules"]}

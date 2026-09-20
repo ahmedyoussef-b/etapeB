@@ -1,0 +1,444 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ==========================================
+// ENUMS
+// ==========================================
+
+enum Role {
+  ADMIN
+  CHEF_DE_QUART
+  CHEF_DE_BLOC
+  RONDIER
+}
+
+enum SyncState {
+  synced
+  pending
+  local_only
+  conflict
+}
+
+enum RegistrationStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+enum ExecutionStatus {
+  PENDING
+  IN_PROGRESS
+  DONE
+  ABORTED
+  FAILED
+}
+
+enum StepStatus {
+  PENDING
+  IN_PROGRESS
+  DONE
+  SKIPPED
+  FAILED
+}
+
+// ==========================================
+// INFRASTRUCTURE INDUSTRIELLE
+// ==========================================
+
+model Block {
+  id          String      @id @default(cuid())
+  code        String      @unique
+  libelle     String
+  type        String      @default("centrale")
+  syncState   SyncState   @default(local_only)
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+  equipements Equipment[]
+  users       User[]
+
+  @@map("blocks")
+}
+
+model Equipment {
+  id            String    @id @default(cuid())
+  code          String
+  libelle       String
+  type          String    @default("sous_centrale")
+  blocCode      String
+  parentId      String?
+  syncState     SyncState @default(local_only)
+  lastSync      DateTime?
+  metadata      Json?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  subsystemCode String?
+  bloc          Block     @relation(fields: [blocCode], references: [code])
+  group         Group?    @relation(fields: [parentId], references: [code])
+
+  @@unique([code, blocCode, subsystemCode])
+  @@index([blocCode])
+  @@index([subsystemCode])
+  @@index([parentId])
+  @@index([syncState])
+  @@map("equipments")
+}
+
+model Group {
+  id              String           @id @default(cuid())
+  code            String           @unique
+  libelle         String
+  type            String           @default("groupe")
+  syncState       SyncState        @default(local_only)
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+  equipements     Equipment[]
+  groupEquipments GroupEquipment[]
+
+  @@map("groups")
+}
+
+model GroupEquipment {
+  id         String    @id @default(cuid())
+  code       String
+  libelle    String
+  type       String    @default("groupe")
+  groupeCode String
+  blocCode   String?
+  parentId   String?
+  syncState  SyncState @default(local_only)
+  lastSync   DateTime?
+  metadata   Json?
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+  group      Group     @relation(fields: [groupeCode], references: [code])
+
+  @@unique([code, groupeCode])
+  @@index([groupeCode])
+  @@index([blocCode])
+  @@index([syncState])
+  @@map("group_equipments")
+}
+
+// ==========================================
+// UTILISATEURS & SESSIONS
+// ==========================================
+
+model User {
+  id               String                @id @default(cuid())
+  email            String                @unique
+  name             String
+  team             String?
+  preferences      Json?
+  createdAt        DateTime              @default(now())
+  updatedAt        DateTime              @updatedAt
+  role             Role
+  blockId          String?
+  password         String?
+  procedures       Procedure[]           @relation("ProcedureCreatedBy")
+  reviewedRequests RegistrationRequest[] @relation("ReviewedBy")
+  block            Block?                @relation(fields: [blockId], references: [id])
+  executions       ProcedureExecution[]  @relation("UserExecutions")
+  auditLogs        AuditLog[]            @relation("UserAuditLogs")
+  sessions         Session[]
+
+  @@index([blockId])
+  @@map("users")
+}
+
+// Session préparée pour migration future vers strategy="database"
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  ipAddress    String?
+  userAgent    String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([expires])
+  @@map("sessions")
+}
+
+model RegistrationRequest {
+  id            String             @id @default(cuid())
+  name          String
+  email         String             @unique
+  password      String
+  requestedRole Role
+  status        RegistrationStatus @default(PENDING)
+  reviewedById  String?
+  reviewedAt    DateTime?
+  createdAt     DateTime           @default(now())
+  updatedAt     DateTime           @updatedAt
+  reviewedBy    User?              @relation("ReviewedBy", fields: [reviewedById], references: [id])
+
+  @@index([reviewedById])
+  @@map("registration_requests")
+}
+
+// ==========================================
+// PROCÉDURES, MÉDIAS, EXÉCUTIONS
+// ==========================================
+
+model Procedure {
+  id                   String               @id @default(cuid())
+  code                 String               @unique
+  title                String
+  description          String?
+  category             String
+  priority             String
+  // Soft delete via status = "archived" — voir archiveOrDeleteProcedure
+  status               String               @default("draft")
+  estimatedTimeMinutes Int                  @default(1)
+  steps                Json?
+  metadata             Json?
+  equipmentCode        String?
+  createdAt            DateTime             @default(now())
+  updatedAt            DateTime             @updatedAt
+  createdById          String?
+  requiredRoles        Role[]
+  createdBy            User?                @relation("ProcedureCreatedBy", fields: [createdById], references: [id])
+  executions           ProcedureExecution[]
+  media                ProcedureMedia[]
+
+  @@index([status])
+  @@index([category])
+  @@index([createdById])
+  @@map("procedures")
+}
+
+model ProcedureMedia {
+  id            String    @id @default(cuid())
+  procedureId   String
+  procedureCode String
+  stepId        String
+  stepOrder     Int
+  type          String
+  filename      String
+  mimeType      String
+  size          Int
+  data          Bytes
+  geolocation   Json?
+  timestamp     DateTime  @default(now())
+  capturedAt    DateTime  @default(now())
+  uploadedBy    String?
+  metadata      Json?
+  procedure     Procedure @relation(fields: [procedureId], references: [id], onDelete: Cascade)
+
+  @@index([procedureId])
+  @@index([procedureCode])
+  @@index([procedureId, stepId])
+  @@index([capturedAt])
+  @@map("procedure_media")
+}
+
+// Restrict — protection réglementaire des preuves d'exécution
+model ProcedureExecution {
+  id            String             @id @default(cuid())
+  procedureId   String
+  procedureCode String
+  userId        String
+  status        ExecutionStatus    @default(PENDING)
+  startedAt     DateTime           @default(now())
+  finishedAt    DateTime?
+  notes         String?
+  metadata      Json?
+  createdAt     DateTime           @default(now())
+  updatedAt     DateTime           @updatedAt
+  procedure     Procedure          @relation(fields: [procedureId], references: [id], onDelete: Restrict)
+  user          User               @relation("UserExecutions", fields: [userId], references: [id], onDelete: Restrict)
+  stepLogs      ExecutionStepLog[]
+
+  @@index([procedureId, status])
+  @@index([userId, startedAt])
+  @@index([status, startedAt])
+  @@index([procedureCode])
+  @@map("procedure_executions")
+}
+
+model ExecutionStepLog {
+  id           String             @id @default(cuid())
+  executionId  String
+  stepId       String
+  stepOrder    Int
+  stepTitle    String?
+  status       StepStatus         @default(PENDING)
+  startedAt    DateTime?
+  completedAt  DateTime?
+  executedById String?
+  comment      String?
+  inputs       Json?
+  metadata     Json?
+  createdAt    DateTime           @default(now())
+  updatedAt    DateTime           @updatedAt
+  execution    ProcedureExecution @relation(fields: [executionId], references: [id], onDelete: Cascade)
+
+  @@unique([executionId, stepId])
+  @@index([executionId, stepOrder])
+  @@index([status])
+  @@map("execution_step_logs")
+}
+
+// ==========================================
+// AUDIT LOG
+// ==========================================
+
+model AuditLog {
+  id        String   @id @default(cuid())
+  userId    String?
+  action    String
+  entity    String
+  entityId  String
+  before    Json?
+  after     Json?
+  ipAddress String?
+  userAgent String?
+  createdAt DateTime @default(now())
+  user      User?    @relation("UserAuditLogs", fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([entity, entityId])
+  @@index([userId, createdAt])
+  @@index([action, createdAt])
+  @@index([createdAt])
+  @@map("audit_logs")
+}
+
+// ==========================================
+// AUTRES MODÈLES SYSTÈME
+// ==========================================
+
+model Team {
+  id        String   @id @default(cuid())
+  name      String   @unique
+  members   Json?
+  leader    String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("teams")
+}
+
+model SyncLog {
+  id        String   @id @default(cuid())
+  source    String
+  target    String
+  operation String
+  modelName String
+  entityId  String
+  status    String
+  details   Json?
+  createdAt DateTime @default(now())
+
+  @@map("sync_logs")
+}
+
+model MirrorRepertoire {
+  id         String    @id @default("mirror")
+  version    String    @default("1.0.0")
+  structure  String    @default("industrial")
+  blocks     Json?
+  groups     Json?
+  lastSynced DateTime?
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+
+  @@map("mirror_repertoire")
+}
+
+model IndexRecord {
+  id          String   @id @default(cuid())
+  type        String   @unique
+  data        Json
+  lastUpdated DateTime @default(now())
+  total       Int      @default(0)
+
+  @@map("indexes")
+}
+
+model Report {
+  id          String   @id @default(cuid())
+  title       String
+  description String?
+  status      String   @default("draft")
+  attachments Json?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  metadata    Json?
+
+  @@map("reports")
+}
+
+model Document {
+  id        String   @id @default(cuid())
+  filename  String
+  mimeType  String?
+  size      Int?
+  data      Bytes?
+  metadata  Json?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  path      String?  @unique
+
+  @@index([filename])
+  @@map("documents")
+}
+
+model HumanResource {
+  id        String   @id @default(cuid())
+  name      String
+  team      String
+  photoUrl  String?
+  metadata  Json?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("human_resources")
+}
+
+model PublishQueue {
+  id            String   @id @default(cuid())
+  path          String
+  content       Bytes?
+  textContent   String?  @db.Text
+  hash          String
+  size          Int
+  version       String
+  publishedAt   DateTime @default(now())
+  expiresAt     DateTime
+  downloadCount Int      @default(0)
+  transferredTo String[] @default([])
+
+  @@index([publishedAt])
+  @@index([expiresAt])
+  @@index([path])
+}
+
+model UserSyncState {
+  id              String   @id @default(cuid())
+  userId          String   @unique
+  lastSyncAt      DateTime @default(now())
+  lastSyncVersion String?
+  pendingCount    Int      @default(0)
+  syncedFileIds   String[] @default([])
+
+  @@index([userId])
+}
+
+model SystemVersion {
+  id          String   @id @default(cuid())
+  version     String   @unique
+  publishedAt DateTime @default(now())
+  publishedBy String
+  changelog   String?  @db.Text
+  fileCount   Int      @default(0)
+
+  @@index([publishedAt])
+}

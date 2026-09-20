@@ -1,0 +1,94 @@
+# === Dependencies ===
+node_modules/
+.pnp
+.pnp.js
+
+# === Next.js ===
+.next/
+out/
+build/
+dist/
+
+# === Environment (SECRETS - NE JAMAIS COMMITER) ===
+.env
+.env.local
+.env.production
+.env.development
+.env.test
+.env.*.local
+
+# === Database local data ===
+.data/
+.data11/
+.dev/
+.snapshot-reference/
+
+# === Dossiers de test locaux ===
+.test-bootstrap-db/
+.test-data/
+.test-debug-data/
+.test-sync/
+.test-*/
+.test-data-unified/
+.test-sync-data/
+
+# === Config locale repository ===
+# Répertoire runtime local (créé par resetFromData — ne pas committer)
+repository/
+repository-config.json
+
+# === Base vectorielle ChromaDB ===
+data/chromadb/
+
+# === Fichiers generes/temporaires ===
+_gen.js
+*.tmp
+temp_section.txt
+.tmp-*.ts
+build_*.txt
+tmp/
+
+# === Prisma ===
+prisma/schema.v3-backup.prisma
+
+# === Logs ===
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# === Tests ===
+coverage/
+test-results/
+playwright-report/
+.vitest/
+
+# === IDE ===
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# === OS ===
+.DS_Store
+Thumbs.db
+
+# === Build info ===
+*.tsbuildinfo
+next-env.d.ts
+
+# === Rust / Tauri ===
+target/
+src-tauri/target/
+src-tauri/gen/
+src-tauri/.fastembed_cache/
+.fastembed_cache/
+
+
+# === Scripts locaux ===
+scripts/check-*.js
+
+# === Embedded git repo (reference copy) ===
+docs/app/
+.vercel
