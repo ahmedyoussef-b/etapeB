@@ -86,7 +86,7 @@ describe('SyncService.syncFiles', () => {
     await fs.rm(testBasePath, { recursive: true, force: true });
   });
 
-  it('copie un fichier ajouté Web → Local et purge le Web', async () => {
+  it('copie un fichier ajouté Web → Local sans purger (purge découplée)', async () => {
     const webFiles = [
       { path: 'registry/items/new-file.txt', content: Buffer.from('new file content') }
     ];
@@ -96,13 +96,13 @@ describe('SyncService.syncFiles', () => {
     const result = await service.syncFiles();
     expect(result.success).toBe(true);
     expect(result.copied).toBe(1);
-    expect(result.purged).toBe(1);
+    expect(result.purged).toBe(0);
 
     const localContent = await localAdapter.read('registry/items/new-file.txt');
     expect(localContent.toString()).toBe('new file content');
   });
 
-  it('déduplique un fichier déjà présent dans le Local sans l\'écraser', async () => {
+  it('déduplique un fichier déjà présent dans le Local sans purger (purge découplée)', async () => {
     // Créer le fichier existant dans le Local
     await localAdapter.mkdir('Centrale/A0');
     await localAdapter.write('Centrale/A0/.meta.json', Buffer.from('existing local data'));
@@ -116,7 +116,7 @@ describe('SyncService.syncFiles', () => {
     const result = await service.syncFiles();
     expect(result.success).toBe(true);
     expect(result.deduplicated).toBe(1);
-    expect(result.purged).toBe(1);
+    expect(result.purged).toBe(0);
 
     // Le fichier original est déplacé vers le dossier _duplicates
     const existsOriginal = await localAdapter.exists('Centrale/A0/.meta.json');

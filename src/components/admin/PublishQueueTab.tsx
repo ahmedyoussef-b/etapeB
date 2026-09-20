@@ -7,6 +7,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { RefreshCw, FileText, CheckCircle2, AlertCircle, ArrowLeft, ArrowRight, HardDrive } from "lucide-react";
+import { SyncPurgeButton } from "./SyncPurgeButton";
 
 interface PublishItem {
   id: string;
@@ -116,16 +117,19 @@ export function PublishQueueTab({ active = true }: { active?: boolean }) {
           </Button>
         </div>
 
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={fetchData}
-          disabled={loading}
-          className="rounded-xl flex items-center gap-2"
-        >
-          <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />
-          Réactualiser
-        </Button>
+        <div className="flex items-center gap-2">
+          <SyncPurgeButton />
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={fetchData}
+            disabled={loading}
+            className="rounded-xl flex items-center gap-2"
+          >
+            <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />
+            Réactualiser
+          </Button>
+        </div>
       </div>
 
       {error && (

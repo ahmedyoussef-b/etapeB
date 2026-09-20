@@ -435,9 +435,9 @@ export class SyncService {
               });
               continue;
             }
-            await this.webAdapter.delete(webFile.path);
             const storageRoot = this.localAdapter.getBasePath();
             await updateIndexOnWebWrite(storageRoot, 'remove', { path: webFile.path });
+            // ⚠️ Purge cloud découplée : voir /api/admin/sync-purge
             result.copied++;
             result.results.push({
               success: true,
@@ -491,11 +491,10 @@ export class SyncService {
               });
               continue;
             }
-            await this.webAdapter.delete(webFile.path);
             const storageRoot = this.localAdapter.getBasePath();
             await updateIndexOnWebWrite(storageRoot, 'remove', { path: webFile.path });
 
-            // Écrire un manifest des versions
+            // ⚠️ Purge cloud découplée : voir /api/admin/sync-purge
             const manifest = {
               originalName: webFile.name,
               createdAt: new Date().toISOString(),
@@ -529,8 +528,8 @@ export class SyncService {
         }
       }
 
-      // Purger les fichiers du Web qui ont été copiés ou dédupliqués
-      result.purged = result.copied + result.deduplicated;
+      // ⚠️ Purge cloud découplée : la purge est maintenant une action admin séparée
+      result.purged = 0;
 
       await this.logFileSync({
         copied: result.copied,

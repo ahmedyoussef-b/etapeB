@@ -134,7 +134,7 @@ const [resetting, setResetting] = useState(false);
 
       if (json?.success) {
         const r = json.result;
-        const summary = `Sync fichiers: ${r.copied} copié(s), ${r.deduplicated} dédupliqué(s), ${r.purged} purgé(s), ${r.errors} erreur(s) sur ${r.total} fichier(s)`;
+        const summary = `Sync fichiers: ${r.copied} copié(s), ${r.deduplicated} dédupliqué(s), ${r.errors} erreur(s) sur ${r.total} fichier(s)`;
         console.log('[SyncFiles]', summary, r);
         if (r.total === 0) {
           toast.info('Aucun fichier à synchroniser depuis le web.', 'Synchronisation des fichiers');
