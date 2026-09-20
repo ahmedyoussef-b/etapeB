@@ -5,7 +5,7 @@ import { getPrismaClient } from '@/lib/services/db';
 import * as nodePath from 'node:path';
 import { promises as fs } from 'node:fs';
 import { createHash } from 'crypto';
-import { readIndex, buildIndexFromWeb } from './sync-index';
+import { readIndex, buildIndexFromWeb, updateIndexOnWebWrite } from './sync-index';
 
 export type EntityType = 'blocks' | 'equipments' | 'groups' | 'groupEquipments' | 'procedures' | 'users' | 'teams';
 
@@ -425,6 +425,8 @@ export class SyncService {
               continue;
             }
             await this.webAdapter.delete(webFile.path);
+            const storageRoot = this.localAdapter.getBasePath();
+            await updateIndexOnWebWrite(storageRoot, 'remove', { path: webFile.path });
             result.copied++;
             result.results.push({
               success: true,
@@ -479,6 +481,8 @@ export class SyncService {
               continue;
             }
             await this.webAdapter.delete(webFile.path);
+            const storageRoot = this.localAdapter.getBasePath();
+            await updateIndexOnWebWrite(storageRoot, 'remove', { path: webFile.path });
 
             // Écrire un manifest des versions
             const manifest = {

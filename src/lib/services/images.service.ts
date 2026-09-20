@@ -1,5 +1,6 @@
 import { getPrismaClient } from './db';
 import { Prisma } from '@prisma/client';
+import { updateIndexOnWebWrite, resolveStorageRoot, sha256 } from '@/lib/services/sync/sync-index';
 
 export interface MediaItem {
   id: string;
@@ -189,6 +190,18 @@ export async function createMedia(item: Omit<MediaItem, 'id' | 'createdAt' | 'up
     data: data as any,
     select: { id: true, filename: true, path: true, mimeType: true, size: true, data: true, metadata: true, createdAt: true, updatedAt: true },
   });
+
+  const storageRoot = resolveStorageRoot();
+  await updateIndexOnWebWrite(storageRoot, 'upsert', {
+    path: row.path || '',
+    name: row.filename,
+    folder: row.path ? row.path.split('/').slice(0, -1).join('/') : '',
+    size: row.size || 0,
+    hash: sha256(Buffer.isBuffer(row.data) ? row.data : Buffer.from(row.data || '')),
+    source: 'document',
+    addedAt: new Date().toISOString(),
+  });
+
   return fromPrismaDocument(row);
 }
 
@@ -241,13 +254,33 @@ export async function updateMedia(id: string, updates: Partial<Omit<MediaItem, '
     data,
     select: { id: true, filename: true, path: true, mimeType: true, size: true, data: true, metadata: true, createdAt: true, updatedAt: true },
   });
+
+  const storageRoot = resolveStorageRoot();
+  await updateIndexOnWebWrite(storageRoot, 'upsert', {
+    path: row.path || '',
+    name: row.filename,
+    folder: row.path ? row.path.split('/').slice(0, -1).join('/') : '',
+    size: row.size || 0,
+    hash: sha256(Buffer.isBuffer(row.data) ? row.data : Buffer.from(row.data || '')),
+    source: 'document',
+    addedAt: new Date().toISOString(),
+  });
+
   return fromPrismaDocument(row);
 }
 
 export async function removeMedia(id: string): Promise<boolean> {
   const prisma = getPrismaClient();
   try {
+    const existing = await prisma.document.findFirst({
+      where: { id },
+      select: { path: true },
+    });
     const result = await prisma.document.deleteMany({ where: { id } });
+    if (existing && result.count > 0) {
+      const storageRoot = resolveStorageRoot();
+      await updateIndexOnWebWrite(storageRoot, 'remove', { path: existing.path || '' });
+    }
     return result.count > 0;
   } catch {
     return false;

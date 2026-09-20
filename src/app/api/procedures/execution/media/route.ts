@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { executeWithDatabase } from "@/lib/services/db";
 import { withAuth } from "@/lib/api/auth-guard";
 import { Prisma } from "@prisma/client";
+import { updateIndexOnWebWrite, resolveStorageRoot } from "@/lib/services/sync/sync-index";
 
 const MAX_FILE_SIZES: Record<string, number> = {
   photo: 10 * 1024 * 1024,
@@ -36,20 +37,34 @@ export const DELETE = withAuth(async (request: NextRequest) => {
             path: { startsWith: `registry/procedures/${procedureCode}/media/` },
             metadata: { path: ["stepId"], equals: stepId },
           },
-          select: { id: true },
+          select: { id: true, path: true },
         });
-        if (rows.length === 0) return { count: 0 };
-        return await prisma.document.deleteMany({ where: { id: { in: rows.map((r) => r.id) } } });
+        if (rows.length === 0) return { count: 0, _paths: [] };
+        const deleteResult = await prisma.document.deleteMany({ where: { id: { in: rows.map((r) => r.id) } } });
+        return { count: deleteResult.count, _paths: rows.map((r) => r.path) };
       }
 
       if (procedureCode) {
-        return await prisma.document.deleteMany({
+        const paths = await prisma.document.findMany({
+          where: { path: { startsWith: `registry/procedures/${procedureCode}/media/` } },
+          select: { path: true },
+        });
+        const deleteResult = await prisma.document.deleteMany({
           where: { path: { startsWith: `registry/procedures/${procedureCode}/media/` } },
         });
+        return { count: deleteResult.count, _paths: paths.map((p) => p.path) };
       }
     });
 
-    return NextResponse.json({ success: true, result });
+    const { _paths, ...rest } = (result as any) || {};
+    if ((_paths as string[])?.length > 0) {
+      const storageRoot = resolveStorageRoot();
+      for (const path of _paths as string[]) {
+        await updateIndexOnWebWrite(storageRoot, 'remove', { path });
+      }
+    }
+
+    return NextResponse.json({ success: true, result: rest || result });
   } catch (error) {
     console.error("[ProcedureMediaAPI] Delete error:", error);
     return NextResponse.json(

@@ -90,7 +90,7 @@ export class SyncIndex {
   }
 }
 
-function sha256(content: string | Buffer): string {
+export function sha256(content: string | Buffer): string {
   return createHash('sha256').update(content).digest('hex');
 }
 
@@ -138,4 +138,28 @@ export async function readIndex(storageRoot: string): Promise<SyncIndex | null> 
     console.warn('[SyncIndex] Index is stale, consider rebuilding');
   }
   return index;
+}
+
+export function resolveStorageRoot(): string {
+  return new LocalDatabaseAdapter('.data').getBasePath();
+}
+
+export async function updateIndexOnWebWrite(
+  storageRoot: string,
+  operation: 'upsert' | 'remove',
+  entry: SyncIndexEntry | { path: string },
+): Promise<void> {
+  const index = await SyncIndex.load(storageRoot);
+  if (!index) {
+    console.warn('[SyncIndex] Index absent, skipping update');
+    return;
+  }
+
+  if (operation === 'upsert') {
+    index.upsert(entry as SyncIndexEntry);
+  } else {
+    index.remove((entry as { path: string }).path);
+  }
+
+  await index.save(storageRoot);
 }

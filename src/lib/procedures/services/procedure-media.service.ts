@@ -1,5 +1,6 @@
 import { getPrismaClient } from '@/lib/services/db';
 import { Prisma } from '@prisma/client';
+import { updateIndexOnWebWrite, resolveStorageRoot, sha256 } from '@/lib/services/sync/sync-index';
 import * as nodePath from 'node:path';
 
 export interface ProcedureMediaItem {
@@ -126,6 +127,17 @@ export async function saveProcedureMedia(
     select: { id: true, filename: true, path: true, mimeType: true, size: true, data: true, metadata: true, createdAt: true, updatedAt: true },
   });
 
+  const storageRoot = resolveStorageRoot();
+  await updateIndexOnWebWrite(storageRoot, 'upsert', {
+    path: row.path || '',
+    name: row.filename,
+    folder: row.path ? row.path.split('/').slice(0, -1).join('/') : '',
+    size: row.size || 0,
+    hash: sha256(Buffer.isBuffer(row.data) ? row.data : Buffer.from(row.data || '')),
+    source: 'document',
+    addedAt: new Date().toISOString(),
+  });
+
   return fromPrismaDocument(row);
 }
 
@@ -168,6 +180,14 @@ export async function getProcedureMediaByStep(
 
 export async function deleteProcedureMedia(procedureCode: string): Promise<number> {
   const prisma = getPrismaClient();
+  const paths = await prisma.document.findMany({
+    where: {
+      path: {
+        startsWith: `registry/procedures/${procedureCode}/media/`,
+      },
+    },
+    select: { path: true },
+  });
   const result = await prisma.document.deleteMany({
     where: {
       path: {
@@ -175,6 +195,14 @@ export async function deleteProcedureMedia(procedureCode: string): Promise<numbe
       },
     },
   });
+
+  if (paths.length > 0) {
+    const storageRoot = resolveStorageRoot();
+    for (const entry of paths) {
+      await updateIndexOnWebWrite(storageRoot, 'remove', { path: entry.path || '' });
+    }
+  }
+
   return result.count;
 }
 
