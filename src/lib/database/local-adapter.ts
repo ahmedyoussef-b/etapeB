@@ -15,6 +15,10 @@ export class LocalDatabaseAdapter implements StorageAdapter {
     this.readOnly = readOnly ?? this.basePath === canonicalRef;
   }
 
+  getBasePath(): string {
+    return this.basePath;
+  }
+
   private assertWritable(path: string): void {
     if (this.readOnly) {
       throw new StorageError(

@@ -5,6 +5,7 @@ import { getPrismaClient } from '@/lib/services/db';
 import * as nodePath from 'node:path';
 import { promises as fs } from 'node:fs';
 import { createHash } from 'crypto';
+import { readIndex, buildIndexFromWeb } from './sync-index';
 
 export type EntityType = 'blocks' | 'equipments' | 'groups' | 'groupEquipments' | 'procedures' | 'users' | 'teams';
 
@@ -366,9 +367,39 @@ export class SyncService {
     };
 
     try {
-      // Scanner tous les fichiers du Web
-      const webFiles = await this.scanWebFiles(['Centrale', 'Groupes', 'bank', 'documents', 'registry', 'ressources humaines', 'data']);
-      result.total = webFiles.length;
+      const storageRoot = this.localAdapter.getBasePath();
+      const index = await readIndex(storageRoot);
+      let webFiles: { path: string; name: string; folder: string; data: Buffer }[];
+
+      if (index && !index.isStale()) {
+        console.log(`[SyncFiles] Using index (${index.totalFiles} entries, built ${index.getBuiltAt()})`);
+        webFiles = [];
+        for (const entry of index.getAll()) {
+          try {
+            const data = await this.webAdapter.read(entry.path);
+            webFiles.push({
+              path: entry.path,
+              name: entry.name,
+              folder: entry.folder,
+              data: Buffer.isBuffer(data) ? data : Buffer.from(data),
+            });
+          } catch (err) {
+            console.warn(`[SyncFiles] Failed to read indexed file: ${entry.path}`, err);
+          }
+        }
+        result.total = webFiles.length;
+      } else {
+        console.log(`[SyncFiles] Index missing or stale, falling back to scanWebFiles()`);
+        webFiles = await this.scanWebFiles(['Centrale', 'Groupes', 'bank', 'documents', 'registry', 'ressources humaines', 'data']);
+        result.total = webFiles.length;
+
+        try {
+          await buildIndexFromWeb(this.webAdapter, storageRoot);
+          console.log('[SyncFiles] Index rebuilt after fallback scan');
+        } catch (err) {
+          console.warn('[SyncFiles] Failed to rebuild index after fallback:', err);
+        }
+      }
 
       for (const webFile of webFiles) {
         try {
