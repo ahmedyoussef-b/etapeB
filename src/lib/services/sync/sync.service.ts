@@ -5,7 +5,7 @@ import { getPrismaClient } from '@/lib/services/db';
 import * as nodePath from 'node:path';
 import { promises as fs } from 'node:fs';
 import { createHash } from 'crypto';
-import { readIndex, buildIndexFromWeb, updateIndexOnWebWrite } from './sync-index';
+import { readIndex, buildIndexFromWeb, updateIndexOnWebWrite, verifyAndRebuildIfNeeded, getLastVerifyTimestamp } from './sync-index';
 
 export type EntityType = 'blocks' | 'equipments' | 'groups' | 'groupEquipments' | 'procedures' | 'users' | 'teams';
 
@@ -368,6 +368,17 @@ export class SyncService {
 
     try {
       const storageRoot = this.localAdapter.getBasePath();
+
+      const lastVerify = await getLastVerifyTimestamp(storageRoot);
+      const shouldVerify = Date.now() - lastVerify > 24 * 60 * 60 * 1000;
+      if (shouldVerify) {
+        console.log('[SyncFiles] Running daily integrity check...');
+        const integrityResult = await verifyAndRebuildIfNeeded(this.webAdapter, storageRoot);
+        if (integrityResult.rebuilt) {
+          console.log('[SyncFiles] Index rebuilt after integrity check');
+        }
+      }
+
       const index = await readIndex(storageRoot);
       let webFiles: { path: string; name: string; folder: string; data: Buffer }[];
 

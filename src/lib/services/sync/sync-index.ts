@@ -20,9 +20,25 @@ export interface SyncIndexData {
   entries: SyncIndexEntry[];
 }
 
+export interface IntegrityReport {
+  inSync: boolean;
+  indexCount: number;
+  webCount: number;
+  missingFromIndex: string[];
+  extraInIndex: string[];
+  driftRatio: number;
+  builtAt: string;
+}
+
+interface SyncIndexMeta {
+  lastVerifiedAt: string;
+}
+
 const INDEX_VERSION = 1;
 const INDEX_PATH = 'system/sync-index.json';
 const INDEX_MAX_AGE_MS = 24 * 60 * 60 * 1000;
+const INDEX_META_PATH = 'system/sync-index-meta.json';
+const DRIFT_THRESHOLD = 0.05;
 
 export class SyncIndex {
   private data: SyncIndexData;
@@ -129,6 +145,7 @@ export async function buildIndexFromWeb(
 
   const index = new SyncIndex(data);
   await index.save(storageRoot);
+  await setLastVerifyTimestamp(storageRoot, Date.now());
   return index;
 }
 
@@ -163,3 +180,101 @@ export async function updateIndexOnWebWrite(
 
   await index.save(storageRoot);
 }
+
+const SCAN_PATHS = [
+  'Centrale',
+  'Groupes',
+  'bank',
+  'documents',
+  'registry',
+  'ressources humaines',
+  'data',
+];
+
+export async function verifyIndexIntegrity(
+  webAdapter: WebDatabaseAdapter,
+  storageRoot: string,
+): Promise<IntegrityReport> {
+  const index = await SyncIndex.load(storageRoot);
+  if (!index) {
+    return {
+      inSync: false,
+      indexCount: 0,
+      webCount: 0,
+      missingFromIndex: [],
+      extraInIndex: [],
+      driftRatio: 1,
+      builtAt: '',
+    };
+  }
+
+  const localAdapter = new LocalDatabaseAdapter(storageRoot);
+  const syncService = new SyncService(localAdapter, webAdapter);
+  const webFiles = await syncService.scanWebFiles(SCAN_PATHS);
+
+  const indexPaths = new Set(index.getAll().map(e => e.path));
+  const webPaths = new Set(webFiles.map(f => f.path));
+
+  const missingFromIndex = Array.from(webPaths).filter(p => !indexPaths.has(p));
+  const extraInIndex = Array.from(indexPaths).filter(p => !webPaths.has(p));
+
+  const driftRatio =
+    (missingFromIndex.length + extraInIndex.length) /
+    Math.max(indexPaths.size, webPaths.size, 1);
+
+  return {
+    inSync: driftRatio < 0.01,
+    indexCount: indexPaths.size,
+    webCount: webPaths.size,
+    missingFromIndex,
+    extraInIndex,
+    driftRatio,
+    builtAt: index.getBuiltAt(),
+  };
+}
+
+export async function verifyAndRebuildIfNeeded(
+  webAdapter: WebDatabaseAdapter,
+  storageRoot: string,
+): Promise<{ rebuilt: boolean; report: IntegrityReport }> {
+  const report = await verifyIndexIntegrity(webAdapter, storageRoot);
+
+  if (report.driftRatio > DRIFT_THRESHOLD) {
+    console.warn(
+      `[SyncIndex] Drift detected (${(report.driftRatio * 100).toFixed(1)}%), rebuilding...`,
+    );
+    await buildIndexFromWeb(webAdapter, storageRoot);
+    await setLastVerifyTimestamp(storageRoot, Date.now());
+    return { rebuilt: true, report };
+  }
+
+  await setLastVerifyTimestamp(storageRoot, Date.now());
+  return { rebuilt: false, report };
+}
+
+async function getMeta(storageRoot: string): Promise<SyncIndexMeta | null> {
+  try {
+    const adapter = new LocalDatabaseAdapter(storageRoot);
+    return await adapter.readJSON<SyncIndexMeta>(INDEX_META_PATH);
+  } catch {
+    return null;
+  }
+}
+
+async function setMeta(storageRoot: string, meta: SyncIndexMeta): Promise<void> {
+  const adapter = new LocalDatabaseAdapter(storageRoot);
+  await adapter.mkdir('system');
+  await adapter.writeJSON(INDEX_META_PATH, meta);
+}
+
+export async function getLastVerifyTimestamp(storageRoot: string): Promise<number> {
+  const meta = await getMeta(storageRoot);
+  return meta ? new Date(meta.lastVerifiedAt).getTime() : 0;
+}
+
+export async function setLastVerifyTimestamp(storageRoot: string, timestamp: number): Promise<void> {
+  await setMeta(storageRoot, { lastVerifiedAt: new Date(timestamp).toISOString() });
+}
+
+// TODO: admin endpoint `/api/admin/sync-index` (GET=verify, POST=rebuild)
+// Requires authOptions + WebDatabaseAdapter creation from env.
