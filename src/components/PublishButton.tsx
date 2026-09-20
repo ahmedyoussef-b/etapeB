@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { listen } from '@tauri-apps/api/event';
 import { invoke } from '@tauri-apps/api/core';
 import { publishToCloud, PublishFile } from '@/services/publisher';
@@ -29,6 +29,7 @@ export function PublishButton() {
   const [status, setStatus] = useState<Status>('idle');
   const [pendingFiles, setPendingFiles] = useState<string[]>([]);
   const [message, setMessage] = useState('');
+  const isWatcherRunningRef = useRef(false);
 
   useEffect(() => {
     // Écouter les changements de fichiers
@@ -40,6 +41,15 @@ export function PublishButton() {
 
     return () => {
       unlisten.then((fn) => fn());
+    };
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      if (isWatcherRunningRef.current) {
+        invoke('stop_file_watcher')
+          .catch((err) => console.error('[PublishButton] stop_file_watcher failed:', err));
+      }
     };
   }, []);
 
@@ -100,6 +110,7 @@ export function PublishButton() {
       .then(() => {
         setStatus('idle');
         setMessage('Watcher démarré');
+        isWatcherRunningRef.current = true;
       })
       .catch((error) => {
         setStatus('error');

@@ -46,8 +46,12 @@ fn stop_file_watcher(app: tauri::AppHandle) -> Result<(), String> {
     watcher::stop_watching(&app)
 }
 
-#[tauri::command]
-fn get_resource_path(app: tauri::AppHandle) -> Result<String, String> {
+   /// NOTE: actuellement inutilisée côté frontend.
+   /// Utilitaire pour accéder au `.data/` embarqué (read-only) en production packagée.
+   /// Le frontend utilise `get_user_data_path` (working copy) + chemin `.data/` relatif.
+   /// À conserver pour de futurs usages (lecture de ressources embarquées).
+   #[tauri::command]
+   fn get_resource_path(app: tauri::AppHandle) -> Result<String, String> {
     // Retourne le chemin absolu du .data/ embarqué comme resource Tauri.
     // En production packagée, il faut utiliser l'API Tauri (app.path().resource_dir())
     // et NON std::env::current_dir() qui ne pointe pas vers les resources.
