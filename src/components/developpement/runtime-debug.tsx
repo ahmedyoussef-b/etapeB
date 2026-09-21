@@ -10,22 +10,19 @@ export function RuntimeDebug() {
   const pathname = usePathname();
   const tauri = isTauriEnv();
   const [mounted, setMounted] = useState(false);
+  const [showDebug, setShowDebug] = useState(false);
 
   useEffect(() => {
     setMounted(true);
+    const isDevMode =
+      typeof window !== "undefined" &&
+      !isTauriEnv() &&
+      (window.location.hostname === "localhost" ||
+        window.location.hostname === "127.0.0.1");
+    setShowDebug(Boolean(isDevMode));
   }, []);
 
-  if (!mounted || process.env.NODE_ENV === "production") {
-    return null;
-  }
-
-  const isDevMode =
-    typeof window !== "undefined" &&
-    !isTauriEnv() &&
-    (window.location.hostname === "localhost" ||
-      window.location.hostname === "127.0.0.1");
-
-  if (!isDevMode) {
+  if (!mounted || !showDebug) {
     return null;
   }
 
