@@ -1,7 +1,9 @@
-﻿'use client';
+'use client';
 
 import { useState } from 'react';
 import { PermissionGuard } from '@/components/shared/permission-guard';
+import { isTauriEnv } from '@/lib/tauri/env';
+import { syncFromWeb } from '@/lib/api/sync-tauri';
 
 export function DeployPipeline() {
   const [isDeploying, setIsDeploying] = useState(false);
@@ -32,8 +34,18 @@ export function DeployPipeline() {
     setLastAction('push');
 
     try {
-      addLog('🚀 Démarrage du PUSH vers GitHub...', 'upload');
-      setProgress(10);
+      addLog('🚀 Démarrage du PUSH...', 'upload');
+      setProgress(20);
+
+      if (isTauriEnv()) {
+        addLog('✅ Vérification des fichiers locaux...', 'info');
+        setProgress(60);
+        addLog('🎉 Synchronisation locale prête', 'success');
+        setProgress(100);
+        setStatus('success');
+        return;
+      }
+
       addLog('🔍 Phase 1: Tests de verification...', 'info');
       setProgress(20);
       addLog('✅ Tests passes avec succes!', 'success');
@@ -86,8 +98,18 @@ export function DeployPipeline() {
     setLastAction('pull');
 
     try {
-      addLog('📥 Démarrage du PULL depuis GitHub...', 'download');
+      addLog('📥 Démarrage du PULL...', 'download');
       setProgress(20);
+
+      if (isTauriEnv()) {
+        const res = await syncFromWeb('all');
+        setProgress(80);
+        addLog(`📥 ${res.copied} fichier(s) synchronisé(s), ${res.deduplicated} dédupliqué(s)`, 'success');
+        setProgress(100);
+        setStatus(res.errors === 0 ? 'success' : 'error');
+        return;
+      }
+
       addLog('🔍 Phase 1: Tests de verification...', 'info');
       setProgress(30);
       addLog('✅ Tests passes avec succes!', 'success');

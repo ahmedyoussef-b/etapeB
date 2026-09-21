@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
+import { isTauriEnv } from "@/lib/tauri/env";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -117,22 +118,26 @@ export default function ImagesPage() {
       setItems(allItems);
 
       let cats: string[] = ["Tous"];
-      try {
-        const res = await fetch('/api/structure/categories/tree?source=web', { cache: 'no-store' });
-        const json = await res.json();
-        if (json.success && json.tree) {
-          setCategoryTree(json.tree);
-          if (json.categories && json.categories.length > 0) {
-            cats = ['Tous', ...json.categories];
+      if (isTauriEnv()) {
+        cats = await imageService.getCategories();
+      } else {
+        try {
+          const res = await fetch('/api/structure/categories/tree?source=web', { cache: 'no-store' });
+          const json = await res.json();
+          if (json.success && json.tree) {
+            setCategoryTree(json.tree);
+            if (json.categories && json.categories.length > 0) {
+              cats = ['Tous', ...json.categories];
+            } else {
+              cats = ['Tous', ...json.tree.map((t: TreeNode) => t.name)];
+            }
           } else {
-            cats = ['Tous', ...json.tree.map((t: TreeNode) => t.name)];
+            throw new Error(json.error || 'API categories indisponible');
           }
-        } else {
-          throw new Error(json.error || 'API categories indisponible');
+        } catch {
+          const fallback = await imageService.getCategories();
+          cats = fallback;
         }
-      } catch {
-        const fallback = await imageService.getCategories();
-        cats = fallback;
       }
       setCategories(cats);
     } catch {

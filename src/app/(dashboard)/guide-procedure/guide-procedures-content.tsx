@@ -28,6 +28,8 @@ import { EmptyState } from "@/components/shared/empty-state";
 import { ProcedureCard } from "@/components/procedures/ProcedureCard";
 import { ProcedureListRow } from "@/components/procedures/ProcedureListRow";
 import { PermissionGuard } from "@/components/shared/permission-guard";
+import { isTauriEnv } from "@/lib/tauri/env";
+import { saveProcedure } from "@/lib/procedures/services/procedure-manager.service";
 
 import {
   getProcedures,
@@ -282,6 +284,12 @@ export function GuideProceduresContent() {
                   title: `${procedure.metadata.title} (copie)`,
                 };
                 try {
+                  if (isTauriEnv()) {
+                    saveProcedure(copy);
+                    toast.success(`Procédure dupliquée: ${copy.metadata.title}`);
+                    await loadProcedures();
+                    return;
+                  }
                   const response = await fetch("/api/procedures/library/import", {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },

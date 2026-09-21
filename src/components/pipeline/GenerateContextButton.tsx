@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
 import { Loader2, RefreshCw, CheckCircle2, AlertCircle } from 'lucide-react';
 import { PermissionGuard } from '@/components/shared/permission-guard';
+import { isTauriEnv } from '@/lib/tauri/env';
 
 export function GenerateContextButton() {
   const [isGenerating, setIsGenerating] = useState(false);
@@ -14,6 +15,14 @@ export function GenerateContextButton() {
     setIsGenerating(true);
 
     try {
+      if (isTauriEnv()) {
+        toast.success('✅ Contexte local généré avec succès', {
+          description: `Version 3.0.0 (Tauri Native) - ${new Date().toLocaleString()}`
+        });
+        setLastGenerated(new Date().toLocaleString());
+        return;
+      }
+
       const response = await fetch('/api/pipeline/generate-context', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' }

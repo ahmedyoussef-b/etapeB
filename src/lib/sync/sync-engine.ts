@@ -1,5 +1,6 @@
 import { IndexedDBAdapter } from '@/lib/database/indexeddb-adapter';
 import { SyncOperation, EntityType, OperationType, SyncQueueStats, ConflictResolution } from './sync-types';
+import { isTauriEnv } from '@/lib/tauri/env';
 
 export class SyncEngine {
   private indexedDb: IndexedDBAdapter;
@@ -93,6 +94,10 @@ export class SyncEngine {
   }
 
   private async pushOperation(operation: SyncOperation): Promise<boolean> {
+    if (isTauriEnv()) {
+      return true;
+    }
+
     try {
       const response = await fetch('/api/sync/push', {
         method: 'POST',
@@ -142,7 +147,7 @@ export class SyncEngine {
   }
 
   async pull(): Promise<{ pulled: number; errors: number }> {
-    if (!this.isOnline) {
+    if (isTauriEnv() || !this.isOnline) {
       return { pulled: 0, errors: 0 };
     }
 

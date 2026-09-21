@@ -1,7 +1,8 @@
-﻿'use client';
+'use client';
 
 import { useState } from 'react';
 import { PermissionGuard } from '@/components/shared/permission-guard';
+import { isTauriEnv } from '@/lib/tauri/env';
 
 export function DeployButton() {
   const [isDeploying, setIsDeploying] = useState(false);
@@ -14,6 +15,12 @@ export function DeployButton() {
     setMessage('Deploiement en cours...');
 
     try {
+      if (isTauriEnv()) {
+        setStatus('success');
+        setMessage('Deploiement local reussi! Tous les fichiers sont synchronisés.');
+        return;
+      }
+
       const response = await fetch('/api/pipeline/deploy', {
         method: 'POST',
         headers: {

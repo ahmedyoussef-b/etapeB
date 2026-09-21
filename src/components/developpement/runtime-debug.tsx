@@ -21,8 +21,9 @@ export function RuntimeDebug() {
 
   const isDevMode =
     typeof window !== "undefined" &&
-    window.location.protocol !== "tauri:" &&
-    (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1");
+    !isTauriEnv() &&
+    (window.location.hostname === "localhost" ||
+      window.location.hostname === "127.0.0.1");
 
   if (!isDevMode) {
     return null;

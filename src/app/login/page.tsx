@@ -10,6 +10,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Label } from "@/components/ui/label";
 import { NexaFlowLogo } from "@/components/brand/nexaflow-logo";
 import { Mail, Lock, Eye, EyeOff, ArrowRight, Shield, Loader2 } from "lucide-react";
+import { isTauriEnv } from "@/lib/tauri/env";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -22,7 +23,7 @@ export default function LoginPage() {
   const [registrationStatus, setRegistrationStatus] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!email) {
+    if (!email || isTauriEnv()) {
       setRegistrationStatus(null);
       return;
     }

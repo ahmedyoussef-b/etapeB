@@ -139,8 +139,10 @@ export function useAiChat(options?: UseAiChatOptions) {
       }
       abortControllerRef.current = new AbortController();
 
-      stopTauriRef.current?.();
-      stopTauriRef.current = null;
+      if (isTauriEnv()) {
+        await sendViaTauriRag(trimmed);
+        return;
+      }
 
       try {
         const response = await fetch("/api/ai/chat", {

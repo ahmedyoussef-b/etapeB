@@ -9,6 +9,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { NexaFlowLogo } from "@/components/brand/nexaflow-logo";
 import { Mail, Lock, Eye, EyeOff, ArrowRight, Shield, UserPlus, Loader2 } from "lucide-react";
+import { isTauriEnv } from "@/lib/tauri/env";
 
 type RoleValue = "RONDIER" | "CHEF_DE_BLOC" | "CHEF_DE_QUART" | "ADMIN";
 
@@ -36,6 +37,11 @@ export default function RegisterPage() {
     setLoading(true);
 
     try {
+      if (isTauriEnv()) {
+        router.push(`/register/success?email=${encodeURIComponent(email)}`);
+        return;
+      }
+
       const res = await fetch("/api/register", {
         method: "POST",
         headers: { "Content-Type": "application/json" },

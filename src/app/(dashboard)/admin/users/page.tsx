@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useAuth } from "@/lib/auth/use-auth";
 import { usePermissions } from "@/lib/hooks/usePermissions";
 import { useToastHelpers } from "@/components/notifications/toast-provider";
+import { isTauriEnv } from "@/lib/tauri/env";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -105,6 +106,29 @@ export default function AdminUsersPage() {
 
   const loadData = async () => {
     try {
+      if (isTauriEnv()) {
+        setStats({
+          totalUsers: 1,
+          activeUsers: 1,
+          pendingRequests: 0,
+          rejectedRequests: 0,
+          usersByRole: { ADMIN: 1 },
+          recentActivity: [],
+        } as any);
+        setRecentUsers([
+          {
+            id: "local-admin",
+            name: "Administrateur Local",
+            email: "admin@nexaflow.local",
+            role: "ADMIN",
+            isActive: true,
+            createdAt: new Date().toISOString(),
+          } as any,
+        ]);
+        setPendingRequests([]);
+        return;
+      }
+
       const res = await fetch("/api/admin/users/stats", { cache: "no-store" });
       const data = await res.json();
 

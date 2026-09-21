@@ -3,6 +3,8 @@
 import { useState, useRef, useCallback } from 'react';
 import { Upload, X, Loader2, CheckCircle, AlertCircle, AlertTriangle } from 'lucide-react';
 import { useToastHelpers } from '@/components/notifications/toast-provider';
+import { invoke } from '@tauri-apps/api/core';
+import { isTauriEnv } from '@/lib/tauri/env';
 
 export interface UploadResult {
   success: boolean;
@@ -82,30 +84,40 @@ export function FileUploadButton({
         const buffer = await file.arrayBuffer();
         const base64 = toBase64(buffer);
 
-        const response = await fetch('/api/upload', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            file: { name: file.name, type: file.type, size: file.size, base64 },
-            targetPath,
-            source,
-            repository
-          })
-        });
-
-        const data = await response.json();
+        let data: any;
+        if (isTauriEnv()) {
+          const res = await invoke<any>('upload_file', {
+            fileName: file.name,
+            destinationPath: targetPath || null,
+            base64Data: base64,
+            repository: repository || null,
+          });
+          data = res;
+        } else {
+          const response = await fetch('/api/upload', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              file: { name: file.name, type: file.type, size: file.size, base64 },
+              targetPath,
+              source,
+              repository
+            })
+          });
+          data = await response.json();
+        }
 
         if (data.success) {
           uploadResults.push({
             success: true, file: file.name, path: targetPath,
             action: data.action || 'uploaded',
             message: data.message || 'OK',
-            targetPath: data.path
+            targetPath: data.filePath || data.path
           });
         } else {
           uploadResults.push({
             success: false, file: file.name, path: targetPath, action: 'error',
-            message: data.error || 'Erreur upload'
+            message: data.error || data.message || 'Erreur upload'
           });
         }
       } catch (err) {

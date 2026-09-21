@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { GitCommit, RefreshCw, Layers, Calendar, User, FileText } from "lucide-react";
 import { isTauriEnv } from "@/lib/tauri/env";
+import { getSystemVersionsUnified } from "@/lib/api/safe-fetch";
 
 interface VersionItem {
   id: string;
@@ -24,16 +25,25 @@ export function VersionsTab({ active = true }: { active?: boolean }) {
   const [error, setError] = useState<string | null>(null);
 
   const fetchData = useCallback(async () => {
-    if (isTauriEnv() && process.env.NODE_ENV === "production") {
-      setVersions([]);
-      setLoading(false);
-      setError(null);
-      return;
-    }
-
     try {
       setLoading(true);
       setError(null);
+
+      if (isTauriEnv()) {
+        const versionsData = await getSystemVersionsUnified();
+        setVersions(
+          (versionsData || []).map((v: any, idx: number) => ({
+            id: `v-${idx}`,
+            version: v.version || "v1.0",
+            publishedAt: v.updatedAt || new Date().toISOString(),
+            publishedBy: v.name || "Système local",
+            changelog: `Composant: ${v.name} (${v.status})`,
+            fileCount: 0,
+          }))
+        );
+        return;
+      }
+
       const res = await fetch("/api/admin/system-versions");
       if (!res.ok) {
         throw new Error(`Erreur ${res.status}: ${res.statusText}`);

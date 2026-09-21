@@ -9,6 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { RefreshCw, FileText, CheckCircle2, AlertCircle, ArrowLeft, ArrowRight, HardDrive } from "lucide-react";
 import { SyncPurgeButton } from "./SyncPurgeButton";
 import { isTauriEnv } from "@/lib/tauri/env";
+import { getPublishQueueUnified } from "@/lib/api/safe-fetch";
 
 interface PublishItem {
   id: string;
@@ -56,18 +57,18 @@ export function PublishQueueTab({ active = true }: { active?: boolean }) {
   const [error, setError] = useState<string | null>(null);
 
   const fetchData = useCallback(async () => {
-    if (isTauriEnv() && process.env.NODE_ENV === "production") {
-      setItems([]);
-      setTotalPages(1);
-      setStats({ totalAll: 0, totalPending: 0, totalExpired: 0 });
-      setLoading(false);
-      setError(null);
-      return;
-    }
-
     try {
       setLoading(true);
       setError(null);
+
+      if (isTauriEnv()) {
+        const res = await getPublishQueueUnified(page, 20, filter);
+        setItems(res?.items || []);
+        setTotalPages(1);
+        setStats({ totalAll: res?.total || 0, totalPending: 0, totalExpired: 0 });
+        return;
+      }
+
       const res = await fetch(`/api/admin/publish-queue?page=${page}&limit=20&filter=${filter}`);
       if (!res.ok) {
         throw new Error(`Erreur ${res.status}: ${res.statusText}`);

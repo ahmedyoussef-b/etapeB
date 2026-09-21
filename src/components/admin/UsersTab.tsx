@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Users, RefreshCw, Activity, ArrowDownCircle, CheckCircle2, Clock, ShieldCheck } from "lucide-react";
 import { isTauriEnv } from "@/lib/tauri/env";
+import { getSyncStatsUnified } from "@/lib/api/safe-fetch";
 
 interface UserSyncInfo {
   userId: string;
@@ -49,26 +50,34 @@ export function UsersTab({ active = true }: { active?: boolean }) {
   const [error, setError] = useState<string | null>(null);
 
   const fetchData = useCallback(async () => {
-    if (isTauriEnv() && process.env.NODE_ENV === "production") {
-      setUsers([]);
-      setGlobalStats({
-        totalUsers: 0,
-        totalPublishedFiles: 0,
-        totalSyncedFiles: 0,
-        totalPendingFiles: 0,
-        totalExpiredFiles: 0,
-        activeUsers24h: 0,
-        activeUsers7d: 0,
-      });
-      setRecentActivity([]);
-      setLoading(false);
-      setError(null);
-      return;
-    }
-
     try {
       setLoading(true);
       setError(null);
+
+      if (isTauriEnv()) {
+        const stats = await getSyncStatsUnified();
+        setUsers([
+          {
+            userId: "admin-local",
+            lastSyncAt: stats?.lastSync || new Date().toISOString(),
+            lastSyncVersion: "v1.0.0",
+            pendingCount: stats?.pendingSync || 0,
+            syncedFilesCount: stats?.totalRecords || 0,
+          },
+        ]);
+        setGlobalStats({
+          totalUsers: 1,
+          totalPublishedFiles: stats?.totalRecords || 0,
+          totalSyncedFiles: stats?.totalRecords || 0,
+          totalPendingFiles: stats?.pendingSync || 0,
+          totalExpiredFiles: 0,
+          activeUsers24h: 1,
+          activeUsers7d: 1,
+        });
+        setRecentActivity([]);
+        return;
+      }
+
       const res = await fetch("/api/admin/sync-stats");
       if (!res.ok) {
         throw new Error(`Erreur ${res.status}: ${res.statusText}`);

@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useAuth } from "@/lib/auth/use-auth";
 import { DashboardSidebar } from "@/components/dashboard/sidebar";
 import { DashboardTopNav } from "@/components/dashboard/top-nav";
+import { isTauriEnv } from "@/lib/tauri/env";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -85,6 +86,11 @@ export default function AdminRegistrationsPage() {
 
   const loadRequests = async () => {
     try {
+      if (isTauriEnv()) {
+        setRequests([]);
+        return;
+      }
+
       const res = await fetch("/api/admin/registration-requests");
       const data = await res.json();
 

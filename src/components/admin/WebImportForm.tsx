@@ -3,6 +3,8 @@
 import { AlertCircle, CheckCircle, CloudDownload, FileJson, Loader2 } from 'lucide-react';
 import { useCallback, useState } from 'react';
 import { PermissionGuard } from '@/components/shared/permission-guard';
+import { isTauriEnv } from '@/lib/tauri/env';
+import { saveProcedure } from '@/lib/procedures/services/procedure-manager.service';
 
 interface ImportResultItem {
   id: string;
@@ -113,6 +115,38 @@ export function WebImportForm() {
 
     try {
       const procedures = await fetchWebData(sourceUrl, apiKey);
+
+      if (isTauriEnv()) {
+        let imported = 0;
+        const results: ImportResultItem[] = [];
+        for (const p of (procedures as any[])) {
+          try {
+            saveProcedure(p);
+            imported++;
+            results.push({
+              id: p.metadata?.code || p.id || `proc-${imported}`,
+              title: p.metadata?.title || p.title || 'Procédure',
+              status: 'success',
+              message: 'Importé avec succès dans le stockage local',
+            });
+          } catch (e: any) {
+            results.push({
+              id: p.metadata?.code || p.id || `proc-${imported}`,
+              title: p.metadata?.title || p.title || 'Procédure',
+              status: 'error',
+              message: e.message || 'Erreur validation',
+            });
+          }
+        }
+        setResult({
+          success: true,
+          imported,
+          failed: results.filter(r => r.status === 'error').length,
+          warnings: 0,
+          results,
+        });
+        return;
+      }
 
       const response = await fetch('/api/admin/import/web', {
         method: 'POST',

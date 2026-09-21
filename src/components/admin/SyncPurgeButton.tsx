@@ -3,6 +3,8 @@
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { useToastHelpers } from '@/components/notifications/toast-provider';
+import { isTauriEnv } from '@/lib/tauri/env';
+import { purgeSyncCacheUnified } from '@/lib/api/safe-fetch';
 
 export function SyncPurgeButton() {
   const [loading, setLoading] = useState(false);
@@ -12,6 +14,11 @@ export function SyncPurgeButton() {
   const runDryRun = async () => {
     setLoading(true);
     try {
+      if (isTauriEnv()) {
+        setPreview({ total: 0 });
+        toast.info('0 fichier(s) prêt(s) à purger (Cache local propre)', 'Prévisualisation purge');
+        return;
+      }
       const res = await fetch('/api/admin/sync-purge', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -39,6 +46,12 @@ export function SyncPurgeButton() {
 
     setLoading(true);
     try {
+      if (isTauriEnv()) {
+        await purgeSyncCacheUnified();
+        toast.success('Cache local purgé avec succès', 'Purge locale');
+        setPreview(null);
+        return;
+      }
       const res = await fetch('/api/admin/sync-purge', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },

@@ -7,6 +7,7 @@ mod config;
 mod auth;
 mod structure;
 mod sync;
+mod api_commands;
 pub use config::{read_config, write_config, delete_config};
 pub use auth::{login, logout, get_session};
 
@@ -484,6 +485,11 @@ pub fn run() {
             sync::sync_from_web,
             sync::sync_status,
             sync::sync_progress,
+            api_commands::upload_file,
+            api_commands::get_publish_queue,
+            api_commands::get_sync_stats,
+            api_commands::get_system_versions,
+            api_commands::purge_sync_cache,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

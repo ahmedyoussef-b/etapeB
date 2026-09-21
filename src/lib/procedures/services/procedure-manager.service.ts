@@ -1,4 +1,5 @@
 import { ProcedureSchema, TProcedure, TStep } from "@/lib/procedures/services/validator.service";
+import { isTauriEnv } from "@/lib/tauri/env";
 
 const STORAGE_KEY = "nexaflow_procedures";
 
@@ -52,6 +53,9 @@ export function replaceProcedures(procedures: TProcedure[]): void {
 
 export async function syncFromServer(): Promise<TProcedure | null> {
   if (typeof window === "undefined") return null;
+  if (isTauriEnv()) {
+    return cachedProcedures[cachedProcedures.length - 1] ?? null;
+  }
 
   try {
     const response = await fetch("/api/procedures/guide", {
@@ -87,6 +91,12 @@ export async function syncToServer(procedure: TProcedure): Promise<TProcedure | 
 
   try {
     const validated = ProcedureSchema.parse(procedure);
+    saveProcedure(validated);
+
+    if (isTauriEnv()) {
+      return validated;
+    }
+
     const response = await fetch("/api/procedures/guide", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -108,14 +118,18 @@ export async function saveProcedureVersion(procedure: TProcedure): Promise<TProc
 
   try {
     const validated = ProcedureSchema.parse(procedure);
+    saveProcedure(validated);
+
+    if (isTauriEnv()) {
+      return validated;
+    }
+
     const code = validated.metadata.code;
     const response = await fetch(`/api/procedures/guide/${encodeURIComponent(code)}/save`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(validated),
     });
-
-    saveProcedure(validated);
 
     if (!response.ok) {
       const errData = await response.json().catch(() => ({}));
@@ -131,6 +145,11 @@ export async function saveProcedureVersion(procedure: TProcedure): Promise<TProc
 
 export async function getProcedureVersions(code: string): Promise<TProcedure[] | null> {
   if (typeof window === "undefined") return null;
+
+  if (isTauriEnv()) {
+    const proc = getProcedureById(code);
+    return proc ? [proc] : [];
+  }
 
   try {
     const response = await fetch(`/api/procedures/guide/${code}/versions`, {
@@ -149,6 +168,10 @@ export async function getProcedureVersions(code: string): Promise<TProcedure[] |
 
 export async function getProcedureVersion(code: string, version: number): Promise<TProcedure | null> {
   if (typeof window === "undefined") return null;
+
+  if (isTauriEnv()) {
+    return getProcedureById(code);
+  }
 
   try {
     const response = await fetch(`/api/procedures/guide/${code}/version/${version}`, {

@@ -2,6 +2,8 @@
 
 import { useState, useCallback, useRef } from 'react';
 import { Upload, File, X, Loader2, CheckCircle, AlertCircle, FileJson, FileSpreadsheet, FileText } from 'lucide-react';
+import { uploadFileUnified } from '@/lib/api/safe-fetch';
+import { isTauriEnv } from '@/lib/tauri/env';
 
 interface UploadResult {
   imported: number;
@@ -70,6 +72,39 @@ export function FileUploadZone() {
     setResult(null);
 
     try {
+      if (isTauriEnv()) {
+        const details = [];
+        let imported = 0;
+        let failed = 0;
+        for (const file of files) {
+          try {
+            await uploadFileUnified(file, 'uploads');
+            imported++;
+            details.push({
+              title: file.name,
+              status: 'success' as const,
+              message: 'Fichier sauvegardé localement',
+            });
+          } catch (e: any) {
+            failed++;
+            details.push({
+              title: file.name,
+              status: 'error' as const,
+              message: e.message || 'Erreur upload',
+            });
+          }
+        }
+        setResult({
+          imported,
+          failed,
+          warnings: 0,
+          total: files.length,
+          details,
+        });
+        setFiles([]);
+        return;
+      }
+
       const formData = new FormData();
       files.forEach(file => formData.append('file', file));
       formData.append('category', category);

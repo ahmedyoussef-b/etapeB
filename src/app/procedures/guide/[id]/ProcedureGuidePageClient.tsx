@@ -7,6 +7,7 @@ import { TProcedure } from "@/lib/procedures/services/validator.service";
 import { getProcedureById } from "@/lib/procedures/services/procedure-manager.service";
 import { ProcedureGuide } from "@/components/procedures/execution/ProcedureGuide";
 import { AlertTriangle, FileText } from "lucide-react";
+import { isTauriEnv } from "@/lib/tauri/env";
 
 interface ProcedureGuidePageClientProps {
   id: string;
@@ -21,6 +22,15 @@ export function ProcedureGuidePageClient({ id }: ProcedureGuidePageClientProps) 
     setIsLoading(true);
     setError(null);
     try {
+      if (isTauriEnv()) {
+        const local = getProcedureById(id);
+        if (local) {
+          setProcedure(local);
+          return;
+        }
+        throw new Error("Procédure introuvable.");
+      }
+
       const res = await fetch(`/api/procedures/guide/${encodeURIComponent(id)}`);
       if (res.ok) {
         const data = (await res.json()) as TProcedure;

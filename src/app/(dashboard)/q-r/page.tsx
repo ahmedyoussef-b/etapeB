@@ -6,6 +6,8 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { useSpeech } from "@/lib/speech/use-speech";
 import { Pencil, Trash2, Loader2, CheckCircle2, AlertCircle, Database, Server, Mic, MicOff, Volume2 } from "lucide-react";
+import { invoke } from "@tauri-apps/api/core";
+import { isTauriEnv } from "@/lib/tauri/env";
 
 interface QAItem {
   question: string;
@@ -136,6 +138,23 @@ export default function QAPage() {
     try {
       const rawName = (customFilename || filenameRef.current || 'qa_export.json').trim() || 'qa_export.json';
       const name = rawName.endsWith('.json') ? rawName : `${rawName}.json`;
+
+      if (isTauriEnv()) {
+        try {
+          const userPath = await invoke<string>('get_user_data_path');
+          const fullPath = `${userPath}/repository/registry/items/${name}`;
+          const res = await invoke<any>('read_file_content', { path: fullPath }).catch(() => null);
+          if (res && res.textContent) {
+            const parsed = JSON.parse(res.textContent);
+            if (Array.isArray(parsed)) {
+              setHistoryItems(parsed);
+            }
+          }
+        } catch {}
+        setLoading(false);
+        return;
+      }
+
       const res = await fetch(`/api/file-content?path=registry/items/${encodeURIComponent(name)}&source=web`);
       if (!res.ok) {
         setHistoryItems([]);
@@ -174,6 +193,18 @@ export default function QAPage() {
     // Persist back to BDD with the current filename
     const currentName = (filenameRef.current || 'qa_export.json').trim() || 'qa_export.json';
     const jsonContent = JSON.stringify(updated, null, 2);
+
+    if (isTauriEnv()) {
+      (async () => {
+        try {
+          const userPath = await invoke<string>('get_user_data_path');
+          const fullPath = `${userPath}/repository/registry/items/${currentName}`;
+          await invoke('write_file_content', { path: fullPath, content: jsonContent });
+        } catch {}
+      })();
+      return;
+    }
+
     fetch('/api/q-r/upload', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -228,6 +259,22 @@ export default function QAPage() {
     setSendError(null);
 
     try {
+      if (isTauriEnv()) {
+        const userPath = await invoke<string>('get_user_data_path');
+        const fullPath = `${userPath}/repository/registry/items/${finalName}`;
+        const jsonContent = JSON.stringify(items, null, 2);
+        await invoke('write_file_content', { path: fullPath, content: jsonContent });
+        setSendResult({ success: true, message: "Enregistré avec succès dans la base locale" });
+        setItems([]);
+        setEditingIndex(null);
+        setQuestion("");
+        setAnswer("");
+        setFilename(finalName);
+        filenameRef.current = finalName;
+        await loadExistingQr(finalName);
+        return;
+      }
+
       const response = await fetch('/api/q-r/upload', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },

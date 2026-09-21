@@ -26,7 +26,7 @@ export function AlertPoller({ enabled = true }: { enabled?: boolean }) {
 
   useEffect(() => {
     if (!enabled) return;
-    if (isTauriEnv() && process.env.NODE_ENV === 'production') return;
+    if (isTauriEnv()) return;
 
     let cancelled = false;
     const fetchAlerts = async () => {
