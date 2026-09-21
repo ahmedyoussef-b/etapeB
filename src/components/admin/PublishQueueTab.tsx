@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { RefreshCw, FileText, CheckCircle2, AlertCircle, ArrowLeft, ArrowRight, HardDrive } from "lucide-react";
 import { SyncPurgeButton } from "./SyncPurgeButton";
+import { isTauriEnv } from "@/lib/tauri/env";
 
 interface PublishItem {
   id: string;
@@ -55,6 +56,15 @@ export function PublishQueueTab({ active = true }: { active?: boolean }) {
   const [error, setError] = useState<string | null>(null);
 
   const fetchData = useCallback(async () => {
+    if (isTauriEnv() && process.env.NODE_ENV === "production") {
+      setItems([]);
+      setTotalPages(1);
+      setStats({ totalAll: 0, totalPending: 0, totalExpired: 0 });
+      setLoading(false);
+      setError(null);
+      return;
+    }
+
     try {
       setLoading(true);
       setError(null);

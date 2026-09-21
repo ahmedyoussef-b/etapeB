@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import { useAuth } from "@/lib/auth/use-auth";
 import { isTauriEnv } from "@/lib/tauri/env";
 import { usePathname } from "next/navigation";
@@ -8,6 +9,15 @@ export function RuntimeDebug() {
   const { user, isAuthenticated, isLoading, status } = useAuth();
   const pathname = usePathname();
   const tauri = isTauriEnv();
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  if (!mounted || process.env.NODE_ENV === "production") {
+    return null;
+  }
 
   return (
     <div

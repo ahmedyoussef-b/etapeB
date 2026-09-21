@@ -3,6 +3,7 @@
 import { useEffect, useRef } from 'react';
 import { AlertTriangle } from 'lucide-react';
 import { useToastHelpers } from './toast-provider';
+import { isTauriEnv } from '@/lib/tauri/env';
 
 interface SyncAlert {
   id: string;
@@ -25,6 +26,7 @@ export function AlertPoller({ enabled = true }: { enabled?: boolean }) {
 
   useEffect(() => {
     if (!enabled) return;
+    if (isTauriEnv() && process.env.NODE_ENV === 'production') return;
 
     let cancelled = false;
     const fetchAlerts = async () => {

@@ -7,6 +7,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { GitCommit, RefreshCw, Layers, Calendar, User, FileText } from "lucide-react";
+import { isTauriEnv } from "@/lib/tauri/env";
 
 interface VersionItem {
   id: string;
@@ -23,6 +24,13 @@ export function VersionsTab({ active = true }: { active?: boolean }) {
   const [error, setError] = useState<string | null>(null);
 
   const fetchData = useCallback(async () => {
+    if (isTauriEnv() && process.env.NODE_ENV === "production") {
+      setVersions([]);
+      setLoading(false);
+      setError(null);
+      return;
+    }
+
     try {
       setLoading(true);
       setError(null);
