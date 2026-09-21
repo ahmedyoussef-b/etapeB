@@ -22,11 +22,17 @@ export async function fetchRepositoryInfo(): Promise<any> {
 }
 
 export async function fetchSyncStatus(): Promise<any> {
+  if (isTauriEnv()) {
+    return invoke("sync_status");
+  }
   const response = await fetch("/api/structure/sync-status");
   return response.json();
 }
 
 export async function startSync(): Promise<any> {
+  if (isTauriEnv()) {
+    return invoke("sync_from_web", { mode: "all", repository: "", force: false });
+  }
   const response = await fetch("/api/structure/sync", { method: "POST" });
   return response.json();
 }

@@ -19,6 +19,15 @@ export function RuntimeDebug() {
     return null;
   }
 
+  const isDevMode =
+    typeof window !== "undefined" &&
+    window.location.protocol !== "tauri:" &&
+    (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1");
+
+  if (!isDevMode) {
+    return null;
+  }
+
   return (
     <div
       style={{
