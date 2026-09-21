@@ -6,6 +6,7 @@ mod groq_stream;
 mod config;
 mod auth;
 mod structure;
+mod sync;
 pub use config::{read_config, write_config, delete_config};
 pub use auth::{login, logout, get_session};
 
@@ -479,6 +480,10 @@ pub fn run() {
             structure::get_structure_tree,
             structure::get_repository_info,
             structure::tree_action,
+            sync::init_app,
+            sync::sync_from_web,
+            sync::sync_status,
+            sync::sync_progress,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

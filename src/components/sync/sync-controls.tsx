@@ -4,10 +4,12 @@ import { useState, useEffect } from 'react';
 import { Cloud, CheckCircle, AlertCircle, Loader2, Database, FileUp, FolderSync, Lock } from 'lucide-react';
 import { useToastHelpers } from '@/components/notifications/toast-provider';
 import { PermissionGuard } from '@/components/shared/permission-guard';
+import { syncFromWeb, syncStatus } from '@/lib/api/sync-tauri';
+import { isTauriEnv } from '@/lib/tauri/env';
 
 type SyncMode = 'all' | 'data' | 'files';
 
-interface SyncStatus {
+interface SyncStatusInfo {
   lastSync: string | null;
   totalImported: number;
   lastSyncDuration: number;
@@ -15,7 +17,7 @@ interface SyncStatus {
 
 export function SyncControls() {
   const [isSyncing, setIsSyncing] = useState(false);
-  const [status, setStatus] = useState<SyncStatus | null>(null);
+  const [status, setStatus] = useState<SyncStatusInfo | null>(null);
   const [webAvailable, setWebAvailable] = useState<boolean | null>(null);
   const [result, setResult] = useState<any>(null);
   const [error, setError] = useState<string | null>(null);
@@ -28,6 +30,16 @@ export function SyncControls() {
 
   const fetchSyncStatus = async () => {
     try {
+      if (isTauriEnv()) {
+        const st = await syncStatus();
+        setStatus({
+          lastSync: null,
+          totalImported: st.localCount,
+          lastSyncDuration: 0,
+        });
+        setWebAvailable(true);
+        return;
+      }
       const response = await fetch('/api/sync');
       const data = await response.json();
       if (data.success) {
@@ -46,6 +58,27 @@ export function SyncControls() {
     setLastMode(mode);
 
     try {
+      if (isTauriEnv()) {
+        const res = await syncFromWeb(mode);
+        if (!res.success && res.errors > 0) {
+          setError(`${res.errors} erreur(s) lors de la synchronisation`);
+          toast.warning(`${res.errors} erreur(s) de copie`, 'Synchronisation partielle');
+        } else {
+          setResult({
+            success: true,
+            fileResult: {
+              copied: res.copied,
+              deduplicated: res.deduplicated,
+              errors: res.errors,
+              total: res.total,
+            }
+          });
+          toast.success(`${res.copied} copié(s), ${res.deduplicated} dédupliqué(s)`, 'Synchronisation fichiers OK');
+          await fetchSyncStatus();
+        }
+        return;
+      }
+
       const response = await fetch('/api/sync', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
