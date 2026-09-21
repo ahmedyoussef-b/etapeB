@@ -1,6 +1,7 @@
 use std::fs;
 use std::path::{Path, PathBuf};
 use serde_json::{json, Value};
+use tauri::{AppHandle, Manager};
 
 fn user_data_root() -> PathBuf {
     PathBuf::from(if cfg!(target_os = "windows") {
@@ -26,8 +27,24 @@ fn resolve_repository_path(repository: Option<&str>) -> PathBuf {
     }
 }
 
+fn resolve_data_path(app: &AppHandle) -> PathBuf {
+    let appdata_path = user_data_root().join(".data");
+    if appdata_path.exists() {
+        return appdata_path;
+    }
+
+    if let Ok(resource_dir) = app.path().resource_dir() {
+        let resource_path = resource_dir.join(".data");
+        if resource_path.exists() {
+            return resource_path;
+        }
+    }
+
+    appdata_path
+}
+
 #[tauri::command]
-pub fn get_structure_tree(source: String, path: Option<String>, repository: Option<String>) -> Result<Value, String> {
+pub fn get_structure_tree(app: AppHandle, source: String, path: Option<String>, repository: Option<String>) -> Result<Value, String> {
     let base = match source.as_str() {
         "local" => {
             let resolved = resolve_repository_path(repository.as_deref());
@@ -37,7 +54,7 @@ pub fn get_structure_tree(source: String, path: Option<String>, repository: Opti
                 user_data_root().join(".data")
             }
         }
-        _ => user_data_root().join(".data"),
+        _ => resolve_data_path(&app),
     };
 
     let target = if let Some(p) = path {
