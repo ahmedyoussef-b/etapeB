@@ -163,20 +163,15 @@ export function DatabaseTree({ source, onSelect, selectedPath, webAvailable = tr
     if (node.type !== 'directory') return;
 
     try {
-      const params = new URLSearchParams();
-      params.set('source', source);
-      params.set('path', node.path);
+      const data = await fetchStructureTree(source, node.path, activeRepo || undefined);
 
-      const response = await fetch(`/api/structure?${params.toString()}`, { cache: 'no-store' });
-      const data = await response.json();
-
-      if (data.success && data.data) {
+      if (data?.success && data.data) {
         updateNodeChildren(node.path, data.data);
       }
     } catch (err) {
       console.error('Erreur chargement enfants:', err);
     }
-  }, [source, updateNodeChildren]);
+  }, [source, activeRepo, updateNodeChildren]);
 
   const removeNodeFromTree = useCallback((path: string) => {
     console.log('[DatabaseTree] removeNodeFromTree', { path, source });

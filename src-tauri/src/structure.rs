@@ -12,13 +12,31 @@ fn user_data_root() -> PathBuf {
     })
 }
 
+fn resolve_repository_path(repository: Option<&str>) -> PathBuf {
+    match repository {
+        Some(r) if !r.is_empty() => {
+            let p = PathBuf::from(r);
+            if p.is_absolute() {
+                p
+            } else {
+                user_data_root().join(p)
+            }
+        }
+        _ => user_data_root().join("repository"),
+    }
+}
+
 #[tauri::command]
 pub fn get_structure_tree(source: String, path: Option<String>, repository: Option<String>) -> Result<Value, String> {
     let base = match source.as_str() {
-        "local" => repository
-            .filter(|r| !r.is_empty())
-            .map(PathBuf::from)
-            .unwrap_or_else(|| user_data_root().join(".data")),
+        "local" => {
+            let resolved = resolve_repository_path(repository.as_deref());
+            if resolved.exists() {
+                resolved
+            } else {
+                user_data_root().join(".data")
+            }
+        }
         _ => user_data_root().join(".data"),
     };
 
@@ -73,10 +91,7 @@ pub fn get_repository_info() -> Result<Value, String> {
 
 #[tauri::command]
 pub fn tree_action(action: String, path: String, _source: String, name: Option<String>, repository: Option<String>) -> Result<Value, String> {
-    let base = repository
-        .filter(|r| !r.is_empty())
-        .map(PathBuf::from)
-        .unwrap_or_else(|| user_data_root().join("repository"));
+    let base = resolve_repository_path(repository.as_deref());
 
     let target = base.join(&path);
 
