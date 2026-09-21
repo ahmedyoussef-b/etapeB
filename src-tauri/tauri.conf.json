@@ -41,7 +41,8 @@
     },
     "windows": {
       "wix": {
-        "language": "fr-FR"
+        "language": "fr-FR",
+        "template": "wix/main.wxs"
       },
       "nsis": {
         "languages": [
