@@ -10,6 +10,8 @@ import type { TreeNode } from "@/components/structure/tree-utils";
 import { useToastHelpers } from "@/components/notifications/toast-provider";
 import { StructureSource } from "@/lib/database/structure-types";
 import { fetchRepositoryInfo, treeAction } from "@/lib/api/local-first";
+import { syncFromWeb } from "@/lib/api/sync-tauri";
+import { isTauriEnv } from "@/lib/tauri/env";
 
 const SYNC_TIMEOUT_MS = 60_000;
 
@@ -57,10 +59,10 @@ export default function StructureBDDPage() {
   const isVercel = !!process.env.NEXT_PUBLIC_VERCEL_ENV;
   const [selectedNode, setSelectedNode] = useState<TreeNode | null>(null);
   const [activeRepo, setActiveRepo] = useState<string>('repository');
-const [resetting, setResetting] = useState(false);
-    const [syncingFiles, setSyncingFiles] = useState(false);
-    const [refreshKey, setRefreshKey] = useState(0);
-    const toast = useToastHelpers();
+  const [resetting, setResetting] = useState(false);
+  const [syncingFiles, setSyncingFiles] = useState(false);
+  const [refreshKey, setRefreshKey] = useState(0);
+  const toast = useToastHelpers();
 
   const { data: syncStatus, refetch: refetchStatus } = useSyncStatus();
 
@@ -123,13 +125,19 @@ const [resetting, setResetting] = useState(false);
   const handleSyncFiles = useCallback(async () => {
     setSyncingFiles(true);
     try {
-      const res = await fetchWithRetry('/api/sync', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ mode: 'files', repository: activeRepo, force: false }),
-        signal: AbortSignal.timeout(SYNC_TIMEOUT_MS),
-      });
-      const json = await res.json();
+      let json: any;
+      if (isTauriEnv()) {
+        const r = await syncFromWeb('files', activeRepo, false);
+        json = { success: r.success, result: r };
+      } else {
+        const res = await fetchWithRetry('/api/sync', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ mode: 'files', repository: activeRepo, force: false }),
+          signal: AbortSignal.timeout(SYNC_TIMEOUT_MS),
+        });
+        json = await res.json();
+      }
       console.log('[SyncFiles] result', json);
 
       if (json?.success) {

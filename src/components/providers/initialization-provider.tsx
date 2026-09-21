@@ -1,7 +1,7 @@
 "use client";
 
 import { createContext, useContext, useEffect, useMemo, useState, useCallback } from 'react';
-import { isTauriEnv } from '@/lib/tauri/env';
+import { initApp } from '@/lib/api/sync-tauri';
 
 interface InitializationContextValue {
   initialized: boolean;
@@ -21,18 +21,11 @@ export function InitializationProvider({ children }: { children: React.ReactNode
     try {
       setIsLoading(true);
 
-      if (isTauriEnv()) {
-        setInitialized(true);
-        setError(null);
-        return;
+      const result = await initApp();
+      if (!result?.success) {
+        throw new Error(result?.message ?? 'Initialisation impossible');
       }
-
-      const response = await fetch('/api/init', { method: 'GET', cache: 'no-store' });
-      const payload = await response.json();
-      if (!response.ok || !payload?.success) {
-        throw new Error(payload?.message ?? 'Initialisation impossible');
-      }
-      setInitialized(Boolean(payload.initialized));
+      setInitialized(Boolean(result.initialized ?? true));
       setError(null);
     } catch (err) {
       console.error('[init] error', err);
