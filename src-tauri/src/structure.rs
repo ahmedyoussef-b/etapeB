@@ -28,6 +28,18 @@ pub fn resolve_repository_path(repository: Option<&str>) -> PathBuf {
 }
 
 fn resolve_data_path(app: &AppHandle) -> PathBuf {
+    #[cfg(debug_assertions)]
+    {
+        let dev_data = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .parent()
+            .map(|p| p.join(".data"));
+        if let Some(p) = dev_data {
+            if p.exists() {
+                return p;
+            }
+        }
+    }
+
     let appdata_path = user_data_root().join(".data");
     if appdata_path.exists() {
         return appdata_path;
