@@ -123,7 +123,14 @@ pub fn get_repository_info() -> Result<Value, String> {
 }
 
 #[tauri::command]
-pub fn tree_action(app: AppHandle, action: String, path: String, _source: String, name: Option<String>, repository: Option<String>) -> Result<Value, String> {
+pub fn tree_action(app: AppHandle, action: String, path: String, source: String, name: Option<String>, repository: Option<String>) -> Result<Value, String> {
+    if source != "local" {
+        return Err(format!(
+            "Les mutations ne sont autorisées que pour la source 'local'. Source reçue: '{}'",
+            source
+        ));
+    }
+
     let base = resolve_repository_path(repository.as_deref());
 
     let target = base.join(&path);
