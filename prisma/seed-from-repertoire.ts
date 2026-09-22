@@ -3,7 +3,140 @@ import 'dotenv/config';
 import { PrismaClient, Prisma } from '@prisma/client';
 import { promises as fs } from 'node:fs';
 import * as fsSync from 'node:fs';
+import type { Dirent } from 'node:fs';
 import * as nodePath from 'node:path';
+
+// ============================================================
+// SEED FILE SYSTEM (in-memory override for bundled .data)
+// ============================================================
+
+export interface SeedFile {
+  path: string;
+  content: string;
+  size: number;
+}
+
+class MemoryFileSystem {
+  private readonly dirs = new Map<string, string[]>();
+  private readonly files = new Map<string, SeedFile>();
+
+  constructor(files: SeedFile[]) {
+    for (const file of files) {
+      this.files.set(file.path, file);
+      const parts = file.path.split('/');
+      for (let i = 0; i < parts.length - 1; i++) {
+        const parentDir = parts.slice(0, i + 1).join('/');
+        const childName = parts[i + 1];
+        if (!this.dirs.has(parentDir)) {
+          this.dirs.set(parentDir, []);
+        }
+        if (!this.dirs.get(parentDir)!.includes(childName)) {
+          this.dirs.get(parentDir)!.push(childName);
+        }
+      }
+    }
+  }
+
+  readdir(dirPath: string, options?: { withFileTypes?: boolean }): string[] | Dirent[] {
+    const normalized = dirPath.replace(/\\/g, '/').replace(/\/+$/, '');
+    const names = this.dirs.has(normalized) ? [...this.dirs.get(normalized)!] : [];
+    if (options?.withFileTypes) {
+      return names.map(name => ({
+        name,
+        isDirectory: () => this.isDirectory(`${normalized}/${name}`),
+        isFile: () => !this.isDirectory(`${normalized}/${name}`),
+        isSymbolicLink: () => false,
+        isBlockDevice: () => false,
+        isCharacterDevice: () => false,
+        isSocket: () => false,
+        isFIFO: () => false,
+      })) as Dirent[];
+    }
+    return names;
+  }
+
+  isDirectory(path: string): boolean {
+    const normalized = path.replace(/\\/g, '/').replace(/\/+$/, '');
+    return this.dirs.has(normalized);
+  }
+
+  readFile(filePath: string): Buffer {
+    const normalized = filePath.replace(/\\/g, '/').replace(/^\.\//, '');
+    const file = this.files.get(normalized);
+    if (file) return Buffer.from(file.content, 'utf-8');
+    throw new Error(`File not found in seed: ${filePath}`);
+  }
+
+  stat(filePath: string): { size: number; isFile(): boolean; isDirectory(): boolean } {
+    const normalized = filePath.replace(/\\/g, '/').replace(/^\.\//, '');
+    const file = this.files.get(normalized);
+    if (file) {
+      return { size: file.size, isFile: () => true, isDirectory: () => false };
+    }
+    if (this.dirs.has(normalized)) {
+      return { size: 0, isFile: () => false, isDirectory: () => true };
+    }
+    throw new Error(`Path not found in seed: ${filePath}`);
+  }
+
+  accessSync(filePath: string): void {
+    const normalized = filePath.replace(/\\/g, '/').replace(/^\.\//, '');
+    if (this.files.has(normalized)) return;
+    throw new Error(`Path not found in seed: ${filePath}`);
+  }
+}
+
+let _memoryFs: MemoryFileSystem | null = null;
+
+export function setSeedFiles(files: SeedFile[]) {
+  _memoryFs = new MemoryFileSystem(files);
+}
+
+export function clearSeedFiles() {
+  _memoryFs = null;
+}
+
+async function _readdir(path: string, options: { withFileTypes: true }): Promise<Dirent[]>;
+async function _readdir(path: string, options?: { withFileTypes?: boolean }): Promise<string[]>;
+async function _readdir(path: string, options?: { withFileTypes?: boolean }): Promise<string[] | Dirent[]> {
+  if (_memoryFs) {
+    const names = _memoryFs.readdir(path);
+    if (options?.withFileTypes) {
+      return names.map(name => ({
+        name,
+        isDirectory: () => _memoryFs!.isDirectory(`${path}/${name}`),
+        isFile: () => !_memoryFs!.isDirectory(`${path}/${name}`),
+        isSymbolicLink: () => false,
+        isBlockDevice: () => false,
+        isCharacterDevice: () => false,
+        isSocket: () => false,
+        isFIFO: () => false,
+      })) as Dirent[];
+    }
+    return names;
+  }
+  return fs.readdir(path, options as any);
+}
+
+async function _readFile(path: string, encoding: 'utf-8' | 'utf8'): Promise<string>;
+async function _readFile(path: string, encoding?: string): Promise<any>;
+async function _readFile(path: string, encoding?: string): Promise<Buffer | string> {
+  if (_memoryFs) {
+    const buf = _memoryFs.readFile(path);
+    return encoding === 'utf-8' || encoding === 'utf8' ? buf.toString('utf-8') : Buffer.from(buf.buffer as ArrayBuffer, buf.byteOffset, buf.byteLength) as any;
+  }
+  return fs.readFile(path, encoding as any);
+}
+
+async function _stat(path: string): Promise<any> {
+  if (_memoryFs) return _memoryFs.stat(path);
+  return fs.stat(path);
+}
+
+function _accessSync(path: string): void {
+  if (_memoryFs) return _memoryFs.accessSync(path);
+  return fsSync.accessSync(path);
+}
 
 // ============================================================
 // TYPES
@@ -108,9 +241,9 @@ async function loadRepertoireData(): Promise<RepertoireRoot> {
 
 async function buildRepertoireTree(absDir: string, relDir: string): Promise<RepertoireRoot> {
   const entries: RepertoireEntry[] = [];
-  let dirents: import('node:fs').Dirent[];
+  let dirents: Dirent[];
   try {
-    dirents = await fs.readdir(absDir, { withFileTypes: true });
+    dirents = (await _readdir(absDir, { withFileTypes: true })) as Dirent[];
   } catch {
     return { path: relDir, name: relDir, type: 'directory', children: [] };
   }
@@ -121,7 +254,7 @@ async function buildRepertoireTree(absDir: string, relDir: string): Promise<Repe
       entries.push(child);
     } else {
       if (d.name === 'data_repertoire.json') continue;
-      const stat = await fs.stat(nodePath.join(absDir, d.name));
+      const stat = await _stat(nodePath.join(absDir, d.name));
       entries.push({ path: `${relDir}/${d.name}`, name: d.name, type: 'file', size: stat.size });
     }
   }
@@ -157,7 +290,7 @@ async function syncBlocks(root: RepertoireRoot, prisma: PrismaClient) {
      let blockLibelle = `Bloc ${blockName}`;
      let blockType = 'centrale';
      try {
-       const metaRaw = await fs.readFile(blockMetaPath, 'utf-8');
+       const metaRaw = await _readFile(blockMetaPath, 'utf-8');
        let content = metaRaw;
        if (content.charCodeAt(0) === 0xFEFF) content = content.slice(1);
        const meta = JSON.parse(content) as BlockMeta;
@@ -188,7 +321,7 @@ async function syncBlocks(root: RepertoireRoot, prisma: PrismaClient) {
       let eqMetadata: Prisma.InputJsonValue | (typeof Prisma.JsonNull) = Prisma.JsonNull;
 
       try {
-        const metaRaw = await fs.readFile(eqMetaPath, 'utf-8');
+        const metaRaw = await _readFile(eqMetaPath, 'utf-8');
         let content = metaRaw;
         if (content.charCodeAt(0) === 0xFEFF) content = content.slice(1);
         const meta = JSON.parse(content) as EquipmentMeta;
@@ -248,7 +381,7 @@ async function syncBlocks(root: RepertoireRoot, prisma: PrismaClient) {
           if (c.type !== 'directory') return false;
           const metaPath = nodePath.join(process.cwd(), '.data', 'Centrale', blockName, subsystemName, c.name, '.meta.json');
           try {
-            fsSync.accessSync(metaPath);
+            _accessSync(metaPath);
             return true;
           } catch {
             return false;
@@ -261,7 +394,7 @@ async function syncBlocks(root: RepertoireRoot, prisma: PrismaClient) {
           let nestedMetadata: Prisma.InputJsonValue | (typeof Prisma.JsonNull) = Prisma.JsonNull;
 
           try {
-            const metaRaw = await fs.readFile(nestedMetaPath, 'utf-8');
+            const metaRaw = await _readFile(nestedMetaPath, 'utf-8');
             let content = metaRaw;
             if (content.charCodeAt(0) === 0xFEFF) content = content.slice(1);
             const meta = JSON.parse(content) as EquipmentMeta;
@@ -371,7 +504,7 @@ async function syncGroups(root: RepertoireRoot, prisma: PrismaClient) {
     let groupLibelle = group.name;
 
     try {
-       const metaRaw = await fs.readFile(groupMetaPath, 'utf-8');
+       const metaRaw = await _readFile(groupMetaPath, 'utf-8');
        let content = metaRaw;
        if (content.charCodeAt(0) === 0xFEFF) content = content.slice(1);
        const meta = JSON.parse(content) as GroupMeta;
@@ -404,7 +537,7 @@ async function syncGroups(root: RepertoireRoot, prisma: PrismaClient) {
       let blocCode: string | null = null;
 
       try {
-        const metaRaw = await fs.readFile(geqMetaPath, 'utf-8');
+        const metaRaw = await _readFile(geqMetaPath, 'utf-8');
         let content = metaRaw;
         if (content.charCodeAt(0) === 0xFEFF) content = content.slice(1);
         const meta = JSON.parse(content) as GroupEquipmentMeta;
@@ -531,7 +664,7 @@ async function syncDocumentsRecursive(dir: RepertoireEntry, prefix: string, pris
       const relativePath = `${prefix}/${child.name}`;
 
       try {
-        const data = await fs.readFile(filePath);
+        const data = await _readFile(filePath);
         const mimeType = getMimeType(child.name);
 
         await prisma.document.upsert({
@@ -581,7 +714,7 @@ async function syncDocuments(root: RepertoireRoot, prisma: PrismaClient) {
         const relativePath = `${prefix}/${file.name}`;
 
         try {
-          const data = await fs.readFile(filePath);
+          const data = await _readFile(filePath);
           const mimeType = getMimeType(file.name);
 
           await prisma.document.upsert({
@@ -642,7 +775,7 @@ async function syncBinaryFiles(root: RepertoireRoot, prisma: PrismaClient) {
         const relativePath = fullPrefix;
 
         try {
-          const data = await fs.readFile(filePath);
+          const data = await _readFile(filePath);
           const mimeType = getMimeType(child.name);
 
           await prisma.document.upsert({
@@ -859,7 +992,7 @@ async function syncRegistry(root: RepertoireRoot, prisma: PrismaClient) {
         const filePath = nodePath.join(process.cwd(), '.data', 'registry', 'items', entry.name);
         let parsed: unknown = null;
         try {
-          const raw = await fs.readFile(filePath, 'utf-8');
+          const raw = await _readFile(filePath, 'utf-8');
           let content = raw;
           if (content.charCodeAt(0) === 0xFEFF) content = content.slice(1);
           parsed = JSON.parse(content);
@@ -891,7 +1024,7 @@ async function syncRegistry(root: RepertoireRoot, prisma: PrismaClient) {
       const metaPath = nodePath.join(userDirPath, jsonName);
       let meta: UserMeta = {};
       try {
-        const raw = await fs.readFile(metaPath, 'utf-8');
+        const raw = await _readFile(metaPath, 'utf-8');
         let content = raw;
         if (content.charCodeAt(0) === 0xFEFF) content = content.slice(1);
         meta = JSON.parse(content) as UserMeta;
@@ -922,7 +1055,7 @@ async function syncRegistry(root: RepertoireRoot, prisma: PrismaClient) {
       const procPath = nodePath.join(process.cwd(), '.data', 'registry', 'procedures', procDir, 'procedure.json');
       let meta: ProcedureMeta = {};
       try {
-        const raw = await fs.readFile(procPath, 'utf-8');
+        const raw = await _readFile(procPath, 'utf-8');
         let content = raw;
         if (content.charCodeAt(0) === 0xFEFF) content = content.slice(1);
         meta = JSON.parse(content) as ProcedureMeta;
@@ -954,7 +1087,7 @@ async function syncRegistry(root: RepertoireRoot, prisma: PrismaClient) {
         const memberPath = nodePath.join(teamPath, file);
         let meta: HumanResourceMeta = {};
         try {
-          const raw = await fs.readFile(memberPath, 'utf-8');
+          const raw = await _readFile(memberPath, 'utf-8');
           let content = raw;
           if (content.charCodeAt(0) === 0xFEFF) content = content.slice(1);
           meta = JSON.parse(content) as HumanResourceMeta;
@@ -1008,7 +1141,7 @@ async function syncQr(root: RepertoireRoot, prisma: PrismaClient) {
 
     const filePath = nodePath.join(process.cwd(), '.data', 'registry', 'items', entry.name);
     try {
-      const raw = await fs.readFile(filePath, 'utf-8');
+      const raw = await _readFile(filePath, 'utf-8');
       let content = raw;
       if (content.charCodeAt(0) === 0xFEFF) content = content.slice(1);
       const parsed = JSON.parse(content);
@@ -1060,7 +1193,7 @@ async function syncRessourcesHumaines(root: RepertoireRoot, prisma: PrismaClient
       const memberPath = nodePath.join(teamPath, file);
       let meta: HumanResourceMeta = {};
       try {
-        const raw = await fs.readFile(memberPath, 'utf-8');
+        const raw = await _readFile(memberPath, 'utf-8');
         let content = raw;
         if (content.charCodeAt(0) === 0xFEFF) content = content.slice(1);
         meta = JSON.parse(content) as HumanResourceMeta;
@@ -1108,7 +1241,7 @@ async function syncData(root: RepertoireRoot, prisma: PrismaClient) {
       const profilePath = nodePath.join(process.cwd(), '.data', 'data', 'users', userId, 'profile.json');
       let meta: UserMeta = {};
       try {
-        const raw = await fs.readFile(profilePath, 'utf-8');
+        const raw = await _readFile(profilePath, 'utf-8');
         let content = raw;
         if (content.charCodeAt(0) === 0xFEFF) content = content.slice(1);
         meta = JSON.parse(content) as UserMeta;
@@ -1135,7 +1268,7 @@ async function syncData(root: RepertoireRoot, prisma: PrismaClient) {
       const infoPath = nodePath.join(process.cwd(), '.data', 'data', 'teams', teamId, 'info.json');
       let meta: TeamMeta = {};
       try {
-        const raw = await fs.readFile(infoPath, 'utf-8');
+        const raw = await _readFile(infoPath, 'utf-8');
         let content = raw;
         if (content.charCodeAt(0) === 0xFEFF) content = content.slice(1);
         meta = JSON.parse(content) as TeamMeta;
@@ -1164,7 +1297,7 @@ async function syncData(root: RepertoireRoot, prisma: PrismaClient) {
       let meta: ProcedureMeta = {};
       let steps: unknown = null;
       try {
-        const raw = await fs.readFile(metaPath, 'utf-8');
+        const raw = await _readFile(metaPath, 'utf-8');
         let content = raw;
         if (content.charCodeAt(0) === 0xFEFF) content = content.slice(1);
         meta = JSON.parse(content) as ProcedureMeta;
@@ -1172,7 +1305,7 @@ async function syncData(root: RepertoireRoot, prisma: PrismaClient) {
         // Ignorer
       }
       try {
-        const raw = await fs.readFile(stepsPath, 'utf-8');
+        const raw = await _readFile(stepsPath, 'utf-8');
         let content = raw;
         if (content.charCodeAt(0) === 0xFEFF) content = content.slice(1);
         steps = JSON.parse(content);
@@ -1199,60 +1332,69 @@ async function syncData(root: RepertoireRoot, prisma: PrismaClient) {
 // SYNC FROM REPERTOIRE
 // ============================================================
 
-export async function syncFromRepertoire(prisma: PrismaClient) {
-  console.log('Synchronisation BDD depuis .data/...\n');
-  const root = await loadRepertoireData();
+export async function syncFromRepertoire(prisma: PrismaClient, seedFiles?: SeedFile[]) {
+  if (seedFiles) {
+    setSeedFiles(seedFiles);
+  }
+  try {
+    console.log('Synchronisation BDD depuis .data/...\n');
+    const root = await loadRepertoireData();
 
-  await syncBlocks(root, prisma);
-  console.log('');
+    await syncBlocks(root, prisma);
+    console.log('');
 
-  await dedupeGroups(prisma);
-  await syncGroups(root, prisma);
-  console.log('');
+    await dedupeGroups(prisma);
+    await syncGroups(root, prisma);
+    console.log('');
 
-  await syncDocuments(root, prisma);
-  console.log('');
+    await syncDocuments(root, prisma);
+    console.log('');
 
-  await syncMirrorRepertoire(root, prisma);
-  console.log('');
+    await syncMirrorRepertoire(root, prisma);
+    console.log('');
 
-  await syncIndexes(root, prisma);
-  console.log('');
+    await syncIndexes(root, prisma);
+    console.log('');
 
-  await syncRegistry(root, prisma);
-  console.log('');
+    await syncRegistry(root, prisma);
+    console.log('');
 
-  await syncQr(root, prisma);
-  console.log('');
+    await syncQr(root, prisma);
+    console.log('');
 
-  await syncRessourcesHumaines(root, prisma);
-  console.log('');
+    await syncRessourcesHumaines(root, prisma);
+    console.log('');
 
-  await syncData(root, prisma);
-  console.log('');
+    await syncData(root, prisma);
+    console.log('');
 
-  const stats = {
-    blocks: await prisma.block.count(),
-    equipment: await prisma.equipment.count(),
-    groups: await prisma.group.count(),
-    groupEquipments: await prisma.groupEquipment.count(),
-    documents: await prisma.document.count(),
-    users: await prisma.user.count(),
-    procedures: await prisma.procedure.count(),
-    humanResources: await prisma.humanResource.count(),
-    teams: await prisma.team.count()
-  };
+    const stats = {
+      blocks: await prisma.block.count(),
+      equipment: await prisma.equipment.count(),
+      groups: await prisma.group.count(),
+      groupEquipments: await prisma.groupEquipment.count(),
+      documents: await prisma.document.count(),
+      users: await prisma.user.count(),
+      procedures: await prisma.procedure.count(),
+      humanResources: await prisma.humanResource.count(),
+      teams: await prisma.team.count()
+    };
 
-  console.log('📊 Statistiques finales:');
-  console.log(`   - Blocs: ${stats.blocks}`);
-  console.log(`   - Équipements: ${stats.equipment}`);
-  console.log(`   - Groupes: ${stats.groups}`);
-  console.log(`   - Équipements de groupe: ${stats.groupEquipments}`);
-  console.log(`   - Documents: ${stats.documents}`);
-  console.log(`   - Utilisateurs: ${stats.users}`);
-  console.log(`   - Procédures: ${stats.procedures}`);
-  console.log(`   - Ressources humaines: ${stats.humanResources}`);
-  console.log(`   - Équipes: ${stats.teams}`);
+    console.log('📊 Statistiques finales:');
+    console.log(`   - Blocs: ${stats.blocks}`);
+    console.log(`   - Équipements: ${stats.equipment}`);
+    console.log(`   - Groupes: ${stats.groups}`);
+    console.log(`   - Équipements de groupe: ${stats.groupEquipments}`);
+    console.log(`   - Documents: ${stats.documents}`);
+    console.log(`   - Utilisateurs: ${stats.users}`);
+    console.log(`   - Procédures: ${stats.procedures}`);
+    console.log(`   - Ressources humaines: ${stats.humanResources}`);
+    console.log(`   - Équipes: ${stats.teams}`);
 
-  console.log('\n🎉 Synchronisation terminée avec succès !');
+    console.log('\n🎉 Synchronisation terminée avec succès !');
+  } finally {
+    if (seedFiles) {
+      clearSeedFiles();
+    }
+  }
 }

@@ -5,42 +5,23 @@ import { promises as fs } from 'node:fs';
 import * as nodePath from 'node:path';
 import { hash } from 'bcryptjs';
 import { syncFromRepertoire } from './seed-from-repertoire';
-import { LocalDatabaseAdapter } from '../src/lib/database/local-adapter';
+import { SEED_FILES } from '../lib/seed-data';
 
 const adapter = new PrismaPg({ connectionString: process.env.DATABASE_URL });
 const prisma = new PrismaClient({ adapter });
 
 async function collectFilePaths(): Promise<string[]> {
-  const localAdapter = new LocalDatabaseAdapter('.data');
   const paths: string[] = [];
-
-  const walk = async (currentPath: string) => {
-    try {
-      const entries = await localAdapter.list(currentPath);
-      for (const entry of entries) {
-        if (entry === 'mirror_repertoire.json' || entry === 'data-repertoire.json') continue;
-        if (entry.startsWith('.') && !entry.endsWith('.meta.json')) continue;
-        const fullPath = currentPath === '.' || !currentPath ? entry : `${currentPath}/${entry}`;
-        const children = await localAdapter.list(fullPath).catch(() => []);
-        if (Array.isArray(children) && children.length > 0) {
-          await walk(fullPath);
-        } else {
-          paths.push(fullPath);
-        }
-      }
-    } catch {
-      // ignore
-    }
-  };
-
-  await walk('.');
-  return Array.from(new Set(paths)).sort();
+  for (const file of SEED_FILES) {
+    paths.push(file.path);
+  }
+  return paths.sort();
 }
 
 async function main() {
   console.log('🌱 Seeding des données industrielles...');
 
-  await syncFromRepertoire(prisma);
+  await syncFromRepertoire(prisma, SEED_FILES);
 
   const DEFAULT_USERS = [
     { email: 'admin@nexaflow.local', name: 'Admin NexaFlow', role: 'ADMIN' as const, password: 'Admin123!' },
