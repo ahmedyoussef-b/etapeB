@@ -3,7 +3,7 @@
 
 import { useState } from "react";
 import { DatabaseTree, TreeNode } from "@/components/structure/database-tree";
-import { FolderTree, Search, Server, Globe, RefreshCw } from "lucide-react";
+import { FolderTree, Search, Server, Globe, Brain, RefreshCw } from "lucide-react";
 import { StructureSource } from "@/lib/database/structure-types";
 
 interface StructureTreePanelProps {
@@ -31,6 +31,10 @@ export function StructureTreePanel({
         return <Server className="w-3.5 h-3.5 text-blue-500" />;
       case "web":
         return <Globe className="w-3.5 h-3.5 text-purple-500" />;
+      case "vector":
+        return <Brain className="w-3.5 h-3.5 text-green-500" />;
+      default:
+        return null;
     }
   };
 
@@ -40,6 +44,10 @@ export function StructureTreePanel({
         return "Local (.data/)";
       case "web":
         return "Web Externe";
+      case "vector":
+        return "Vectorielle (chroma/)";
+      default:
+        return "";
     }
   };
 

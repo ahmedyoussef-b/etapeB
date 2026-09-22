@@ -4,10 +4,11 @@ import { useEffect, useState } from 'react';
 import { File, Folder, Database, HardDrive, Tag, Server, WifiOff, Loader2, AlertCircle, Download, Image as ImageIcon, FileText } from 'lucide-react';
 import { TreeNode } from './database-tree';
 import { fetchFileContent } from '@/lib/api/local-first';
+import { StructureSource } from '@/lib/database/structure-types';
 
 interface StructureDetailPanelProps {
   node: TreeNode | null;
-  source: 'local' | 'web' | 'db';
+  source: StructureSource;
   available?: boolean;
   repository?: string;
 }
@@ -27,7 +28,7 @@ export function StructureDetailPanel({ node, source, available = true, repositor
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!node || node.type !== 'file' || (source === 'web' || source === 'db') && !available) {
+    if (!node || node.type !== 'file' || (source === 'web') && !available) {
       setContent(null);
       setError(null);
       return;
@@ -75,9 +76,8 @@ export function StructureDetailPanel({ node, source, available = true, repositor
   }
 
   const isDirectory = node.type === 'directory';
-  const isDbUnavailable = source === 'db' && !available;
   const isWebUnavailable = source === 'web' && !available;
-  const showContent = node.type === 'file' && !isWebUnavailable && !isDbUnavailable;
+  const showContent = node.type === 'file' && !isWebUnavailable;
 
   return (
     <div className="h-full overflow-y-auto">
@@ -95,20 +95,6 @@ export function StructureDetailPanel({ node, source, available = true, repositor
             <>
               <Server className="w-4 h-4 text-blue-500" />
               <span className="text-gray-600">Locale</span>
-            </>
-          ) : source === 'db' ? (
-            <>
-              {isDbUnavailable ? (
-                <>
-                  <WifiOff className="w-4 h-4 text-red-500" />
-                  <span className="text-red-600">Hors ligne</span>
-                </>
-              ) : (
-                <>
-                  <Database className="w-4 h-4 text-green-500" />
-                  <span className="text-green-600">BDD</span>
-                </>
-              )}
             </>
           ) : (
             <>
@@ -149,7 +135,7 @@ export function StructureDetailPanel({ node, source, available = true, repositor
             <div className="font-mono text-xs truncate" title={node.path}>{node.path}</div>
             <div className="text-gray-500">Source</div>
             <div className="font-medium">
-              {source === 'local' ? '📍 Local' : source === 'db' ? '🗄️ BDD' : isWebUnavailable ? '🌐 Web (hors ligne)' : '🌐 Web'}
+              {source === 'local' ? '📍 Local' : isWebUnavailable ? '🌐 Web (hors ligne)' : '🌐 Web'}
             </div>
           </div>
         </div>

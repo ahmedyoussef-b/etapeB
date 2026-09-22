@@ -1,6 +1,7 @@
 mod auto_vectorizer;
 mod embeddings;
 mod vectorizer;
+mod vectorizer_tree;
 mod watcher;
 mod groq_stream;
 mod config;
@@ -482,6 +483,7 @@ pub fn run() {
             search_local_rag,
             ask_local_rag,
             get_vectorization_stats,
+            vectorizer_tree::get_vectorization_tree,
             check_vectorization_consistency,
             trigger_local_vectorization,
             ask_local_rag_stream,

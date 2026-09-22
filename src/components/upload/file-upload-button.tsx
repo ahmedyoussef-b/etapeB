@@ -5,6 +5,7 @@ import { Upload, X, Loader2, CheckCircle, AlertCircle, AlertTriangle } from 'luc
 import { useToastHelpers } from '@/components/notifications/toast-provider';
 import { invoke } from '@tauri-apps/api/core';
 import { isTauriEnv } from '@/lib/tauri/env';
+import { StructureSource } from '@/lib/database/structure-types';
 
 export interface UploadResult {
   success: boolean;
@@ -17,7 +18,7 @@ export interface UploadResult {
 
 interface FileUploadButtonProps {
   targetPath: string;
-  source: 'local' | 'web' | 'db';
+  source: StructureSource;
   onUploadComplete?: (results: UploadResult[]) => void;
   onUploadProgress?: (progress: number) => void;
   className?: string;

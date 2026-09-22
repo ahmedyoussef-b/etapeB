@@ -22,7 +22,7 @@ export interface TreeNode {
  * - 'local' : répertoire de travail local (%APPDATA%\NexaFlow\repository)
  * - 'web'   : BDD cloud (Neon PostgreSQL via API Vercel)
  */
-export type StructureSource = "local" | "web";
+export type StructureSource = "local" | "web" | "vector";
 
 function isVisibleEntry(name: string): boolean {
   if (name === 'mirror_repertoire.json' || name === 'mirror.json') return false;

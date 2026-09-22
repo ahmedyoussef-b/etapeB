@@ -7,11 +7,12 @@ import { FileUploadButton } from '@/components/upload/file-upload-button';
 import { dedupeTree, type TreeNode } from '@/components/structure/tree-utils';
 import { WORKING_REPOSITORY_NAME } from '@/lib/config/repository';
 import { fetchStructureTree, treeAction as invokeTreeAction } from '@/lib/api/local-first';
+import { StructureSource } from '@/lib/database/structure-types';
 
 export type { TreeNode } from '@/components/structure/tree-utils';
 
 interface DatabaseTreeProps {
-  source: 'local' | 'web' | 'db';
+  source: StructureSource;
   onSelect: (node: TreeNode) => void;
   selectedPath?: string;
   webAvailable?: boolean;
@@ -80,6 +81,45 @@ function countNodes(nodes: TreeNode[]): { total: number; directories: number; fi
   };
   visit(nodes);
   return { total, directories, files };
+}
+
+function VectorBadges({ node, source }: { node: TreeNode; source: StructureSource }) {
+  if (source !== 'vector') return null;
+
+  const meta = node.metadata as Record<string, string | number | boolean | undefined> | undefined;
+  if (!meta) return null;
+
+  const isDir = node.type === 'directory';
+  const vectorized = meta.vectorized === true;
+  const chunkCount = typeof meta.chunkCount === 'number' ? meta.chunkCount : 0;
+  const fileCount = typeof meta.fileCount === 'number' ? meta.fileCount : 0;
+  const vectorizedFileCount = typeof meta.vectorizedFileCount === 'number' ? meta.vectorizedFileCount : 0;
+
+  return (
+    <>
+      {isDir ? (
+        chunkCount > 0 ? (
+          <span className="ml-2 text-[10px] px-1.5 py-0.5 rounded bg-blue-100 text-blue-700 font-medium">
+            {chunkCount} chunks · {vectorizedFileCount}/{fileCount}
+          </span>
+        ) : (
+          <span className="ml-2 text-[10px] px-1.5 py-0.5 rounded bg-gray-100 text-gray-500 font-medium">
+            non vectorisé
+          </span>
+        )
+      ) : (
+        vectorized && chunkCount > 0 ? (
+          <span className="ml-2 text-[10px] px-1.5 py-0.5 rounded bg-green-100 text-green-700 font-medium">
+            {chunkCount} chunk{chunkCount > 1 ? 's' : ''} ✅
+          </span>
+        ) : (
+          <span className="ml-2 text-[10px] px-1.5 py-0.5 rounded bg-gray-100 text-gray-500 font-medium">
+            non vectorisé
+          </span>
+        )
+      )}
+    </>
+  );
 }
 
 function isTreeFullyLoaded(nodes: TreeNode[]): boolean {
@@ -507,7 +547,7 @@ export function DatabaseTree({ source, onSelect, selectedPath, webAvailable = tr
       <div className="p-8 text-center text-gray-500">
         <Database className="w-12 h-12 mx-auto text-gray-300 mb-4" />
         <p>Aucune donnée trouvée</p>
-        <p className="text-sm">Source: {source === 'local' ? 'Locale' : source === 'db' ? 'BDD' : 'Web'}</p>
+        <p className="text-sm">Source: {source === 'local' ? 'Locale' : source === 'vector' ? 'Vectorielle' : 'Web'}</p>
       </div>
     );
   }
@@ -531,7 +571,7 @@ export function DatabaseTree({ source, onSelect, selectedPath, webAvailable = tr
             getNodeLabel={getNodeLabel}
             source={source}
             onUploaded={handleUploaded}
-            uploadEnabled={source === 'web' ? webAvailable : source === 'db' ? false : true}
+            uploadEnabled={source === 'web' ? webAvailable : source === 'vector' ? false : true}
             mutationsEnabled={mutationsEnabled}
             onNodeDeleted={removeNodeFromTree}
             onNodeRenamed={renameNodeInTree}
@@ -554,7 +594,7 @@ interface TreeNodeItemProps {
   selectedPath?: string;
   getNodeIcon: (node: TreeNode) => React.ReactNode;
   getNodeLabel: (node: TreeNode) => string;
-  source: 'local' | 'web' | 'db';
+  source: StructureSource;
   onUploaded?: () => void;
   uploadEnabled: boolean;
   mutationsEnabled: boolean;
@@ -595,6 +635,10 @@ const TreeNodeItem = memo(function TreeNodeItem({
   const inputRef = useRef<HTMLInputElement>(null);
 
   const paddingLeft = `${depth * 16 + 8}px`;
+
+  const isVectorSource = source === 'vector';
+  const metadata = node.metadata as Record<string, string | number | boolean | undefined> | undefined;
+  const isFileNotVectorized = isVectorSource && node.type === 'file' && metadata?.vectorized !== true;
 
   const handleRename = async () => {
     if (!editName.trim() || editName === node.name) {
@@ -752,7 +796,10 @@ const TreeNodeItem = memo(function TreeNodeItem({
             </button>
           </form>
         ) : (
-          <span className="truncate text-sm flex-1 min-w-0">{getNodeLabel(node)}</span>
+          <span className={`truncate text-sm flex-1 min-w-0 ${isFileNotVectorized ? 'text-gray-400' : ''}`}>
+            {getNodeLabel(node)}
+            <VectorBadges node={node} source={source} />
+          </span>
         )}
         {node.metadata?.equipmentCount !== undefined && !isEditing && (
           <span className="text-xs text-gray-400 ml-1">

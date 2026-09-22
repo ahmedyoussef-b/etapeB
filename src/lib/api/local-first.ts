@@ -1,9 +1,16 @@
 import { invoke } from "@tauri-apps/api/core";
 import { isTauriEnv } from "@/lib/tauri/env";
+import { StructureSource } from "@/lib/database/structure-types";
 
-export async function fetchStructureTree(source: string, path?: string, repository?: string): Promise<any> {
+export async function fetchStructureTree(source: StructureSource, path?: string, repository?: string): Promise<any> {
   if (isTauriEnv()) {
+    if (source === "vector") {
+      return invoke("get_vectorization_tree", { path });
+    }
     return invoke("get_structure_tree", { source, path, repository });
+  }
+  if (source === "vector") {
+    throw new Error("La source 'vector' n'est disponible qu'en mode desktop.");
   }
   const url = new URL("/api/structure", window.location.origin);
   if (source) url.searchParams.set("source", source);

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useCallback } from "react";
-import { Database, Rocket, RefreshCw, Server, Globe } from "lucide-react";
+import { Database, Rocket, RefreshCw, Server, Globe, Brain } from "lucide-react";
 import { StructureTreePanel } from "./components/structure-tree-panel";
 import { useSyncStatus } from "./hooks/useSyncStatus";
 import { StructureDetailPanel } from "@/components/structure/structure-detail-panel";
@@ -52,7 +52,7 @@ export default function StructureBDDPage() {
     // En local, lire depuis localStorage
     if (typeof window !== "undefined") {
       const stored = localStorage.getItem("bdd-source");
-      if (stored === "local" || stored === "web") return stored;
+      if (stored === "local" || stored === "web" || stored === "vector") return stored;
     }
     return "local";
   });
@@ -67,8 +67,8 @@ export default function StructureBDDPage() {
   const { data: syncStatus, refetch: refetchStatus } = useSyncStatus();
 
   const handleSourceChange = useCallback((newSource: StructureSource) => {
-    if (newSource === "local" && process.env.NEXT_PUBLIC_VERCEL_ENV) {
-      return; // Interdit en mode web
+    if ((newSource === "local" || newSource === "vector") && process.env.NEXT_PUBLIC_VERCEL_ENV) {
+      return;
     }
     setSource(newSource);
     setSelectedNode(null);
@@ -212,6 +212,21 @@ export default function StructureBDDPage() {
             Web
             <span className="text-[10px] text-gray-500">Externe</span>
           </button>
+          {!isVercel && (
+          <button
+            type="button"
+            onClick={() => handleSourceChange("vector")}
+            className={`inline-flex items-center gap-2 px-3 py-2 rounded-lg border text-sm font-medium transition-all ${
+              source === "vector"
+                ? "bg-green-50 border-green-500 text-green-700 shadow-xs"
+                : "bg-gray-50 border-gray-200 text-gray-700 hover:bg-gray-100"
+            }`}
+          >
+            <Brain className="w-4 h-4 text-green-600" />
+            Vectorielle
+            <span className="text-[10px] text-gray-500">chroma/</span>
+          </button>
+          )}
           {isLocalEditable && (
             <button
               type="button"
@@ -277,7 +292,7 @@ export default function StructureBDDPage() {
 
       <div className="mt-4 text-xs text-gray-400 flex items-center justify-between">
         <span>
-          Source: {source === "local" ? "📍 Locale" : "🌐 Web"}
+          Source: {source === "local" ? "📍 Locale" : source === "vector" ? "🧠 Vectorielle" : "🌐 Web"}
           {source === "local" && activeRepo && (
             <span className="ml-2 text-gray-500">
               ({activeRepo === ".data" ? "référence immuable" : `repository: ${activeRepo}`})
