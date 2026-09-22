@@ -6,12 +6,15 @@ import { StructureTreePanel } from "./components/structure-tree-panel";
 import { useSyncStatus } from "./hooks/useSyncStatus";
 import { StructureDetailPanel } from "@/components/structure/structure-detail-panel";
 import { ImplanteWizard } from "./components/implante-wizard";
+import { ResetDatabaseDialog } from "@/components/structure/reset-database-dialog";
 import type { TreeNode } from "@/components/structure/tree-utils";
 import { useToastHelpers } from "@/components/notifications/toast-provider";
 import { StructureSource } from "@/lib/database/structure-types";
 import { fetchRepositoryInfo, treeAction } from "@/lib/api/local-first";
 import { syncFromWeb } from "@/lib/api/sync-tauri";
 import { isTauriEnv } from "@/lib/tauri/env";
+import { useAuth } from "@/lib/auth/use-auth";
+import { invoke } from "@tauri-apps/api/core";
 
 const SYNC_TIMEOUT_MS = 60_000;
 
@@ -62,7 +65,9 @@ export default function StructureBDDPage() {
   const [resetting, setResetting] = useState(false);
   const [syncingFiles, setSyncingFiles] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
+  const [isResetDialogOpen, setIsResetDialogOpen] = useState(false);
   const toast = useToastHelpers();
+  const { role } = useAuth();
 
   const { data: syncStatus, refetch: refetchStatus } = useSyncStatus();
 
@@ -96,24 +101,47 @@ export default function StructureBDDPage() {
   }, []);
 
   const handleResetFromData = useCallback(async () => {
-    const confirmed = await toast.confirm(
-      "Cette action est irréversible. Toutes les modifications non synchronisées seront perdues et la structure sera réinitialisée depuis le répertoire .data/.",
-      "Réinitialiser depuis .data/ ?",
-      { confirmLabel: 'Réinitialiser', cancelLabel: 'Annuler' }
-    );
+    setIsResetDialogOpen(true);
+  }, []);
 
-    if (!confirmed) {
+  const handleResetConfirm = useCallback(async ({ backup }: { backup: boolean }) => {
+    if (source === "vector") {
+      toast.error("La source vectorielle ne peut pas être réinitialisée");
       return;
     }
 
     setResetting(true);
     try {
-      const json = await treeAction("resetFromData", activeRepo || ".data", source, undefined, activeRepo || ".data");
-      if (json?.success) {
-        toast.success("Réinitialisation depuis .data/ terminée");
-        window.location.reload();
+      if (source === "web") {
+        // V1 : le paramètre backup est ignoré côté serveur.
+        // Le backup sera implémenté dans une version ultérieure.
+        const res = await fetch("/api/admin/reset", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ backup }),
+        });
+        const json = await res.json();
+        if (json?.success) {
+          toast.success("Réinitialisation Web terminée");
+          window.location.reload();
+        } else {
+          toast.error(json?.error || "Erreur lors de la réinitialisation");
+        }
       } else {
-        toast.error((json as any)?.error || "Erreur lors de la réinitialisation");
+        if (backup && isTauriEnv()) {
+          try {
+            await invoke("create_backup", { repository: activeRepo || ".data" });
+          } catch {
+            toast.warning("Backup échoué, le reset continue");
+          }
+        }
+        const json = await treeAction("resetFromData", activeRepo || ".data", source, undefined, activeRepo || ".data");
+        if (json?.success) {
+          toast.success("Réinitialisation depuis .data/ terminée");
+          window.location.reload();
+        } else {
+          toast.error((json as any)?.error || "Erreur lors de la réinitialisation");
+        }
       }
     } catch {
       toast.error("Erreur lors de la réinitialisation");
@@ -242,7 +270,7 @@ export default function StructureBDDPage() {
               Synchroniser depuis Web
             </button>
           )}
-          {isLocalEditable && (
+          {(role as string) === "admin" && source !== "vector" && (
             <button
               type="button"
               onClick={handleResetFromData}
@@ -254,7 +282,7 @@ export default function StructureBDDPage() {
               ) : (
                 <Database className="w-4 h-4" />
               )}
-              Réinitialiser depuis .data/
+              {source === "web" ? "Reset BDD" : "Réinitialiser depuis .data/"}
             </button>
           )}
           <button
@@ -312,6 +340,14 @@ export default function StructureBDDPage() {
           )}
         </span>
       </div>
+
+      <ResetDatabaseDialog
+        open={isResetDialogOpen}
+        onOpenChange={setIsResetDialogOpen}
+        source={source}
+        onConfirm={handleResetConfirm}
+        isLoading={resetting}
+      />
     </div>
   );
 }

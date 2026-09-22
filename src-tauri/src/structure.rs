@@ -1,8 +1,11 @@
 use std::fs;
+use std::io::{Read, Write};
 use std::path::{Path, PathBuf};
 use serde_json::{json, Value};
 use tauri::{AppHandle, Manager};
 use walkdir::WalkDir;
+use zip::write::FileOptions;
+use zip::ZipWriter;
 
 use crate::watcher;
 use crate::auto_vectorizer;
@@ -277,6 +280,57 @@ pub fn reset_local_repository(app: AppHandle, repository: Option<String>) -> Res
         "chromaPurged": chroma_deleted,
         "message": "Repository réinitialisé avec succès"
     }))
+}
+
+#[tauri::command]
+pub fn create_backup(repository: Option<String>) -> Result<String, String> {
+    let repo_dir = resolve_repository_path(repository.as_deref());
+    if !repo_dir.exists() {
+        return Err("Le répertoire repository n'existe pas".to_string());
+    }
+
+    let backups_dir = user_data_root().join("backups");
+    fs::create_dir_all(&backups_dir).map_err(|e| format!("Impossible de créer le dossier backups: {}", e))?;
+
+    let timestamp = chrono::Local::now().format("%Y%m%d-%H%M%S");
+    let zip_name = format!("backup-{}.zip", timestamp);
+    let zip_path = backups_dir.join(&zip_name);
+
+    let file = fs::File::create(&zip_path).map_err(|e| format!("Impossible de créer le zip: {}", e))?;
+    let mut zip = ZipWriter::new(file);
+    let mut buffer = Vec::new();
+
+    for entry in WalkDir::new(&repo_dir).min_depth(1) {
+        let entry = entry.map_err(|e| format!("Erreur walkdir: {}", e))?;
+        let relative = entry.path().strip_prefix(&repo_dir).map_err(|e| format!("Erreur strip_prefix: {}", e))?;
+        let entry_path = relative.to_string_lossy().replace("\\", "/");
+
+        if entry.file_type().is_dir() {
+            continue;
+        } else if entry.file_type().is_file() {
+            let mut f = fs::File::open(entry.path()).map_err(|e| format!("Impossible d'ouvrir le fichier: {}", e))?;
+            f.read_to_end(&mut buffer).map_err(|e| format!("Erreur lecture: {}", e))?;
+            zip.start_file(entry_path, FileOptions::<()>::default()).map_err(|e| format!("Erreur start_file: {}", e))?;
+            zip.write_all(&buffer).map_err(|e| format!("Erreur write_all: {}", e))?;
+            buffer.clear();
+        }
+    }
+
+    zip.finish().map_err(|e| format!("Erreur finish zip: {}", e))?;
+
+    let mut backup_files: Vec<_> = fs::read_dir(&backups_dir)
+        .map_err(|e| format!("Impossible de lister backups: {}", e))?
+        .filter_map(|e| e.ok())
+        .filter(|e| e.path().extension().map(|ext| ext == "zip").unwrap_or(false))
+        .collect();
+
+    backup_files.sort_by(|a, b| b.file_name().cmp(&a.file_name()));
+
+    for old_backup in backup_files.iter().skip(5) {
+        let _ = fs::remove_file(old_backup.path());
+    }
+
+    Ok(zip_path.to_string_lossy().to_string())
 }
 
 fn build_tree(base: &Path, current: &Path) -> Vec<Value> {

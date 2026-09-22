@@ -557,6 +557,7 @@ pub fn run() {
             structure::get_repository_info,
             structure::tree_action,
             structure::reset_local_repository,
+            structure::create_backup,
             sync::init_app,
             sync::sync_from_web,
             sync::sync_status,
