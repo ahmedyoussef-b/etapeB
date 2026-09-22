@@ -806,7 +806,7 @@ const TreeNodeItem = memo(function TreeNodeItem({
             ({node.metadata.equipmentCount})
           </span>
         )}
-        {!isEditing && !isAdding && (
+        {!isEditing && !isAdding && source === 'local' && (
           <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity" onClick={stopRowClick} onMouseDown={stopRowClick}>
             <button
               type="button"
