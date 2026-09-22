@@ -13,7 +13,7 @@ pub use config::{read_config, write_config, delete_config};
 pub use auth::{login, logout, get_session};
 
 use auto_vectorizer::{VectorizationConsistencyReport, VectorizationStats};
-use crate::structure::resolve_repository_path;
+use crate::structure::{resolve_repository_path, resolve_data_path};
 use std::path::{Path, PathBuf};
 use tauri::Emitter;
 use walkdir::WalkDir;
@@ -157,19 +157,25 @@ fn get_user_data_path() -> String {
 }
 
 #[tauri::command]
-async fn read_file_content(path: String) -> Result<FileContent, String> {
+async fn read_file_content(app: tauri::AppHandle, path: String) -> Result<FileContent, String> {
     use sha2::{Digest, Sha256};
     use std::fs;
     use std::path::PathBuf;
 
-    // Resolve the path: if absolute, use as‑is; otherwise resolve relative to the repository root
-    let resolved_path: PathBuf = {
-        let p = PathBuf::from(&path);
-        if p.is_absolute() {
-            p
+    let p = PathBuf::from(&path);
+    let resolved_path: PathBuf = if p.is_absolute() {
+        p
+    } else {
+        let repo_path = resolve_repository_path(None).join(&p);
+        if repo_path.exists() {
+            repo_path
         } else {
-            // No explicit repository argument, default to the default repository location
-            resolve_repository_path(None).join(p)
+            let data_path = resolve_data_path(&app).join(&p);
+            if data_path.exists() {
+                data_path
+            } else {
+                return Err(format!("Fichier introuvable: {}", path));
+            }
         }
     };
 
@@ -183,7 +189,6 @@ async fn read_file_content(path: String) -> Result<FileContent, String> {
         hex::encode(hasher.finalize())
     };
 
-    // Détecter si c'est du texte ou du binaire
     let is_text = std::str::from_utf8(&bytes).is_ok()
         && !path.ends_with(".jpg")
         && !path.ends_with(".png")
@@ -198,7 +203,7 @@ async fn read_file_content(path: String) -> Result<FileContent, String> {
     };
 
     Ok(FileContent {
-        path, // original requested path (kept for frontend)
+        path,
         size: size as i32,
         hash,
         text_content,

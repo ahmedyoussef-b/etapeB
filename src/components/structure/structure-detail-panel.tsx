@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { File, Folder, Database, HardDrive, Tag, Server, WifiOff, Loader2, AlertCircle, Download, Image as ImageIcon, FileText } from 'lucide-react';
+import { File, Folder, Database, HardDrive, Tag, Server, WifiOff, Loader2, AlertCircle, Download, Image as ImageIcon, FileText, Brain } from 'lucide-react';
 import { TreeNode } from './database-tree';
 import { fetchFileContent } from '@/lib/api/local-first';
 import { StructureSource } from '@/lib/database/structure-types';
@@ -96,6 +96,11 @@ export function StructureDetailPanel({ node, source, available = true, repositor
               <Server className="w-4 h-4 text-blue-500" />
               <span className="text-gray-600">Locale</span>
             </>
+          ) : source === 'vector' ? (
+            <>
+              <Brain className="w-4 h-4 text-purple-500" />
+              <span className="text-gray-600">Vectorielle</span>
+            </>
           ) : (
             <>
               {isWebUnavailable ? (
@@ -135,7 +140,7 @@ export function StructureDetailPanel({ node, source, available = true, repositor
             <div className="font-mono text-xs truncate" title={node.path}>{node.path}</div>
             <div className="text-gray-500">Source</div>
             <div className="font-medium">
-              {source === 'local' ? '📍 Local' : isWebUnavailable ? '🌐 Web (hors ligne)' : '🌐 Web'}
+              {source === 'local' ? '📍 Local' : source === 'vector' ? '🧠 Vectorielle' : isWebUnavailable ? '🌐 Web (hors ligne)' : '🌐 Web'}
             </div>
           </div>
         </div>

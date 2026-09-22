@@ -27,7 +27,7 @@ pub fn resolve_repository_path(repository: Option<&str>) -> PathBuf {
     }
 }
 
-fn resolve_data_path(app: &AppHandle) -> PathBuf {
+pub fn resolve_data_path(app: &AppHandle) -> PathBuf {
     #[cfg(debug_assertions)]
     {
         let dev_data = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
