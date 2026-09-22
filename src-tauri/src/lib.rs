@@ -12,6 +12,7 @@ pub use config::{read_config, write_config, delete_config};
 pub use auth::{login, logout, get_session};
 
 use auto_vectorizer::{VectorizationConsistencyReport, VectorizationStats};
+use crate::structure::resolve_repository_path;
 use std::path::{Path, PathBuf};
 use tauri::Emitter;
 use walkdir::WalkDir;
@@ -158,9 +159,21 @@ fn get_user_data_path() -> String {
 async fn read_file_content(path: String) -> Result<FileContent, String> {
     use sha2::{Digest, Sha256};
     use std::fs;
+    use std::path::PathBuf;
 
-    let bytes = fs::read(&path)
-        .map_err(|e| format!("Impossible de lire {}: {}", path, e))?;
+    // Resolve the path: if absolute, use as‑is; otherwise resolve relative to the repository root
+    let resolved_path: PathBuf = {
+        let p = PathBuf::from(&path);
+        if p.is_absolute() {
+            p
+        } else {
+            // No explicit repository argument, default to the default repository location
+            resolve_repository_path(None).join(p)
+        }
+    };
+
+    let bytes = fs::read(&resolved_path)
+        .map_err(|e| format!("Impossible de lire {}: {}", resolved_path.display(), e))?;
 
     let size = bytes.len();
     let hash = {
@@ -184,7 +197,7 @@ async fn read_file_content(path: String) -> Result<FileContent, String> {
     };
 
     Ok(FileContent {
-        path,
+        path, // original requested path (kept for frontend)
         size: size as i32,
         hash,
         text_content,

@@ -13,7 +13,7 @@ fn user_data_root() -> PathBuf {
     })
 }
 
-fn resolve_repository_path(repository: Option<&str>) -> PathBuf {
+pub fn resolve_repository_path(repository: Option<&str>) -> PathBuf {
     match repository {
         Some(r) if !r.is_empty() => {
             let p = PathBuf::from(r);
