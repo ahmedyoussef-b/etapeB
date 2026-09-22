@@ -29,10 +29,17 @@ pub struct RagAnswer {
 
 #[derive(serde::Serialize)]
 struct FileContent {
+    success: bool,
+    kind: String,
+    content: String,
+    #[serde(rename = "mimeType")]
+    mime_type: String,
     path: String,
     size: i32,
     hash: String,
+    #[serde(rename = "textContent")]
     text_content: Option<String>,
+    #[serde(rename = "base64Content")]
     base64_content: Option<String>,
 }
 
@@ -202,7 +209,55 @@ async fn read_file_content(app: tauri::AppHandle, path: String) -> Result<FileCo
         (None, Some(b64))
     };
 
+    let ext = resolved_path
+        .extension()
+        .and_then(|e| e.to_str())
+        .unwrap_or("")
+        .to_lowercase();
+
+    let (kind, mime_type, content) = match ext.as_str() {
+        "json" | "txt" | "md" | "csv" | "log" | "xml" => (
+            "text",
+            "text/plain",
+            text_content.clone().unwrap_or_default(),
+        ),
+        "jpg" | "jpeg" => (
+            "image",
+            "image/jpeg",
+            base64_content.clone().unwrap_or_default(),
+        ),
+        "png" => (
+            "image",
+            "image/png",
+            base64_content.clone().unwrap_or_default(),
+        ),
+        "gif" => (
+            "image",
+            "image/gif",
+            base64_content.clone().unwrap_or_default(),
+        ),
+        "svg" => (
+            "image",
+            "image/svg+xml",
+            base64_content.clone().unwrap_or_default(),
+        ),
+        "pdf" => (
+            "pdf",
+            "application/pdf",
+            base64_content.clone().unwrap_or_default(),
+        ),
+        _ => (
+            "binary",
+            "application/octet-stream",
+            base64_content.clone().unwrap_or_default(),
+        ),
+    };
+
     Ok(FileContent {
+        success: true,
+        kind: kind.to_string(),
+        content,
+        mime_type: mime_type.to_string(),
         path,
         size: size as i32,
         hash,
