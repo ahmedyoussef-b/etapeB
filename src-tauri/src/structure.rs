@@ -2,6 +2,10 @@ use std::fs;
 use std::path::{Path, PathBuf};
 use serde_json::{json, Value};
 use tauri::{AppHandle, Manager};
+use walkdir::WalkDir;
+
+use crate::watcher;
+use crate::auto_vectorizer;
 
 fn user_data_root() -> PathBuf {
     PathBuf::from(if cfg!(target_os = "windows") {
@@ -119,7 +123,7 @@ pub fn get_repository_info() -> Result<Value, String> {
 }
 
 #[tauri::command]
-pub fn tree_action(action: String, path: String, _source: String, name: Option<String>, repository: Option<String>) -> Result<Value, String> {
+pub fn tree_action(app: AppHandle, action: String, path: String, _source: String, name: Option<String>, repository: Option<String>) -> Result<Value, String> {
     let base = resolve_repository_path(repository.as_deref());
 
     let target = base.join(&path);
@@ -145,8 +149,127 @@ pub fn tree_action(action: String, path: String, _source: String, name: Option<S
             fs::create_dir_all(&new_path).map_err(|e| e.to_string())?;
             Ok(json!({"success": true}))
         }
+        "resetFromData" => {
+            let _ = watcher::stop_watching(&app);
+            let repo_dir = resolve_repository_path(repository.as_deref());
+            let source_dir = resolve_data_path(&app);
+            let chroma_path = user_data_root().join("chroma");
+
+            let mut files_deleted = 0usize;
+            if repo_dir.exists() {
+                for entry in fs::read_dir(&repo_dir).map_err(|e| e.to_string())? {
+                    let entry = entry.map_err(|e| e.to_string())?;
+                    let p = entry.path();
+                    if p.is_dir() {
+                        fs::remove_dir_all(&p).map_err(|e| e.to_string())?;
+                    } else {
+                        fs::remove_file(&p).map_err(|e| e.to_string())?;
+                    }
+                    files_deleted += 1;
+                }
+            }
+
+            let mut files_copied = 0usize;
+            if source_dir.exists() {
+                for entry in WalkDir::new(&source_dir).min_depth(1) {
+                    let entry = entry.map_err(|e| e.to_string())?;
+                    let relative = entry
+                        .path()
+                        .strip_prefix(&source_dir)
+                        .map_err(|e| e.to_string())?;
+                    let dest = repo_dir.join(relative);
+
+                    if entry.file_type().is_dir() {
+                        fs::create_dir_all(&dest).map_err(|e| e.to_string())?;
+                    } else if entry.file_type().is_file() {
+                        if let Some(parent) = dest.parent() {
+                            fs::create_dir_all(parent).map_err(|e| e.to_string())?;
+                        }
+                        fs::copy(entry.path(), &dest).map_err(|e| e.to_string())?;
+                        files_copied += 1;
+                    }
+                }
+            }
+
+            let chroma_deleted = chroma_path.exists();
+            if chroma_deleted {
+                fs::remove_dir_all(&chroma_path).map_err(|e| e.to_string())?;
+            }
+
+            let _ = watcher::start_watching(app.clone(), repo_dir.clone());
+            auto_vectorizer::start_auto_vectorizer(app, repo_dir.clone(), chroma_path);
+
+            Ok(json!({
+                "success": true,
+                "filesDeleted": files_deleted,
+                "filesCopied": files_copied,
+                "chromaPurged": chroma_deleted,
+                "message": "Repository réinitialisé avec succès"
+            }))
+        }
         _ => Err(format!("Unsupported action: {action}")),
     }
+}
+
+#[tauri::command]
+pub fn reset_local_repository(app: AppHandle, repository: Option<String>) -> Result<Value, String> {
+    let repo_dir = resolve_repository_path(repository.as_deref());
+    let source_dir = resolve_data_path(&app);
+    let chroma_path = user_data_root().join("chroma");
+
+    let _ = watcher::stop_watching(&app);
+
+    let mut files_deleted = 0usize;
+    if repo_dir.exists() {
+        for entry in fs::read_dir(&repo_dir).map_err(|e| e.to_string())? {
+            let entry = entry.map_err(|e| e.to_string())?;
+            let path = entry.path();
+            if path.is_dir() {
+                fs::remove_dir_all(&path).map_err(|e| e.to_string())?;
+            } else {
+                fs::remove_file(&path).map_err(|e| e.to_string())?;
+            }
+            files_deleted += 1;
+        }
+    }
+
+    let mut files_copied = 0usize;
+    if source_dir.exists() {
+        for entry in WalkDir::new(&source_dir).min_depth(1) {
+            let entry = entry.map_err(|e| e.to_string())?;
+            let relative = entry
+                .path()
+                .strip_prefix(&source_dir)
+                .map_err(|e| e.to_string())?;
+            let dest = repo_dir.join(relative);
+
+            if entry.file_type().is_dir() {
+                fs::create_dir_all(&dest).map_err(|e| e.to_string())?;
+            } else if entry.file_type().is_file() {
+                if let Some(parent) = dest.parent() {
+                    fs::create_dir_all(parent).map_err(|e| e.to_string())?;
+                }
+                fs::copy(entry.path(), &dest).map_err(|e| e.to_string())?;
+                files_copied += 1;
+            }
+        }
+    }
+
+    let chroma_deleted = chroma_path.exists();
+    if chroma_deleted {
+        fs::remove_dir_all(&chroma_path).map_err(|e| e.to_string())?;
+    }
+
+    let _ = watcher::start_watching(app.clone(), repo_dir.clone());
+    auto_vectorizer::start_auto_vectorizer(app, repo_dir.clone(), chroma_path);
+
+    Ok(json!({
+        "success": true,
+        "filesDeleted": files_deleted,
+        "filesCopied": files_copied,
+        "chromaPurged": chroma_deleted,
+        "message": "Repository réinitialisé avec succès"
+    }))
 }
 
 fn build_tree(base: &Path, current: &Path) -> Vec<Value> {
