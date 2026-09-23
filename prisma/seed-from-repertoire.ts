@@ -20,10 +20,15 @@ class MemoryFileSystem {
   private readonly dirs = new Map<string, string[]>();
   private readonly files = new Map<string, SeedFile>();
 
+  private static normalize(path: string): string {
+    return path.replace(/\\/g, '/').replace(/\/$/, '');
+  }
+
   constructor(files: SeedFile[]) {
     for (const file of files) {
-      this.files.set(file.path, file);
-      const parts = file.path.split('/');
+      const dataPath = MemoryFileSystem.normalize(`.data/${file.path}`);
+      this.files.set(dataPath, { ...file, path: dataPath });
+      const parts = dataPath.split('/');
       for (let i = 0; i < parts.length - 1; i++) {
         const parentDir = parts.slice(0, i + 1).join('/');
         const childName = parts[i + 1];
@@ -37,52 +42,44 @@ class MemoryFileSystem {
     }
   }
 
-  readdir(dirPath: string, options?: { withFileTypes?: boolean }): string[] | Dirent[] {
-    const normalized = dirPath.replace(/\\/g, '/').replace(/\/+$/, '');
-    const names = this.dirs.has(normalized) ? [...this.dirs.get(normalized)!] : [];
-    if (options?.withFileTypes) {
-      return names.map(name => ({
-        name,
-        isDirectory: () => this.isDirectory(`${normalized}/${name}`),
-        isFile: () => !this.isDirectory(`${normalized}/${name}`),
-        isSymbolicLink: () => false,
-        isBlockDevice: () => false,
-        isCharacterDevice: () => false,
-        isSocket: () => false,
-        isFIFO: () => false,
-      })) as Dirent[];
-    }
-    return names;
+  readdir(path: string): string[] {
+    const normalized = MemoryFileSystem.normalize(path);
+    return this.dirs.get(normalized) || [];
   }
 
   isDirectory(path: string): boolean {
-    const normalized = path.replace(/\\/g, '/').replace(/\/+$/, '');
-    return this.dirs.has(normalized);
+    const normalized = MemoryFileSystem.normalize(path);
+    let found = false;
+    this.files.forEach((_, entryPath) => {
+      if (entryPath.startsWith(normalized + '/')) found = true;
+    });
+    return found;
   }
 
-  readFile(filePath: string): Buffer {
-    const normalized = filePath.replace(/\\/g, '/').replace(/^\.\//, '');
+  stat(path: string) {
+    const normalized = MemoryFileSystem.normalize(path);
     const file = this.files.get(normalized);
-    if (file) return Buffer.from(file.content, 'utf-8');
-    throw new Error(`File not found in seed: ${filePath}`);
+    if (!file) {
+      if (this.isDirectory(normalized)) {
+        return { size: 0 };
+      }
+      throw new Error(`Path not found: ${path}`);
+    }
+    return { size: file.size };
   }
 
-  stat(filePath: string): { size: number; isFile(): boolean; isDirectory(): boolean } {
-    const normalized = filePath.replace(/\\/g, '/').replace(/^\.\//, '');
+  readFile(path: string): Buffer {
+    const normalized = MemoryFileSystem.normalize(path);
     const file = this.files.get(normalized);
-    if (file) {
-      return { size: file.size, isFile: () => true, isDirectory: () => false };
-    }
-    if (this.dirs.has(normalized)) {
-      return { size: 0, isFile: () => false, isDirectory: () => true };
-    }
-    throw new Error(`Path not found in seed: ${filePath}`);
+    if (!file) throw new Error(`File not found: ${path}`);
+    return Buffer.from(file.content, 'utf-8');
   }
 
-  accessSync(filePath: string): void {
-    const normalized = filePath.replace(/\\/g, '/').replace(/^\.\//, '');
-    if (this.files.has(normalized)) return;
-    throw new Error(`Path not found in seed: ${filePath}`);
+  accessSync(path: string): void {
+    const normalized = MemoryFileSystem.normalize(path);
+    if (!this.files.has(normalized) && !this.isDirectory(normalized)) {
+      throw new Error(`Path not found: ${path}`);
+    }
   }
 }
 
@@ -234,18 +231,23 @@ interface TeamMeta {
 // LOAD DATA
 // ============================================================
 
-async function loadRepertoireData(): Promise<RepertoireRoot> {
-  const rootDir = nodePath.resolve(process.cwd(), '.data');
-  return await buildRepertoireTree(rootDir, '.data');
-}
+  async function loadRepertoireData(): Promise<RepertoireRoot> {
+    if (_memoryFs) {
+      const root = await buildRepertoireTree('.data', '.data');
+      console.log('[SEED-DEBUG] memory root=', root.name, 'childrenCount=', root.children.length, 'childrenNames=', root.children.map(c => c.name));
+      return root;
+    }
+    const rootDir = nodePath.resolve(process.cwd(), '.data');
+    return await buildRepertoireTree(rootDir, '.data');
+  }
 
 async function buildRepertoireTree(absDir: string, relDir: string): Promise<RepertoireRoot> {
   const entries: RepertoireEntry[] = [];
   let dirents: Dirent[];
   try {
-    dirents = (await _readdir(absDir, { withFileTypes: true })) as Dirent[];
+    dirents = (await _readdir(absDir, { withFileTypes: true})) as Dirent[];
   } catch {
-    return { path: relDir, name: relDir, type: 'directory', children: [] };
+    return { path: relDir, name: nodePath.basename(relDir), type: 'directory', children: [] };
   }
   for (const d of dirents) {
     if (d.name.startsWith('.')) continue;
@@ -272,6 +274,7 @@ function findChild(children: RepertoireEntry[], name: string): RepertoireEntry |
 
 async function syncBlocks(root: RepertoireRoot, prisma: PrismaClient) {
   const centraleDir = findChild(root.children, 'Centrale');
+  console.log('[SEED-DEBUG] syncBlocks rootName=', root.name, 'childrenCount=', root.children.length, 'childrenNames=', root.children.map(c => c.name), 'centraleDir=', !!centraleDir);
   if (!centraleDir || !centraleDir.children) {
     console.error('❌ Dossier Centrale introuvable dans repertoires-data.json');
     return;
@@ -280,6 +283,8 @@ async function syncBlocks(root: RepertoireRoot, prisma: PrismaClient) {
   const blockNames = centraleDir.children
     .filter(c => c.type === 'directory')
     .map(c => c.name);
+
+  console.log(`📦 Synchronisation des blocs: ${blockNames.join(', ')}`);
 
   console.log(`📦 Synchronisation des blocs: ${blockNames.join(', ')}`);
 
