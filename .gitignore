@@ -92,3 +92,6 @@ scripts/check-*.js
 # === Embedded git repo (reference copy) ===
 docs/app/
 .vercel
+
+# Seed bundle backup
+*.bak

@@ -4,13 +4,14 @@ import * as path from 'node:path';
 const DATA_DIR = path.join(__dirname, '..', '.data');
 const OUTPUT = path.join(__dirname, '..', 'lib', 'seed-data.ts');
 
-const TEXT_EXTS = ['.json', '.txt', '.md', '.csv', '.log'];
-const BINARY_EXTS = ['.jpg', '.jpeg', '.png', '.gif', '.pdf', '.bin'];
+const TEXT_EXTS = new Set(['.json', '.txt', '.md', '.csv', '.log']);
+const BINARY_EXTS = new Set(['.jpg', '.jpeg', '.png', '.gif', '.pdf', '.bin', '.webp', '.svg', '.bmp', '.zip', '.tar', '.gz', '.7z', '.mp3', '.mp4', '.avi', '.mov', '.wav', '.flac', '.mkv', '.xlsx', '.doc', '.docx', '.pptx']);
 
 interface SeedFile {
   path: string;
   content: string;
   size: number;
+  encoding: 'utf-8' | 'base64';
 }
 
 interface SeedMetadata {
@@ -19,6 +20,27 @@ interface SeedMetadata {
   textFiles: number;
   binaryFiles: number;
   source: string;
+}
+
+function isBinaryByExt(ext: string): boolean {
+  return BINARY_EXTS.has(ext);
+}
+
+function isTextByExt(ext: string): boolean {
+  return TEXT_EXTS.has(ext);
+}
+
+function detectEncoding(content: Buffer): 'utf-8' | 'base64' {
+  // Heuristic: if the buffer contains null bytes or high ratio of non-printable chars, treat as binary
+  let nonPrintable = 0;
+  const sampleSize = Math.min(content.length, 4096);
+  for (let i = 0; i < sampleSize; i++) {
+    const byte = content[i];
+    if (byte === 0) return 'base64';
+    if (byte < 32 && byte !== 9 && byte !== 10 && byte !== 13) nonPrintable++;
+  }
+  if (nonPrintable > sampleSize * 0.1) return 'base64';
+  return 'utf-8';
 }
 
 function walk(dir: string, baseDir: string): SeedFile[] {
@@ -37,12 +59,25 @@ function walk(dir: string, baseDir: string): SeedFile[] {
       files.push(...walk(fullPath, baseDir));
     } else {
       const ext = path.extname(entry.name).toLowerCase();
-      if (BINARY_EXTS.includes(ext)) continue;
-      if (!TEXT_EXTS.includes(ext)) continue;
       try {
-        const content = fs.readFileSync(fullPath, 'utf-8');
-        const size = fs.statSync(fullPath).size;
-        files.push({ path: relPath, content, size });
+        const buffer = fs.readFileSync(fullPath);
+        const size = buffer.length;
+        let encoding: 'utf-8' | 'base64';
+        let content: string;
+
+        if (isBinaryByExt(ext) || !isTextByExt(ext)) {
+          encoding = 'base64';
+          content = buffer.toString('base64');
+        } else {
+          encoding = detectEncoding(buffer);
+          if (encoding === 'base64') {
+            content = buffer.toString('base64');
+          } else {
+            content = buffer.toString('utf-8');
+          }
+        }
+
+        files.push({ path: relPath, content, size, encoding });
       } catch {
         // skip unreadable files
       }
@@ -60,8 +95,8 @@ function main() {
   const files = walk(DATA_DIR, DATA_DIR);
   files.sort((a, b) => a.path.localeCompare(b.path));
 
-  const binaryCount = files.filter(f => BINARY_EXTS.includes(path.extname(f.path).toLowerCase())).length;
-  const textCount = files.filter(f => TEXT_EXTS.includes(path.extname(f.path).toLowerCase())).length;
+  const binaryCount = files.filter(f => f.encoding === 'base64').length;
+  const textCount = files.filter(f => f.encoding === 'utf-8').length;
 
   const metadata: SeedMetadata = {
     generatedAt: new Date().toISOString(),
@@ -79,6 +114,7 @@ export interface SeedFile {
   path: string;
   content: string;
   size: number;
+  encoding: 'utf-8' | 'base64';
 }
 
 export const SEED_FILES: SeedFile[] = ${JSON.stringify(files)};

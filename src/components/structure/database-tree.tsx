@@ -749,6 +749,12 @@ export function DatabaseTree({ source, onSelect, selectedPath, webAvailable = tr
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [source, loadStructure]);
 
+  const visibleNodes = useMemo(() => {
+    if (!nodes) return [];
+    const sorted = sortNodes(nodes);
+    return filterTree(sorted, searchQuery);
+  }, [nodes, searchQuery, sortField, sortDirection]);
+
   if (loading || nodes === null) {
     return (
       <div className="flex items-center justify-center p-8">
@@ -796,11 +802,6 @@ export function DatabaseTree({ source, onSelect, selectedPath, webAvailable = tr
       </div>
     );
   }
-
-  const visibleNodes = useMemo(() => {
-    const sorted = sortNodes(nodes);
-    return filterTree(sorted, searchQuery);
-  }, [nodes, searchQuery, sortField, sortDirection]);
 
   return (
     <div className="font-mono text-sm h-full flex flex-col">
