@@ -2,7 +2,7 @@
 'use client';
 
 import { useState, useEffect, useRef, useCallback, memo } from 'react';
-import { ChevronRight, ChevronDown, Folder, File, Database, RefreshCw, Factory, Users, Wrench, Layers, WifiOff, Pencil, Trash2, FolderPlus, X, Check, Copy } from 'lucide-react';
+import { ChevronRight, ChevronDown, ChevronLeft, Folder, File, Database, RefreshCw, Factory, Users, Wrench, Layers, WifiOff, Pencil, Trash2, FolderPlus, X, Check, Copy, ArrowUpDown } from 'lucide-react';
 import { FileUploadButton } from '@/components/upload/file-upload-button';
 import { dedupeTree, type TreeNode } from '@/components/structure/tree-utils';
 import { WORKING_REPOSITORY_NAME, WORKING_REPOSITORY_PATH } from '@/lib/config/repository';
@@ -145,12 +145,19 @@ export function DatabaseTree({ source, onSelect, selectedPath, webAvailable = tr
   const loadingPathsRef = useRef<Set<string>>(new Set());
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number; node: TreeNode } | null>(null);
   const toast = useToastHelpers();
+  const [history, setHistory] = useState<string[]>([]);
+  const [historyIndex, setHistoryIndex] = useState(-1);
+  const isNavigatingRef = useRef(false);
+  const [sortField, setSortField] = useState<'name' | 'date' | 'size' | 'type'>('name');
+  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
 
   const isLocalEditable = source === 'local' && activeRepo !== null && activeRepo !== undefined && activeRepo !== '.data' && !activeRepo.endsWith('/.data') && (activeRepo === WORKING_REPOSITORY_NAME || activeRepo.startsWith('repositories/'));
   const mutationsEnabled = isLocalEditable || (source === 'web' && webAvailable && isAdmin && !isTauriEnv());
 
   useEffect(() => {
     console.log('[DatabaseTree] source changed', { source, webAvailable });
+    setHistory([]);
+    setHistoryIndex(-1);
   }, [source, webAvailable]);
 
   const loadStructure = useCallback(async (path: string = '', signal?: AbortSignal) => {
@@ -458,10 +465,86 @@ export function DatabaseTree({ source, onSelect, selectedPath, webAvailable = tr
   }, [loadChildren]);
 
   const handleSelect = useCallback((node: TreeNode) => {
+    if (!isNavigatingRef.current) {
+      setHistory(prev => {
+        const next = prev.slice(0, historyIndex + 1);
+        next.push(node.path);
+        return next.slice(-50);
+      });
+      setHistoryIndex(prev => Math.min(prev + 1, 49));
+    }
     onSelect(node);
-  }, [onSelect]);
+  }, [onSelect, historyIndex]);
 
   const getNodeLabel = useCallback((node: TreeNode) => node.name, []);
+
+  const sortNodes = useCallback((nodes: TreeNode[]): TreeNode[] => {
+    const sorted = [...nodes];
+    sorted.sort((a, b) => {
+      const dirOrder = sortField === 'type' ? 0 : (a.type === 'directory' ? -1 : 1) - (b.type === 'directory' ? -1 : 1);
+      if (dirOrder !== 0) return dirOrder;
+
+      let cmp = 0;
+      if (sortField === 'name') {
+        cmp = a.name.localeCompare(b.name);
+      } else if (sortField === 'size') {
+        const sizeA = a.size ?? 0;
+        const sizeB = b.size ?? 0;
+        cmp = sizeA - sizeB;
+      } else if (sortField === 'date') {
+        const dateA = a.metadata?.updatedAt || a.metadata?.createdAt || '';
+        const dateB = b.metadata?.updatedAt || b.metadata?.createdAt || '';
+        cmp = dateA.localeCompare(dateB);
+      } else if (sortField === 'type') {
+        cmp = a.type.localeCompare(b.type);
+      }
+
+      return sortDirection === 'asc' ? cmp : -cmp;
+    });
+    return sorted.map(node => ({
+      ...node,
+      children: node.children ? sortNodes(node.children) : node.children
+    }));
+  }, [sortField, sortDirection]);
+
+  const findNodeByPath = useCallback((nodes: TreeNode[], path: string): TreeNode | undefined => {
+    for (const node of nodes) {
+      if (node.path === path) return node;
+      if (node.children) {
+        const found = findNodeByPath(node.children, path);
+        if (found) return found;
+      }
+    }
+    return undefined;
+  }, []);
+
+  const handleBack = useCallback(() => {
+    if (historyIndex > 0) {
+      isNavigatingRef.current = true;
+      const newIndex = historyIndex - 1;
+      const path = history[newIndex];
+      const node = findNodeByPath(nodes || [], path);
+      if (node) {
+        setHistoryIndex(newIndex);
+        onSelect(node);
+      }
+      isNavigatingRef.current = false;
+    }
+  }, [historyIndex, history, nodes, onSelect, findNodeByPath]);
+
+  const handleForward = useCallback(() => {
+    if (historyIndex < history.length - 1) {
+      isNavigatingRef.current = true;
+      const newIndex = historyIndex + 1;
+      const path = history[newIndex];
+      const node = findNodeByPath(nodes || [], path);
+      if (node) {
+        setHistoryIndex(newIndex);
+        onSelect(node);
+      }
+      isNavigatingRef.current = false;
+    }
+  }, [historyIndex, history, nodes, onSelect, findNodeByPath]);
 
   const getNodeIcon = useCallback((node: TreeNode) => {
     const name = node.name.toLowerCase();
@@ -613,11 +696,47 @@ export function DatabaseTree({ source, onSelect, selectedPath, webAvailable = tr
 
   return (
     <div className="font-mono text-sm h-full flex flex-col">
-      <div className="flex items-center p-2 border-b">
-        <span className="text-xs text-gray-500">Arborescence</span>
+      <div className="flex items-center gap-1 p-2 border-b">
+        <button
+          type="button"
+          onClick={handleBack}
+          disabled={historyIndex <= 0}
+          className="p-1 text-gray-400 hover:text-gray-700 hover:bg-gray-100 rounded transition-colors disabled:cursor-not-allowed disabled:opacity-40"
+          title="Précédent"
+        >
+          <ChevronLeft className="w-4 h-4" />
+        </button>
+        <button
+          type="button"
+          onClick={handleForward}
+          disabled={historyIndex >= history.length - 1}
+          className="p-1 text-gray-400 hover:text-gray-700 hover:bg-gray-100 rounded transition-colors disabled:cursor-not-allowed disabled:opacity-40"
+          title="Suivant"
+        >
+          <ChevronRight className="w-4 h-4" />
+        </button>
+        <select
+          value={sortField}
+          onChange={(e) => setSortField(e.target.value as any)}
+          className="text-xs border border-gray-200 rounded px-1.5 py-0.5 bg-white text-gray-700"
+        >
+          <option value="name">Nom</option>
+          <option value="type">Type</option>
+          <option value="size">Taille</option>
+          <option value="date">Date</option>
+        </select>
+        <button
+          type="button"
+          onClick={() => setSortDirection(d => d === 'asc' ? 'desc' : 'asc')}
+          className="p-1 text-gray-400 hover:text-gray-700 hover:bg-gray-100 rounded transition-colors"
+          title={sortDirection === 'asc' ? 'Croissant' : 'Décroissant'}
+        >
+          <ArrowUpDown className="w-4 h-4" />
+        </button>
+        <span className="text-xs text-gray-500 ml-1">Arborescence</span>
       </div>
       <div className="flex-1 overflow-y-auto p-2 min-h-0">
-        {nodes.map(node => (
+        {sortNodes(nodes).map(node => (
           <TreeNodeItem
             key={node.path}
             node={node}
