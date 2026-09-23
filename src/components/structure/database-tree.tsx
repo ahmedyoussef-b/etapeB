@@ -2,7 +2,7 @@
 'use client';
 
 import { useState, useEffect, useRef, useCallback, memo, useMemo } from 'react';
-import { ChevronRight, ChevronDown, ChevronLeft, Search, Folder, File, Database, RefreshCw, Factory, Users, Wrench, Layers, WifiOff, Pencil, Trash2, FolderPlus, X, Check, Copy, ArrowUpDown } from 'lucide-react';
+import { ChevronRight, ChevronDown, ChevronLeft, ChevronsUpDown, Search, Folder, File, Database, RefreshCw, Factory, Users, Wrench, Layers, WifiOff, Pencil, Trash2, FolderPlus, X, Check, Copy, ArrowUpDown } from 'lucide-react';
 import { FileUploadButton } from '@/components/upload/file-upload-button';
 import { dedupeTree, type TreeNode } from '@/components/structure/tree-utils';
 import { WORKING_REPOSITORY_NAME, WORKING_REPOSITORY_PATH } from '@/lib/config/repository';
@@ -459,11 +459,28 @@ export function DatabaseTree({ source, onSelect, selectedPath, webAvailable = tr
       }
       return next;
     });
-    // Load children if needed (outside the state updater)
     if (!node.children || node.children.length === 0) {
       await loadChildren(node);
     }
   }, [loadChildren]);
+
+  const expandAll = useCallback((nodes: TreeNode[]) => {
+    const paths: string[] = [];
+    const visit = (items: TreeNode[]) => {
+      for (const node of items) {
+        if (node.type === 'directory') {
+          paths.push(node.path);
+          if (node.children) visit(node.children);
+        }
+      }
+    };
+    visit(nodes);
+    setExpanded(new Set(paths));
+  }, []);
+
+  const collapseAll = useCallback(() => {
+    setExpanded(new Set());
+  }, []);
 
   const handleSelect = useCallback((node: TreeNode) => {
     if (!isNavigatingRef.current) {
@@ -750,6 +767,11 @@ export function DatabaseTree({ source, onSelect, selectedPath, webAvailable = tr
     );
   }
 
+  const visibleNodes = useMemo(() => {
+    const sorted = sortNodes(nodes);
+    return filterTree(sorted, searchQuery);
+  }, [nodes, searchQuery, sortField, sortDirection]);
+
   return (
     <div className="font-mono text-sm h-full flex flex-col">
       <div className="flex items-center gap-1 p-2 border-b">
@@ -770,6 +792,14 @@ export function DatabaseTree({ source, onSelect, selectedPath, webAvailable = tr
           title="Suivant"
         >
           <ChevronRight className="w-4 h-4" />
+        </button>
+        <button
+          type="button"
+          onClick={() => expandAll(nodes)}
+          className="p-1 text-gray-400 hover:text-gray-700 hover:bg-gray-100 rounded transition-colors"
+          title="Tout développer"
+        >
+          <ChevronsUpDown className="w-4 h-4" />
         </button>
         <select
           value={sortField}
@@ -801,29 +831,49 @@ export function DatabaseTree({ source, onSelect, selectedPath, webAvailable = tr
           />
         </div>
       </div>
-      {searchQuery.trim() && (
-        <div className="text-xs text-gray-500 px-2 py-1 border-b bg-gray-50">
+      {selectedPath && (
+        <div className="flex items-center gap-1 px-2 py-1 border-b text-xs text-gray-600 bg-gray-50 flex-wrap">
+          <span className="text-gray-400">Chemin :</span>
           {(() => {
-            const sorted = sortNodes(nodes);
-            const filtered = filterTree(sorted, searchQuery);
-            return `${filtered.length} résultat${filtered.length !== 1 ? 's' : ''}`;
+            const parts = selectedPath.split('/').filter(Boolean);
+            return parts.map((part, index) => {
+              const segmentPath = parts.slice(0, index + 1).join('/');
+              const isLast = index === parts.length - 1;
+              return (
+                <span key={segmentPath} className="flex items-center gap-1">
+                  {index > 0 && <span className="text-gray-400">/</span>}
+                  {isLast ? (
+                    <span className="font-medium text-gray-900">{part}</span>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const node = findNodeByPath(nodes, segmentPath);
+                        if (node) onSelect(node);
+                      }}
+                      className="text-blue-600 hover:text-blue-800 hover:underline"
+                    >
+                      {part}
+                    </button>
+                  )}
+                </span>
+              );
+            });
           })()}
         </div>
       )}
+      {searchQuery.trim() && (
+        <div className="text-xs text-gray-500 px-2 py-1 border-b bg-gray-50">
+          {`${visibleNodes.length} résultat${visibleNodes.length !== 1 ? 's' : ''}`}
+        </div>
+      )}
       <div className="flex-1 overflow-y-auto p-2 min-h-0">
-        {(() => {
-          const sorted = sortNodes(nodes);
-          const filtered = filterTree(sorted, searchQuery);
-
-          if (filtered.length === 0 && searchQuery.trim()) {
-            return (
-              <div className="p-4 text-center text-gray-500 text-sm">
-                Aucun résultat pour "{searchQuery}"
-              </div>
-            );
-          }
-
-          return filtered.map(node => (
+        {visibleNodes.length === 0 && searchQuery.trim() ? (
+          <div className="p-4 text-center text-gray-500 text-sm">
+            Aucun résultat pour "{searchQuery}"
+          </div>
+        ) : (
+          visibleNodes.map(node => (
             <TreeNodeItem
               key={node.path}
               node={node}
@@ -855,8 +905,8 @@ export function DatabaseTree({ source, onSelect, selectedPath, webAvailable = tr
               formatSize={formatSize}
               formatDate={formatDate}
             />
-          ));
-        })()}
+          ))
+        )}
       </div>
       {contextMenu && (
         <ContextMenu
@@ -1129,36 +1179,7 @@ const TreeNodeItem = memo(function TreeNodeItem({
           </span>
         )}
         {!isEditing && !isAdding && source !== 'vector' && (source !== 'web' || isAdmin) && (
-          <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity" onClick={stopRowClick} onMouseDown={stopRowClick}>
-            <button
-              type="button"
-              disabled={!mutationsEnabled}
-              onClick={(e) => { stopRowClick(e); startEditing(); }}
-              className="p-1 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded transition-colors disabled:cursor-not-allowed disabled:opacity-40"
-              title={mutationsEnabled ? 'Renommer' : 'BDD locale en lecture seule'}
-            >
-              <Pencil className="w-3 h-3" />
-            </button>
-            {node.type === 'directory' && (
-              <button
-                type="button"
-                disabled={!mutationsEnabled}
-                onClick={(e) => { stopRowClick(e); setNewName(''); setIsAdding(true); }}
-                className="p-1 text-gray-400 hover:text-green-600 hover:bg-green-50 rounded transition-colors disabled:cursor-not-allowed disabled:opacity-40"
-                title={mutationsEnabled ? 'Ajouter un dossier' : 'BDD locale en lecture seule'}
-              >
-                <FolderPlus className="w-3 h-3" />
-              </button>
-            )}
-            <button
-              type="button"
-              disabled={!mutationsEnabled}
-              onClick={(e) => { stopRowClick(e); handleDelete(); }}
-              className={`p-1 rounded transition-colors disabled:cursor-not-allowed disabled:opacity-40 ${isDeleting ? 'text-red-600 bg-red-50' : 'text-gray-400 hover:text-red-600 hover:bg-red-50'}`}
-              title={!mutationsEnabled ? 'BDD locale en lecture seule' : isDeleting ? 'Cliquer pour confirmer' : 'Supprimer'}
-            >
-              <Trash2 className="w-3 h-3" />
-            </button>
+          <div className="flex items-center gap-0.5">
             {node.type === 'directory' && mutationsEnabled && (
               <FileUploadButton
                 targetPath={node.path}
@@ -1168,6 +1189,37 @@ const TreeNodeItem = memo(function TreeNodeItem({
                 onUploadComplete={() => onUploaded?.()}
               />
             )}
+            <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity" onClick={stopRowClick} onMouseDown={stopRowClick}>
+              <button
+                type="button"
+                disabled={!mutationsEnabled}
+                onClick={(e) => { stopRowClick(e); startEditing(); }}
+                className="p-1 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded transition-colors disabled:cursor-not-allowed disabled:opacity-40"
+                title={mutationsEnabled ? 'Renommer' : 'BDD locale en lecture seule'}
+              >
+                <Pencil className="w-3 h-3" />
+              </button>
+              {node.type === 'directory' && (
+                <button
+                  type="button"
+                  disabled={!mutationsEnabled}
+                  onClick={(e) => { stopRowClick(e); setNewName(''); setIsAdding(true); }}
+                  className="p-1 text-gray-400 hover:text-green-600 hover:bg-green-50 rounded transition-colors disabled:cursor-not-allowed disabled:opacity-40"
+                  title={mutationsEnabled ? 'Ajouter un dossier' : 'BDD locale en lecture seule'}
+                >
+                  <FolderPlus className="w-3 h-3" />
+                </button>
+              )}
+              <button
+                type="button"
+                disabled={!mutationsEnabled}
+                onClick={(e) => { stopRowClick(e); handleDelete(); }}
+                className={`p-1 rounded transition-colors disabled:cursor-not-allowed disabled:opacity-40 ${isDeleting ? 'text-red-600 bg-red-50' : 'text-gray-400 hover:text-red-600 hover:bg-red-50'}`}
+                title={!mutationsEnabled ? 'BDD locale en lecture seule' : isDeleting ? 'Cliquer pour confirmer' : 'Supprimer'}
+              >
+                <Trash2 className="w-3 h-3" />
+              </button>
+            </div>
           </div>
         )}
         <div className="flex items-center gap-3 text-xs text-gray-400 ml-auto pl-2 shrink-0">
