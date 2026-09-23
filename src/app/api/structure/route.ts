@@ -483,26 +483,7 @@ async function buildDatabaseTree(
       }
 
       // ── Extra root directories ─────────────────────────────────────────────
-      // All 6 known dirs + any additional directories found on disk
       const extraDirs = ['bank', 'documents', 'indexes', 'library', 'registry', 'system'];
-
-      try {
-        const repoBase = nodePath.resolve(process.cwd(), repositoryPath || '.data');
-        const diskEntries = await fs.readdir(repoBase, { withFileTypes: true });
-        for (const entry of diskEntries) {
-          if (
-            entry.isDirectory() &&
-            !entry.name.startsWith('.') &&
-            entry.name !== 'Centrale' &&
-            entry.name !== 'Groupes' &&
-            !extraDirs.includes(entry.name)
-          ) {
-            extraDirs.push(entry.name);
-          }
-        }
-      } catch (e) {
-        console.warn('[buildDatabaseTree] error reading disk entries:', e);
-      }
 
       const extraDirFilter = (name: string) => {
         if (name === 'mirror_repertoire.json' || name === 'mirror.json') return false;
@@ -601,6 +582,7 @@ function attachDocumentsToTree(
   for (const doc of documents) {
     if (!doc.path) continue;
     if (doc.filename === '.meta.json' || doc.path.endsWith('/.meta.json')) continue;
+    if (doc.filename === '.placeholder' || doc.path.endsWith('/.placeholder')) continue;
 
     const lastSlash = doc.path.lastIndexOf('/');
     const parentPath = lastSlash > 0 ? doc.path.substring(0, lastSlash) : '';
