@@ -1,125 +1,14 @@
 import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth/next';
 import { authOptions } from '@/lib/auth/options';
-import { getPrismaClient } from '@/lib/services/db';
+import { PrismaAdapter } from '@/lib/database/prisma-adapter';
+import { revalidateTag } from 'next/cache';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
-async function getWebFile(prisma: ReturnType<typeof getPrismaClient>, path: string) {
-  return prisma.webFile.findUnique({ where: { path } });
-}
-
-async function handleRename(prisma: ReturnType<typeof getPrismaClient>, path: string, name?: string) {
-  const newName = name?.trim();
-  if (!newName) {
-    return NextResponse.json({ error: 'Missing name for rename' }, { status: 400 });
-  }
-
-  const existing = await getWebFile(prisma, path);
-  if (!existing) {
-    return NextResponse.json({ error: 'File not found' }, { status: 404 });
-  }
-
-  const parts = path.split('/').filter(Boolean);
-  parts[parts.length - 1] = newName;
-  const newPath = parts.join('/');
-
-  if (newPath === path) {
-    return NextResponse.json({ success: true, path, oldPath: path });
-  }
-
-  const children = await prisma.webFile.findMany({
-    where: { path: { startsWith: `${path}/` } },
-  });
-
-  await prisma.$transaction(async (tx) => {
-    await (tx as any).webFile.update({
-      where: { path },
-      data: { path: newPath },
-    });
-
-    for (const child of children) {
-      const suffix = child.path.slice(path.length);
-      const updatedPath = `${newPath}${suffix}`;
-      await (tx as any).webFile.update({
-        where: { path: child.path },
-        data: { path: updatedPath },
-      });
-    }
-  });
-
-  return NextResponse.json({ success: true, path: newPath, oldPath: path });
-}
-
-async function handleDelete(prisma: ReturnType<typeof getPrismaClient>, path: string) {
-  const target = await getWebFile(prisma, path);
-  if (!target) {
-    return NextResponse.json({ error: 'File not found' }, { status: 404 });
-  }
-
-  let deleted = 0;
-  await prisma.$transaction(async (tx) => {
-    const result = await (tx as any).webFile.deleteMany({
-      where: {
-        OR: [
-          { path },
-          { path: { startsWith: `${path}/` } },
-        ],
-      },
-    });
-    deleted = result.count;
-  });
-
-  return NextResponse.json({ success: true, deleted });
-}
-
-async function handleMkdir(prisma: ReturnType<typeof getPrismaClient>, path: string, name?: string) {
-  const newName = name?.trim();
-  if (!newName) {
-    return NextResponse.json({ error: 'Missing name for mkdir' }, { status: 400 });
-  }
-
-  const newPath = path ? `${path}/${newName}` : newName;
-
-  try {
-    const created = await prisma.webFile.create({
-      data: {
-        path: newPath,
-        content: '',
-        mimeType: 'inode/directory',
-        size: 0,
-        hash: '',
-      },
-    });
-    return NextResponse.json({ success: true, path: created.path });
-  } catch (err) {
-    return NextResponse.json({ error: 'Path already exists' }, { status: 409 });
-  }
-}
-
-async function handleCreate(prisma: ReturnType<typeof getPrismaClient>, path: string, name?: string) {
-  const fileName = name?.trim();
-  if (!fileName) {
-    return NextResponse.json({ error: 'Missing name for create' }, { status: 400 });
-  }
-
-  const newPath = path ? `${path}/${fileName}` : fileName;
-
-  try {
-    const created = await prisma.webFile.create({
-      data: {
-        path: newPath,
-        content: '',
-        mimeType: 'application/octet-stream',
-        size: 0,
-        hash: '',
-      },
-    });
-    return NextResponse.json({ success: true, path: created.path });
-  } catch (err) {
-    return NextResponse.json({ error: 'Path already exists' }, { status: 409 });
-  }
+function getWebAdapter() {
+  return new PrismaAdapter();
 }
 
 export async function POST(request: Request) {
@@ -152,18 +41,69 @@ export async function POST(request: Request) {
       );
     }
 
-    const prisma = getPrismaClient();
+    const adapter = getWebAdapter();
 
     switch (action) {
-      case 'rename':
-        return await handleRename(prisma, path, name);
-      case 'delete':
-        return await handleDelete(prisma, path);
-      case 'mkdir':
-        return await handleMkdir(prisma, path, name);
+      case 'rename': {
+        const newName = name?.trim();
+        if (!newName) {
+          return NextResponse.json({ error: 'Missing name for rename' }, { status: 400 });
+        }
+
+        const parts = path.split('/').filter(Boolean);
+        parts[parts.length - 1] = newName;
+        const newPath = parts.join('/');
+
+        if (newPath === path) {
+          return NextResponse.json({ success: true, path, oldPath: path });
+        }
+
+        const exists = await adapter.exists(path).catch(() => false);
+        if (!exists) {
+          return NextResponse.json({ error: 'File not found' }, { status: 404 });
+        }
+
+        await adapter.rename(path, newPath);
+        revalidateTag('structure-web');
+        return NextResponse.json({ success: true, path: newPath, oldPath: path });
+      }
+
+      case 'delete': {
+        const exists = await adapter.exists(path).catch(() => false);
+        if (!exists) {
+          return NextResponse.json({ error: 'File not found' }, { status: 404 });
+        }
+
+        await adapter.delete(path);
+        revalidateTag('structure-web');
+        return NextResponse.json({ success: true, deleted: 1 });
+      }
+
+      case 'mkdir': {
+        const newName = name?.trim();
+        if (!newName) {
+          return NextResponse.json({ error: 'Missing name for mkdir' }, { status: 400 });
+        }
+
+        const newPath = path ? `${path}/${newName}` : newName;
+        await adapter.mkdir(newPath);
+        revalidateTag('structure-web');
+        return NextResponse.json({ success: true, path: newPath });
+      }
+
       case 'create':
-      case 'upload':
-        return await handleCreate(prisma, path, name);
+      case 'upload': {
+        const fileName = name?.trim();
+        if (!fileName) {
+          return NextResponse.json({ error: 'Missing name for create' }, { status: 400 });
+        }
+
+        const newPath = path ? `${path}/${fileName}` : fileName;
+        await adapter.write(newPath, Buffer.from(''));
+        revalidateTag('structure-web');
+        return NextResponse.json({ success: true, path: newPath });
+      }
+
       default:
         return NextResponse.json(
           { error: `Unknown action: ${action}` },

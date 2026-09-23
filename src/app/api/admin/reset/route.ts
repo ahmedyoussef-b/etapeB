@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth/next';
 import { authOptions } from '@/lib/auth/options';
 import { getPrismaClient } from '@/lib/services/db';
+import { revalidateTag } from 'next/cache';
 import { seedDatabase } from '@/lib/seed-db';
 
 export const runtime = 'nodejs';
@@ -51,7 +52,6 @@ export async function POST(request: Request) {
     const tablesTruncated: string[] = [];
     let filesInserted = 0;
     let usersUpserted = 0;
-    let webFilesInserted = 0;
 
     await prisma.$transaction(async (tx) => {
       for (const entry of TRUNCATE_ORDER) {
@@ -61,17 +61,17 @@ export async function POST(request: Request) {
       const result = await seedDatabase(tx as any);
       filesInserted = result.filesInserted;
       usersUpserted = result.usersUpserted;
-      webFilesInserted = result.webFilesInserted;
     });
 
     const duration = Date.now() - startTime;
+
+    revalidateTag('structure-web');
 
     return NextResponse.json({
       success: true,
       tablesTruncated,
       filesInserted,
       usersUpserted,
-      webFilesInserted,
       duration,
     });
   } catch (err) {

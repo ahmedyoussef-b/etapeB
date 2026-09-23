@@ -377,17 +377,19 @@ model Report {
 }
 
 model Document {
-  id        String   @id @default(cuid())
-  filename  String
-  mimeType  String?
-  size      Int?
-  data      Bytes?
-  metadata  Json?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  path      String?  @unique
+  id          String    @id @default(cuid())
+  filename    String
+  mimeType    String?
+  size        Int?
+  data        Bytes?
+  metadata    Json?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  path        String?   @unique
+  injectedAt  DateTime?
 
   @@index([filename])
+  @@index([injectedAt])
   @@map("documents")
 }
 
@@ -443,17 +445,4 @@ model SystemVersion {
   @@index([publishedAt])
 }
 
-model WebFile {
-  id         String   @id @default(cuid())
-  path       String   @unique
-  content    String   @db.Text
-  mimeType   String?
-  size       Int
-  hash       String
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
 
-  @@index([path])
-  @@index([hash])
-  @@map("web_files")
-}

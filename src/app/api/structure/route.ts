@@ -1,6 +1,8 @@
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 import { NextRequest, NextResponse } from 'next/server';
+import { unstable_cache } from 'next/cache';
+import { revalidatePath } from 'next/cache';
 import { LocalDatabaseAdapter } from '@/lib/database/local-adapter';
 import { WebDatabaseAdapter } from '@/lib/database/web-adapter';
 import { getAuthenticatedUser, hasPermission, unauthorizedResponse, unauthenticatedResponse } from '@/lib/api/auth-guard';
@@ -27,9 +29,9 @@ function mapAdapterPathToWeb(path: string): string {
   return `.data/${path}`;
 }
 
-async function buildExactTree(adapter: DatabaseAdapter, relativePath = '.'): Promise<TreeNode[]> {
+async function buildExactTree(adapter: DatabaseAdapter, relativePath = '.', shouldInclude?: (name: string) => boolean): Promise<TreeNode[]> {
   const entries = await adapter.list(relativePath || '.');
-  const visibleEntries = entries.filter(isVisibleEntry);
+  const visibleEntries = shouldInclude ? entries.filter(shouldInclude) : entries.filter(isVisibleEntry);
   const nodes: TreeNode[] = [];
 
   for (const entry of visibleEntries) {
@@ -114,6 +116,9 @@ async function buildDatabaseTree(
     repositoryPath: string = '.data',
     webAdapter?: WebDatabaseAdapter
   ): Promise<TreeNode[]> {
+    if (!webAdapter) {
+      throw new Error('webAdapter is required for buildDatabaseTree');
+    }
     const prisma = getPrismaClient();
 
     try {
@@ -333,13 +338,12 @@ async function buildDatabaseTree(
 
       if (centraleNode.children!.length === 0) {
         try {
-          const fullCentrale = nodePath.resolve(process.cwd(), repositoryPath || '.data', 'Centrale');
-          const diskCentrale = await buildExactTreeFromDisk(fullCentrale, 'Centrale', repositoryPath || '.data');
-          if (diskCentrale.children && diskCentrale.children.length > 0) {
-            centraleNode.children = diskCentrale.children;
+          const webCentrale = await buildExactTree(webAdapter, 'Centrale');
+          if (webCentrale.length > 0) {
+            centraleNode.children = webCentrale;
           }
         } catch (e) {
-          console.warn('[buildDatabaseTree] Centrale disk fallback failed:', e);
+          console.warn('[buildDatabaseTree] Centrale web fallback failed:', e);
         }
       }
 
@@ -468,13 +472,12 @@ async function buildDatabaseTree(
 
       if (groupesNode.children!.length === 0) {
         try {
-          const fullGroupes = nodePath.resolve(process.cwd(), repositoryPath || '.data', 'Groupes');
-          const diskGroupes = await buildExactTreeFromDisk(fullGroupes, 'Groupes', repositoryPath || '.data');
-          if (diskGroupes.children && diskGroupes.children.length > 0) {
-            groupesNode.children = diskGroupes.children;
+          const webGroupes = await buildExactTree(webAdapter, 'Groupes');
+          if (webGroupes.length > 0) {
+            groupesNode.children = webGroupes;
           }
         } catch (e) {
-          console.warn('[buildDatabaseTree] Groupes disk fallback failed:', e);
+          console.warn('[buildDatabaseTree] Groupes web fallback failed:', e);
         }
       }
 
@@ -500,15 +503,23 @@ async function buildDatabaseTree(
         console.warn('[buildDatabaseTree] error reading disk entries:', e);
       }
 
+      const extraDirFilter = (name: string) => {
+        if (name === 'mirror_repertoire.json' || name === 'mirror.json') return false;
+        return name.endsWith('.meta.json') || !name.startsWith('.');
+      };
+
       for (const dir of extraDirs) {
         if (nodes.find(n => n.name === dir)) continue;
 
-        const dirPath = dir;
-        const fullDir = nodePath.resolve(process.cwd(), repositoryPath || '.data', dir);
-
         try {
-          const tree = await buildExactTreeFromDisk(fullDir, dirPath, repositoryPath || '.data');
-          nodes.push(tree);
+          const tree = await buildExactTree(webAdapter, dir, extraDirFilter);
+          nodes.push({
+            name: dir,
+            path: dir,
+            type: 'directory',
+            children: tree,
+            metadata: { type: 'ROOT' }
+          });
         } catch (e) {
           console.warn(`[buildDatabaseTree] failed to build tree for ${dir}:`, e);
           nodes.push({ name: dir, path: dir, type: 'directory', children: [] });
@@ -649,6 +660,31 @@ async function buildTreeForSource(source: string, adapter: DatabaseAdapter, rela
   return tree;
 }
 
+const WEB_TREE_TAG = 'structure-web';
+
+const webTreeCacheMap = new Map<string, () => Promise<TreeNode[]>>();
+
+function getCachedWebTree(activeRepo: string): Promise<TreeNode[]> {
+  if (!webTreeCacheMap.has(activeRepo)) {
+    const cached = unstable_cache(
+      async () => {
+        const webUrl = process.env.WEB_API_URL;
+        const apiKey = process.env.WEB_API_KEY;
+        const databaseUrl = process.env.DATABASE_URL || process.env.DATABASE_URL_NEON || '';
+        if (!webUrl && !databaseUrl) {
+          throw new Error('BDD Web non configurée');
+        }
+        const webAdapter = new WebDatabaseAdapter(webUrl || '', apiKey || '', !webUrl, databaseUrl);
+        return buildDatabaseTree(activeRepo, webAdapter);
+      },
+      ['structure-tree-web', activeRepo],
+      { revalidate: 30, tags: [WEB_TREE_TAG] }
+    );
+    webTreeCacheMap.set(activeRepo, cached);
+  }
+  return webTreeCacheMap.get(activeRepo)!();
+}
+
 export async function GET(request: NextRequest) {
   const user = await getAuthenticatedUser(request);
   if (!user) return unauthenticatedResponse();
@@ -665,62 +701,49 @@ export async function GET(request: NextRequest) {
 
     if (source === 'web') {
       adapterPath = '.';
-      const webUrl = process.env.WEB_API_URL;
-      const apiKey = process.env.WEB_API_KEY;
-      const databaseUrl = process.env.DATABASE_URL || process.env.DATABASE_URL_NEON || '';
-      if (webUrl || databaseUrl) {
-        try {
-          const webAdapter = new WebDatabaseAdapter(webUrl || '', apiKey || '', !webUrl, databaseUrl);
-          adapter = webAdapter;
-          const activeRepo = WORKING_REPOSITORY_NAME;
-          const tree = await buildDatabaseTree(activeRepo, webAdapter);
-          console.log('[API /structure] web source returned', tree.length, 'top-level nodes');
-          console.log('[API /structure] web tree:', JSON.stringify(tree.map(n => ({ name: n.name, children: n.children?.length }))));
+      const activeRepo = WORKING_REPOSITORY_NAME;
+      try {
+        const tree = await getCachedWebTree(activeRepo);
+        console.log('[API /structure] web source returned', tree.length, 'top-level nodes');
+        console.log('[API /structure] web tree:', JSON.stringify(tree.map(n => ({ name: n.name, children: n.children?.length }))));
 
-          if (path) {
-            const findNode = (nodes: TreeNode[], targetPath: string): TreeNode | null => {
-              for (const n of nodes) {
-                if (n.path === targetPath) return n;
-                if (n.children) {
-                  const found = findNode(n.children, targetPath);
-                  if (found) return found;
-                }
+        if (path) {
+          const findNode = (nodes: TreeNode[], targetPath: string): TreeNode | null => {
+            for (const n of nodes) {
+              if (n.path === targetPath) return n;
+              if (n.children) {
+                const found = findNode(n.children, targetPath);
+                if (found) return found;
               }
-              return null;
-            };
-            const found = findNode(tree, path);
-            if (!found) {
-              return NextResponse.json({ success: false, error: 'Chemin introuvable', available: false }, { status: 404 });
             }
-            return NextResponse.json({
-              success: true,
-              data: found.children ?? [],
-              source: 'web',
-              sourceUsed: 'web',
-              path,
-              available: true
-            }, { headers: { 'Cache-Control': 'no-store' } });
+            return null;
+          };
+          const found = findNode(tree, path);
+          if (!found) {
+            return NextResponse.json({ success: false, error: 'Chemin introuvable', available: false }, { status: 404 });
           }
-
           return NextResponse.json({
             success: true,
-            data: tree,
+            data: found.children ?? [],
             source: 'web',
             sourceUsed: 'web',
-            root: '',
+            path,
             available: true
           }, { headers: { 'Cache-Control': 'no-store' } });
-        } catch {
-          return NextResponse.json({
-            success: false,
-            error: 'Base de donnees web non disponible',
-            available: false
-          }, { status: 503 });
         }
-      } else {
+
+        return NextResponse.json({
+          success: true,
+          data: tree,
+          source: 'web',
+          sourceUsed: 'web',
+          root: '',
+          available: true
+        }, { headers: { 'Cache-Control': 'no-store' } });
+      } catch {
         return NextResponse.json({
           success: false,
-          error: 'BDD Web non configurée (WEB_API_URL ou DATABASE_URL requis)',
+          error: 'Base de donnees web non disponible',
           available: false
         }, { status: 503 });
       }
