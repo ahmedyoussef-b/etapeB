@@ -7,6 +7,7 @@ import { FileUploadButton } from '@/components/upload/file-upload-button';
 import { dedupeTree, type TreeNode } from '@/components/structure/tree-utils';
 import { WORKING_REPOSITORY_NAME } from '@/lib/config/repository';
 import { fetchStructureTree, treeAction as invokeTreeAction } from '@/lib/api/local-first';
+import { isTauriEnv } from '@/lib/tauri/env';
 import { StructureSource } from '@/lib/database/structure-types';
 
 export type { TreeNode } from '@/components/structure/tree-utils';
@@ -17,6 +18,7 @@ interface DatabaseTreeProps {
   selectedPath?: string;
   webAvailable?: boolean;
   activeRepo?: string | null;
+  isAdmin?: boolean;
 }
 
 async function treeAction(action: string, path: string, source: string, name?: string, repository?: string) {
@@ -130,7 +132,7 @@ function isTreeFullyLoaded(nodes: TreeNode[]): boolean {
   });
 }
 
-export function DatabaseTree({ source, onSelect, selectedPath, webAvailable = true, activeRepo }: DatabaseTreeProps) {
+export function DatabaseTree({ source, onSelect, selectedPath, webAvailable = true, activeRepo, isAdmin = false }: DatabaseTreeProps) {
   const [nodes, setNodes] = useState<TreeNode[] | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -140,7 +142,7 @@ export function DatabaseTree({ source, onSelect, selectedPath, webAvailable = tr
   const loadingPathsRef = useRef<Set<string>>(new Set());
 
   const isLocalEditable = source === 'local' && activeRepo !== null && activeRepo !== undefined && activeRepo !== '.data' && !activeRepo.endsWith('/.data') && (activeRepo === WORKING_REPOSITORY_NAME || activeRepo.startsWith('repositories/'));
-  const mutationsEnabled = (source === 'web' && webAvailable) || isLocalEditable;
+  const mutationsEnabled = isLocalEditable || (source === 'web' && webAvailable && isAdmin && !isTauriEnv());
 
   useEffect(() => {
     console.log('[DatabaseTree] source changed', { source, webAvailable });
@@ -573,6 +575,7 @@ export function DatabaseTree({ source, onSelect, selectedPath, webAvailable = tr
             onUploaded={handleUploaded}
             uploadEnabled={source === 'web' ? webAvailable : source === 'vector' ? false : true}
             mutationsEnabled={mutationsEnabled}
+            isAdmin={isAdmin}
             onNodeDeleted={removeNodeFromTree}
             onNodeRenamed={renameNodeInTree}
             onNodeAdded={addNodeToTree}
@@ -598,6 +601,7 @@ interface TreeNodeItemProps {
   onUploaded?: () => void;
   uploadEnabled: boolean;
   mutationsEnabled: boolean;
+  isAdmin?: boolean;
   onNodeDeleted: (path: string) => void;
   onNodeRenamed: (oldPath: string, newPath: string, newName: string) => void;
   onNodeAdded: (parentPath: string, newNode: TreeNode) => void;
@@ -618,6 +622,7 @@ const TreeNodeItem = memo(function TreeNodeItem({
   onUploaded,
   uploadEnabled,
   mutationsEnabled,
+  isAdmin,
   onNodeDeleted,
   onNodeRenamed,
   onNodeAdded,
@@ -806,7 +811,7 @@ const TreeNodeItem = memo(function TreeNodeItem({
             ({node.metadata.equipmentCount})
           </span>
         )}
-        {!isEditing && !isAdding && source === 'local' && (
+        {!isEditing && !isAdding && source !== 'vector' && (source !== 'web' || isAdmin) && (
           <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity" onClick={stopRowClick} onMouseDown={stopRowClick}>
             <button
               type="button"
@@ -899,6 +904,7 @@ const TreeNodeItem = memo(function TreeNodeItem({
               onUploaded={onUploaded}
               uploadEnabled={uploadEnabled}
               mutationsEnabled={mutationsEnabled}
+              isAdmin={isAdmin}
               onNodeDeleted={onNodeDeleted}
               onNodeRenamed={onNodeRenamed}
               onNodeAdded={onNodeAdded}

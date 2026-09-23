@@ -306,6 +306,7 @@ export default function StructureBDDPage() {
             onRefresh={handleRefresh}
             activeRepo={activeRepo}
             refreshKey={refreshKey}
+            isAdmin={(role as string) === "admin"}
           />
         </div>
         <div className="min-h-0">

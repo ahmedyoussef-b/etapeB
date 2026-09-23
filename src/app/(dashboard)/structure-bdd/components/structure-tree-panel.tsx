@@ -13,6 +13,7 @@ interface StructureTreePanelProps {
   onRefresh?: () => void;
   activeRepo?: string | null;
   refreshKey?: number;
+  isAdmin?: boolean;
 }
 
 export function StructureTreePanel({
@@ -22,6 +23,7 @@ export function StructureTreePanel({
   onRefresh,
   activeRepo,
   refreshKey,
+  isAdmin,
 }: StructureTreePanelProps) {
   const [filterText, setFilterText] = useState("");
 
@@ -98,6 +100,7 @@ export function StructureTreePanel({
           selectedPath={selectedPath}
           webAvailable={source === "local" ? true : true}
           activeRepo={activeRepo}
+          isAdmin={isAdmin}
         />
       </div>
     </div>
