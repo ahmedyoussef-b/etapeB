@@ -131,36 +131,24 @@ export default function StructureBDDPage() {
 
     setResetting(true);
     try {
-      if (source === "web") {
-        // V1 : le paramètre backup est ignoré côté serveur.
-        // Le backup sera implémenté dans une version ultérieure.
-        const res = await fetch("/api/admin/reset", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ backup }),
-        });
-        const json = await res.json();
-        if (json?.success) {
-          toast.success("Réinitialisation Web terminée");
-          window.location.reload();
-        } else {
-          toast.error(json?.error || "Erreur lors de la réinitialisation");
+      if (backup && isTauriEnv()) {
+        try {
+          await invoke("create_backup", { repository: activeRepo || ".data" });
+        } catch {
+          toast.warning("Backup échoué, le reset continue");
         }
+      }
+      const res = await fetch("/api/admin/reset", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ backup }),
+      });
+      const json = await res.json();
+      if (json?.success) {
+        toast.success("Réinitialisation terminée");
+        window.location.reload();
       } else {
-        if (backup && isTauriEnv()) {
-          try {
-            await invoke("create_backup", { repository: activeRepo || ".data" });
-          } catch {
-            toast.warning("Backup échoué, le reset continue");
-          }
-        }
-        const json = await treeAction("resetFromData", activeRepo || ".data", source, undefined, activeRepo || ".data");
-        if (json?.success) {
-          toast.success("Réinitialisation depuis .data/ terminée");
-          window.location.reload();
-        } else {
-          toast.error((json as any)?.error || "Erreur lors de la réinitialisation");
-        }
+        toast.error(json?.error || "Erreur lors de la réinitialisation");
       }
     } catch {
       toast.error("Erreur lors de la réinitialisation");
