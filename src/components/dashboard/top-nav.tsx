@@ -6,6 +6,7 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useTheme } from "@/components/theme-provider";
+import { WebStatusBadge } from "@/components/admin/WebStatusBadge";
 
 export function DashboardTopNav({ 
   onToggleSidebar,
@@ -30,6 +31,7 @@ export function DashboardTopNav({
 
       <div className="flex items-center gap-2 sm:gap-3">
         {extra}
+        <WebStatusBadge />
         <Button variant="ghost" size="icon" className="rounded-xl hover:bg-muted" onClick={() => setTheme(theme === "light" ? "dark" : "light")}>
           {theme === "light" ? <Moon className="h-5 w-5 text-foreground/70" /> : <Sun className="h-5 w-5 text-foreground/70" />}
           <span className="sr-only">Toggle theme</span>

@@ -478,7 +478,9 @@ export function DatabaseTree({ source, onSelect, selectedPath, webAvailable = tr
 
     loadStructure('', controller.signal).then(async (rootNodes) => {
       if (rootNodes && rootNodes.length > 0) {
-        const fullyLoaded = isTreeFullyLoaded(rootNodes) ? rootNodes : dedupeTree(await loadAllChildren(rootNodes));
+        const fullyLoaded = source === 'web'
+          ? rootNodes
+          : dedupeTree(await loadAllChildren(rootNodes));
         const counts = countNodes(fullyLoaded);
         console.log('[DatabaseTree] initial load', counts);
         setNodes(fullyLoaded);

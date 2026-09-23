@@ -1,12 +1,13 @@
 "use client";
 
 import { useState, useCallback } from "react";
-import { Database, Rocket, RefreshCw, Server, Globe, Brain } from "lucide-react";
+import { Database, Rocket, RefreshCw, Server, Globe, Brain, ArrowDownToLine } from "lucide-react";
 import { StructureTreePanel } from "./components/structure-tree-panel";
 import { useSyncStatus } from "./hooks/useSyncStatus";
 import { StructureDetailPanel } from "@/components/structure/structure-detail-panel";
 import { ImplanteWizard } from "./components/implante-wizard";
 import { ResetDatabaseDialog } from "@/components/structure/reset-database-dialog";
+import { InjectFromWebDialog } from "@/components/admin/InjectFromWebDialog";
 import type { TreeNode } from "@/components/structure/tree-utils";
 import { useToastHelpers } from "@/components/notifications/toast-provider";
 import { StructureSource } from "@/lib/database/structure-types";
@@ -66,6 +67,7 @@ export default function StructureBDDPage() {
   const [syncingFiles, setSyncingFiles] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
   const [isResetDialogOpen, setIsResetDialogOpen] = useState(false);
+  const [isInjectDialogOpen, setIsInjectDialogOpen] = useState(false);
   const toast = useToastHelpers();
   const { role } = useAuth();
 
@@ -285,6 +287,16 @@ export default function StructureBDDPage() {
               {source === "web" ? "Reset BDD" : "Réinitialiser depuis .data/"}
             </button>
           )}
+          {(role as string) === "admin" && isTauriEnv() && (
+            <button
+              type="button"
+              onClick={() => setIsInjectDialogOpen(true)}
+              className="inline-flex items-center gap-2 px-3 py-2 border border-gray-200 rounded-lg hover:bg-gray-50 text-sm"
+            >
+              <ArrowDownToLine className="w-4 h-4" />
+              Injecter depuis Web
+            </button>
+          )}
           <button
             type="button"
             onClick={handleOpenImplante}
@@ -348,6 +360,10 @@ export default function StructureBDDPage() {
         source={source}
         onConfirm={handleResetConfirm}
         isLoading={resetting}
+      />
+      <InjectFromWebDialog
+        open={isInjectDialogOpen}
+        onOpenChange={setIsInjectDialogOpen}
       />
     </div>
   );

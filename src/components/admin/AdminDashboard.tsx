@@ -6,7 +6,10 @@ import { PublishQueueTab } from "./PublishQueueTab";
 import { UsersTab } from "./UsersTab";
 import { VersionsTab } from "./VersionsTab";
 import { VectorizationTab } from "./VectorizationTab";
-import { HardDrive, Users, GitBranch, Cpu, ShieldCheck } from "lucide-react";
+import { PurgeWebTab } from "./PurgeWebTab";
+import { WebStatusTab } from "./WebStatusTab";
+import { VercelConfigPanel } from "./VercelConfigPanel";
+import { HardDrive, Users, GitBranch, Cpu, ShieldCheck, Database, Cloud } from "lucide-react";
 
 export function AdminDashboard() {
   const [activeTab, setActiveTab] = useState("publish-queue");
@@ -25,6 +28,9 @@ export function AdminDashboard() {
           </p>
         </div>
       </div>
+
+      {/* Section assiette de transition Web */}
+      <WebStatusTab />
 
       {/* Onglets Shadcn */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
@@ -60,6 +66,22 @@ export function AdminDashboard() {
             <Cpu className="h-4 w-4" />
             <span>Vectorisation (ONNX)</span>
           </TabsTrigger>
+
+          <TabsTrigger
+            value="purge-web"
+            className="rounded-xl py-2.5 text-xs sm:text-sm font-medium flex items-center justify-center gap-2 data-active:bg-background data-active:shadow-sm transition-all"
+          >
+            <Database className="h-4 w-4" />
+            <span>Purge BDD Web</span>
+          </TabsTrigger>
+
+          <TabsTrigger
+            value="vercel-config"
+            className="rounded-xl py-2.5 text-xs sm:text-sm font-medium flex items-center justify-center gap-2 data-active:bg-background data-active:shadow-sm transition-all"
+          >
+            <Cloud className="h-4 w-4" />
+            <span>Configuration Vercel</span>
+          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="publish-queue" className="mt-0 focus-visible:outline-none">
@@ -76,6 +98,14 @@ export function AdminDashboard() {
 
         <TabsContent value="vectorization" className="mt-0 focus-visible:outline-none">
           <VectorizationTab active={activeTab === "vectorization"} />
+        </TabsContent>
+
+        <TabsContent value="purge-web" className="mt-0 focus-visible:outline-none">
+          <PurgeWebTab />
+        </TabsContent>
+
+        <TabsContent value="vercel-config" className="mt-0 focus-visible:outline-none">
+          <VercelConfigPanel />
         </TabsContent>
       </Tabs>
     </div>
