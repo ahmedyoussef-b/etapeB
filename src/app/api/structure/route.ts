@@ -1,8 +1,6 @@
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 import { NextRequest, NextResponse } from 'next/server';
-import { unstable_cache } from 'next/cache';
-import { revalidatePath } from 'next/cache';
 import { LocalDatabaseAdapter } from '@/lib/database/local-adapter';
 import { WebDatabaseAdapter } from '@/lib/database/web-adapter';
 import { getAuthenticatedUser, hasPermission, unauthorizedResponse, unauthenticatedResponse } from '@/lib/api/auth-guard';
@@ -583,6 +581,7 @@ function attachDocumentsToTree(
     if (!doc.path) continue;
     if (doc.filename === '.meta.json' || doc.path.endsWith('/.meta.json')) continue;
     if (doc.filename === '.placeholder' || doc.path.endsWith('/.placeholder')) continue;
+    if (doc.filename === '.keep' || doc.path.endsWith('/.keep')) continue;
 
     const lastSlash = doc.path.lastIndexOf('/');
     const parentPath = lastSlash > 0 ? doc.path.substring(0, lastSlash) : '';
@@ -656,31 +655,6 @@ async function buildTreeForSource(source: string, adapter: DatabaseAdapter, rela
   return tree;
 }
 
-const WEB_TREE_TAG = 'structure-web';
-
-const webTreeCacheMap = new Map<string, () => Promise<TreeNode[]>>();
-
-function getCachedWebTree(activeRepo: string): Promise<TreeNode[]> {
-  if (!webTreeCacheMap.has(activeRepo)) {
-    const cached = unstable_cache(
-      async () => {
-        const webUrl = process.env.WEB_API_URL;
-        const apiKey = process.env.WEB_API_KEY;
-        const databaseUrl = process.env.DATABASE_URL || process.env.DATABASE_URL_NEON || '';
-        if (!webUrl && !databaseUrl) {
-          throw new Error('BDD Web non configurée');
-        }
-        const webAdapter = new WebDatabaseAdapter(webUrl || '', apiKey || '', !webUrl, databaseUrl);
-        return buildDatabaseTree(activeRepo, webAdapter);
-      },
-      ['structure-tree-web', activeRepo],
-      { revalidate: 30, tags: [WEB_TREE_TAG] }
-    );
-    webTreeCacheMap.set(activeRepo, cached);
-  }
-  return webTreeCacheMap.get(activeRepo)!();
-}
-
 export async function GET(request: NextRequest) {
   const user = await getAuthenticatedUser(request);
   if (!user) return unauthenticatedResponse();
@@ -699,7 +673,14 @@ export async function GET(request: NextRequest) {
       adapterPath = '.';
       const activeRepo = WORKING_REPOSITORY_NAME;
       try {
-        const tree = await getCachedWebTree(activeRepo);
+        const webUrl = process.env.WEB_API_URL;
+        const apiKey = process.env.WEB_API_KEY;
+        const databaseUrl = process.env.DATABASE_URL || process.env.DATABASE_URL_NEON || '';
+        if (!webUrl && !databaseUrl) {
+          throw new Error('BDD Web non configurée');
+        }
+        const webAdapter = new WebDatabaseAdapter(webUrl || '', apiKey || '', !webUrl, databaseUrl);
+        const tree = await buildDatabaseTree(activeRepo, webAdapter);
         console.log('[API /structure] web source returned', tree.length, 'top-level nodes');
         console.log('[API /structure] web tree:', JSON.stringify(tree.map(n => ({ name: n.name, children: n.children?.length }))));
 
