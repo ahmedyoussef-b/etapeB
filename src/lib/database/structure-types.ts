@@ -27,7 +27,8 @@ export type StructureSource = "local" | "web" | "vector";
 function isVisibleEntry(name: string): boolean {
   if (name === 'mirror_repertoire.json' || name === 'mirror.json') return false;
   if (name === 'system') return false;
-  return name.endsWith('.meta.json') || !name.startsWith('.');
+  if (name.startsWith('.')) return false;
+  return true;
 }
 
 export async function detectEntryType(

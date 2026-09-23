@@ -71,10 +71,11 @@ async function buildExactTreeFromDisk(absDir: string, relPath: string, basePath?
     return { name: relPath.split('/').pop() || relPath, path: relPath, type: 'directory', children: [], metadata: { type: 'ROOT' } };
   }
 
-  // Filtre local : on masque seulement les fichiers mirror, pas le dossier system
+  // Filtre local : on masque les fichiers mirror et tout fichier/dossier caché
   const visibleEntries = entries.filter(name => {
     if (name === 'mirror_repertoire.json' || name === 'mirror.json') return false;
-    return name.endsWith('.meta.json') || !name.startsWith('.');
+    if (name.startsWith('.')) return false;
+    return true;
   });
   const children: TreeNode[] = [];
 
@@ -505,7 +506,8 @@ async function buildDatabaseTree(
 
       const extraDirFilter = (name: string) => {
         if (name === 'mirror_repertoire.json' || name === 'mirror.json') return false;
-        return name.endsWith('.meta.json') || !name.startsWith('.');
+        if (name.startsWith('.')) return false;
+        return true;
       };
 
       for (const dir of extraDirs) {
@@ -553,11 +555,23 @@ async function buildDatabaseTree(
       console.log('[buildDatabaseTree] groupesNode.children:', groupesNode.children?.length);
       console.log('[buildDatabaseTree] top-level nodes:', nodes.map(n => n.name));
 
-      return nodes;
+      return stripMetaFiles(nodes);
     } catch (error) {
       console.error('[buildDatabaseTree] error:', error);
       throw error;
     }
+  }
+
+  function stripMetaFiles(nodes: TreeNode[]): TreeNode[] {
+    const strip = (items: TreeNode[]): TreeNode[] => {
+      return items
+        .filter(node => !(node.type === 'file' && node.name === '.meta.json'))
+        .map(node => ({
+          ...node,
+          children: node.children ? strip(node.children) : node.children
+        }));
+    };
+    return strip(nodes);
   }
 
 function attachDocumentsToTree(
