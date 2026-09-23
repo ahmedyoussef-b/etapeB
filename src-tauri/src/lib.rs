@@ -9,8 +9,13 @@ mod auth;
 mod structure;
 mod sync;
 mod api_commands;
+mod injector;
+mod credentials;
 pub use config::{read_config, write_config, delete_config};
 pub use auth::{login, logout, get_session};
+pub use credentials::{
+    save_vercel_credentials, clear_vercel_credentials, has_vercel_credentials,
+};
 
 use auto_vectorizer::{VectorizationConsistencyReport, VectorizationStats};
 use crate::structure::{resolve_repository_path, resolve_data_path};
@@ -608,6 +613,10 @@ pub fn run() {
             api_commands::purge_sync_cache,
             delete_from_chroma,
             vectorize_single_file,
+            save_vercel_credentials,
+            clear_vercel_credentials,
+            has_vercel_credentials,
+            injector::inject_from_web,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

@@ -26,4 +26,6 @@ fastembed = "4"
 bcrypt = "0.15"
 uuid = { version = "1", features = ["v4"] }
 zip = "2"
+urlencoding = "2"
+keyring = { version = "3", features = ["windows-native"] }
 
