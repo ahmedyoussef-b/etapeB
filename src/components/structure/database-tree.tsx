@@ -575,7 +575,13 @@ export function DatabaseTree({ source, onSelect, selectedPath, webAvailable = tr
             getNodeLabel={getNodeLabel}
             source={source}
             onUploaded={handleUploaded}
-            uploadEnabled={source === 'web' ? webAvailable : source === 'vector' ? false : true}
+            uploadEnabled={
+              source === 'web'
+                ? webAvailable && isAdmin
+                : source === 'vector'
+                  ? false
+                  : true
+            }
             mutationsEnabled={mutationsEnabled}
             isAdmin={isAdmin}
             onNodeDeleted={removeNodeFromTree}

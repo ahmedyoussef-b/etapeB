@@ -27,6 +27,7 @@ interface FileUploadButtonProps {
   accept?: string;
   maxSize?: number;
   multiple?: boolean;
+  uploadEnabled?: boolean;
   repository?: string;
 }
 
@@ -51,6 +52,7 @@ export function FileUploadButton({
   accept = '*/*',
   maxSize = 50,
   multiple = true,
+  uploadEnabled = true,
   repository
 }: FileUploadButtonProps) {
   const [isUploading, setIsUploading] = useState(false);
@@ -198,7 +200,7 @@ export function FileUploadButton({
         onDrop={(e) => { e.stopPropagation(); handleDrop(e); }}
         onDragOver={(e) => { e.stopPropagation(); handleDragOver(e); }}
         onDragLeave={(e) => { e.stopPropagation(); handleDragLeave(e); }}
-        disabled={isUploading}
+        disabled={isUploading || !uploadEnabled}
         title={`Uploader vers ${targetPath}`}
         className={`
           flex items-center gap-1 px-1.5 py-1 rounded transition-all
