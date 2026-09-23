@@ -24,6 +24,10 @@ interface DatabaseTreeProps {
   activeRepo?: string | null;
   isAdmin?: boolean;
   onNodeRestored?: (node: TreeNode) => void;
+  onCopyPath?: (node: TreeNode) => void;
+  onDownload?: (node: TreeNode) => void;
+  onRename?: (node: TreeNode) => void;
+  onDelete?: (node: TreeNode) => void;
 }
 
 async function treeAction(action: string, path: string, source: string, name?: string, repository?: string) {
@@ -137,7 +141,7 @@ function isTreeFullyLoaded(nodes: TreeNode[]): boolean {
   });
 }
 
-export function DatabaseTree({ source, onSelect, selectedPath, webAvailable = true, activeRepo, isAdmin = false, onNodeRestored }: DatabaseTreeProps) {
+export function DatabaseTree({ source, onSelect, selectedPath, webAvailable = true, activeRepo, isAdmin = false, onNodeRestored, onCopyPath, onDownload, onRename, onDelete }: DatabaseTreeProps) {
   const [nodes, setNodes] = useState<TreeNode[] | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);

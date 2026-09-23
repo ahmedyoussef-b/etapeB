@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useCallback } from "react";
-import { Database, Rocket, RefreshCw, Server, Globe, Brain, ArrowDownToLine } from "lucide-react";
+import { Database, Rocket, RefreshCw, Server, Globe, Brain, ArrowDownToLine, Copy, Download, Pencil, Trash2 } from "lucide-react";
 import { StructureTreePanel } from "./components/structure-tree-panel";
 import { useSyncStatus } from "./hooks/useSyncStatus";
 import { StructureDetailPanel } from "@/components/structure/structure-detail-panel";
@@ -9,9 +9,10 @@ import { ImplanteWizard } from "./components/implante-wizard";
 import { ResetDatabaseDialog } from "@/components/structure/reset-database-dialog";
 import { InjectFromWebDialog } from "@/components/admin/InjectFromWebDialog";
 import type { TreeNode } from "@/components/structure/tree-utils";
-import { useToastHelpers } from "@/components/notifications/toast-provider";
+import { useToastHelpers, useToast } from "@/components/notifications/toast-provider";
 import { StructureSource } from "@/lib/database/structure-types";
-import { fetchRepositoryInfo, treeAction } from "@/lib/api/local-first";
+import { fetchRepositoryInfo, treeAction, fetchFileContent } from "@/lib/api/local-first";
+import { WORKING_REPOSITORY_PATH } from "@/lib/config/repository";
 import { syncFromWeb } from "@/lib/api/sync-tauri";
 import { isTauriEnv } from "@/lib/tauri/env";
 import { useAuth } from "@/lib/auth/use-auth";
@@ -44,6 +45,21 @@ async function fetchWithRetry(
   throw lastError;
 }
 
+function dataUrlToBlob(dataUrl: string, fallbackMimeType: string): Blob {
+  if (dataUrl.startsWith("data:")) {
+    const [header, base64] = dataUrl.split(",");
+    const mimeMatch = header.match(/data:([^;]+)/);
+    const mimeType = mimeMatch?.[1] || fallbackMimeType;
+    const binary = atob(base64);
+    const bytes = new Uint8Array(binary.length);
+    for (let i = 0; i < binary.length; i++) {
+      bytes[i] = binary.charCodeAt(i);
+    }
+    return new Blob([bytes], { type: mimeType });
+  }
+  return new Blob([dataUrl], { type: fallbackMimeType });
+}
+
 type ViewMode = "split" | "implante";
 
 export default function StructureBDDPage() {
@@ -69,6 +85,7 @@ export default function StructureBDDPage() {
   const [isResetDialogOpen, setIsResetDialogOpen] = useState(false);
   const [isInjectDialogOpen, setIsInjectDialogOpen] = useState(false);
   const toast = useToastHelpers();
+  const { push: pushToast, dismiss: dismissToast } = useToast();
   const { role } = useAuth();
 
   const { data: syncStatus, refetch: refetchStatus } = useSyncStatus();
@@ -198,6 +215,86 @@ export default function StructureBDDPage() {
 
   const isLocalEditable = source === "local" && activeRepo !== ".data";
 
+  const canMutate = isLocalEditable || (source === "web" && (role as string) === "admin" && !isTauriEnv());
+
+  const handleCopyPath = useCallback(async (node: TreeNode) => {
+    const text = source === "local"
+      ? `%APPDATA%\\NexaFlow\\${WORKING_REPOSITORY_PATH}\\${node.path}`
+      : node.path;
+    await navigator.clipboard.writeText(text).then(() => {
+      toast.success(`Chemin copié : ${text}`);
+    }).catch(() => {
+      toast.error('Impossible de copier le chemin');
+    });
+  }, [source, toast]);
+
+  const handleDownload = useCallback(async (node: TreeNode) => {
+    if (node.type !== "file") return;
+    try {
+      const data = await fetchFileContent(node.path, source, activeRepo || undefined);
+      if (!data?.success) {
+        toast.error(data?.error || "Impossible de télécharger le fichier");
+        return;
+      }
+      const blob = dataUrlToBlob(data.content, data.mimeType || "application/octet-stream");
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = node.name;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      toast.success(`Téléchargement de ${node.name} démarré`);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Erreur lors du téléchargement");
+    }
+  }, [source, activeRepo, toast]);
+
+  const handleRename = useCallback(async (node: TreeNode) => {
+    if (!canMutate) {
+      toast.error("Renommage impossible : référence immuable ou droits insuffisants");
+      return;
+    }
+    const newName = window.prompt(`Renommer "${node.name}" en :`, node.name);
+    if (!newName || newName.trim() === "" || newName === node.name) return;
+    const result = await treeAction("rename", node.path, source, newName.trim(), activeRepo || undefined);
+    if (result.success) {
+      toast.success(`Renommé : "${node.name}" → "${newName.trim()}"`);
+      setRefreshKey(k => k + 1);
+    } else {
+      toast.error(result.error || "Renommage impossible");
+    }
+  }, [source, activeRepo, canMutate, toast]);
+
+  const handleDelete = useCallback(async (node: TreeNode) => {
+    if (!canMutate) {
+      toast.error("Suppression impossible : référence immuable ou droits insuffisants");
+      return;
+    }
+    const confirmed = window.confirm(`Supprimer "${node.name}" ?\nCette action est irréversible.`);
+    if (!confirmed) return;
+    const result = await treeAction("delete", node.path, source, undefined, activeRepo || undefined);
+    if (result.success) {
+      const id = pushToast({
+        variant: "confirm",
+        title: "Supprimé",
+        message: `"${node.name}" a été supprimé.`,
+        duration: 0,
+        confirmLabel: "Annuler",
+        cancelLabel: "Garder",
+        onConfirm: async () => {
+          await treeAction("rename", node.path, source, node.name, activeRepo || undefined);
+          setRefreshKey(k => k + 1);
+        }
+      });
+      setTimeout(() => dismissToast(id), 8000);
+      setRefreshKey(k => k + 1);
+    } else {
+      toast.error(result.error || "Suppression impossible");
+    }
+  }, [source, activeRepo, canMutate, toast, pushToast, dismissToast]);
+
   if (viewMode === "implante") {
     return (
       <div className="p-4 h-full flex flex-col">
@@ -319,6 +416,10 @@ export default function StructureBDDPage() {
             activeRepo={activeRepo}
             refreshKey={refreshKey}
             isAdmin={(role as string) === "admin"}
+            onCopyPath={handleCopyPath}
+            onDownload={handleDownload}
+            onRename={handleRename}
+            onDelete={handleDelete}
           />
         </div>
         <div className="min-h-0">
@@ -327,6 +428,11 @@ export default function StructureBDDPage() {
             source={source}
             available={true}
             repository={activeRepo ?? undefined}
+            onCopyPath={handleCopyPath}
+            onDownload={handleDownload}
+            onRename={handleRename}
+            onDelete={handleDelete}
+            canMutate={canMutate}
           />
         </div>
       </div>

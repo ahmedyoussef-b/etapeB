@@ -14,6 +14,10 @@ interface StructureTreePanelProps {
   activeRepo?: string | null;
   refreshKey?: number;
   isAdmin?: boolean;
+  onCopyPath?: (node: TreeNode) => void;
+  onDownload?: (node: TreeNode) => void;
+  onRename?: (node: TreeNode) => void;
+  onDelete?: (node: TreeNode) => void;
 }
 
 export function StructureTreePanel({
@@ -24,6 +28,10 @@ export function StructureTreePanel({
   activeRepo,
   refreshKey,
   isAdmin,
+  onCopyPath,
+  onDownload,
+  onRename,
+  onDelete,
 }: StructureTreePanelProps) {
   const [filterText, setFilterText] = useState("");
 
@@ -101,6 +109,10 @@ export function StructureTreePanel({
           webAvailable={source === "local" ? true : true}
           activeRepo={activeRepo}
           isAdmin={isAdmin}
+          onCopyPath={onCopyPath}
+          onDownload={onDownload}
+          onRename={onRename}
+          onDelete={onDelete}
         />
       </div>
     </div>

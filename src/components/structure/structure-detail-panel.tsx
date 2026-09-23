@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { File, Folder, Database, HardDrive, Tag, Server, WifiOff, Loader2, AlertCircle, Download, Image as ImageIcon, FileText, Brain } from 'lucide-react';
+import { File, Folder, Database, HardDrive, Tag, Server, WifiOff, Loader2, AlertCircle, Download, Image as ImageIcon, FileText, Brain, Copy, Pencil, Trash2 } from 'lucide-react';
 import { TreeNode } from './database-tree';
 import { fetchFileContent } from '@/lib/api/local-first';
 import { StructureSource } from '@/lib/database/structure-types';
@@ -11,6 +11,11 @@ interface StructureDetailPanelProps {
   source: StructureSource;
   available?: boolean;
   repository?: string;
+  onCopyPath?: (node: TreeNode) => void;
+  onDownload?: (node: TreeNode) => void;
+  onRename?: (node: TreeNode) => void;
+  onDelete?: (node: TreeNode) => void;
+  canMutate?: boolean;
 }
 
 interface FileContent {
@@ -22,7 +27,7 @@ interface FileContent {
 
 const TEXT_PREVIEW_LIMIT = 50 * 1024;
 
-export function StructureDetailPanel({ node, source, available = true, repository }: StructureDetailPanelProps) {
+export function StructureDetailPanel({ node, source, available = true, repository, onCopyPath, onDownload, onRename, onDelete, canMutate = false }: StructureDetailPanelProps) {
   const [content, setContent] = useState<FileContent | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -90,32 +95,74 @@ export function StructureDetailPanel({ node, source, available = true, repositor
           )}
           <h3 className="font-medium text-lg truncate">{node.name}</h3>
         </div>
-        <div className="flex items-center gap-2 text-sm">
-          {source === 'local' ? (
-            <>
-              <Server className="w-4 h-4 text-blue-500" />
-              <span className="text-gray-600">Locale</span>
-            </>
-          ) : source === 'vector' ? (
-            <>
-              <Brain className="w-4 h-4 text-purple-500" />
-              <span className="text-gray-600">Vectorielle</span>
-            </>
-          ) : (
-            <>
-              {isWebUnavailable ? (
-                <>
-                  <WifiOff className="w-4 h-4 text-red-500" />
-                  <span className="text-red-600">Hors ligne</span>
-                </>
-              ) : (
-                <>
-                  <Database className="w-4 h-4 text-green-500" />
-                  <span className="text-green-600">Web</span>
-                </>
-              )}
-            </>
-          )}
+        <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1">
+            <button
+              type="button"
+              onClick={() => onCopyPath?.(node)}
+              className="p-1.5 text-gray-500 hover:text-blue-600 hover:bg-blue-50 rounded transition-colors"
+              title="Copier le chemin"
+            >
+              <Copy className="w-4 h-4" />
+            </button>
+            {!isDirectory && (
+              <button
+                type="button"
+                onClick={() => onDownload?.(node)}
+                className="p-1.5 text-gray-500 hover:text-green-600 hover:bg-green-50 rounded transition-colors"
+                title="Télécharger"
+              >
+                <Download className="w-4 h-4" />
+              </button>
+            )}
+            {canMutate && (
+              <>
+                <button
+                  type="button"
+                  onClick={() => onRename?.(node)}
+                  className="p-1.5 text-gray-500 hover:text-blue-600 hover:bg-blue-50 rounded transition-colors"
+                  title="Renommer"
+                >
+                  <Pencil className="w-4 h-4" />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => onDelete?.(node)}
+                  className="p-1.5 text-gray-500 hover:text-red-600 hover:bg-red-50 rounded transition-colors"
+                  title="Supprimer"
+                >
+                  <Trash2 className="w-4 h-4" />
+                </button>
+              </>
+            )}
+          </div>
+          <div className="flex items-center gap-2 text-sm">
+            {source === 'local' ? (
+              <>
+                <Server className="w-4 h-4 text-blue-500" />
+                <span className="text-gray-600">Locale</span>
+              </>
+            ) : source === 'vector' ? (
+              <>
+                <Brain className="w-4 h-4 text-purple-500" />
+                <span className="text-gray-600">Vectorielle</span>
+              </>
+            ) : (
+              <>
+                {isWebUnavailable ? (
+                  <>
+                    <WifiOff className="w-4 h-4 text-red-500" />
+                    <span className="text-red-600">Hors ligne</span>
+                  </>
+                ) : (
+                  <>
+                    <Database className="w-4 h-4 text-green-500" />
+                    <span className="text-green-600">Web</span>
+                  </>
+                )}
+              </>
+            )}
+          </div>
         </div>
       </div>
 
