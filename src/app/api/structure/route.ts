@@ -480,7 +480,7 @@ async function buildDatabaseTree(
 
       // ── Extra root directories ─────────────────────────────────────────────
       // All 6 known dirs + any additional directories found on disk
-      const extraDirs = ['bank', 'documents', 'indexes', 'registry', 'system'];
+      const extraDirs = ['bank', 'documents', 'indexes', 'library', 'registry', 'system'];
 
       try {
         const repoBase = nodePath.resolve(process.cwd(), repositoryPath || '.data');
