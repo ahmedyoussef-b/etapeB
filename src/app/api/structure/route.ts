@@ -534,7 +534,7 @@ async function buildDatabaseTree(
       console.log('[buildDatabaseTree] groupesNode.children:', groupesNode.children?.length);
       console.log('[buildDatabaseTree] top-level nodes:', nodes.map(n => n.name));
 
-      return stripMetaFiles(nodes);
+      return nodes;
     } catch (error) {
       console.error('[buildDatabaseTree] error:', error);
       throw error;
@@ -579,7 +579,6 @@ function attachDocumentsToTree(
 
   for (const doc of documents) {
     if (!doc.path) continue;
-    if (doc.filename === '.meta.json' || doc.path.endsWith('/.meta.json')) continue;
     if (doc.filename === '.placeholder' || doc.path.endsWith('/.placeholder')) continue;
     if (doc.filename === '.keep' || doc.path.endsWith('/.keep')) continue;
 

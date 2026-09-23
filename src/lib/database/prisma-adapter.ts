@@ -122,7 +122,7 @@ export class PrismaAdapter implements StorageAdapter {
         if (!d.path) continue;
         const rel = d.path.slice(prefix.length + 1);
         const child = rel.split('/')[0];
-        if (child && child !== '.meta.json') entries.add(child);
+        if (child) entries.add(child);
       }
       return Array.from(entries);
     };
