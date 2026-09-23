@@ -252,7 +252,7 @@ export class PrismaAdapter implements StorageAdapter {
             where: { path: { startsWith: prefix } },
             select: { filename: true }
           });
-          return docs.map(d => d.filename).sort();
+          return this.filterKeep(docs.map(d => d.filename).sort());
         }
         // Check if it's a direct file at registry/items/{name} (legacy single-file Q/R)
         const directDoc = await this.getPrisma().document.findUnique({
@@ -346,7 +346,7 @@ export class PrismaAdapter implements StorageAdapter {
             where: { path: { startsWith: 'system/snapshots/' } },
             select: { path: true }
           });
-          return docs.map(d => d.path!.split('/').pop()!).sort();
+          return this.filterKeep(docs.map(d => d.path!.split('/').pop()!).sort());
         }
        if (parts.length === 2) {
          return ['.meta.json'];
@@ -1286,11 +1286,28 @@ async writeJSON<T = unknown>(path: string, data: T): Promise<void> {
   }
 
   // ============================================================
-  // 9. MKDIR (no-op)
+  // 9. MKDIR (sentinelle .keep)
   // ============================================================
-  async mkdir(_path: string): Promise<void> {
-    console.log('[prisma-adapter] mkdir no-op', { path: _path });
-    void _path;
+  async mkdir(path: string): Promise<void> {
+    const keepPath = `${path}/.keep`;
+    await this.getPrisma().document.upsert({
+      where: { path: keepPath },
+      update: { updatedAt: new Date() },
+      create: {
+        path: keepPath,
+        filename: '.keep',
+        mimeType: 'application/x-directory-placeholder',
+        size: 0,
+        data: Buffer.empty
+      }
+    });
+  }
+
+  // ============================================================
+  // 9b. FILTRE SENTINELLES
+  // ============================================================
+  private filterKeep(names: string[]): string[] {
+    return names.filter(n => n !== '.keep');
   }
 
   // ============================================================
