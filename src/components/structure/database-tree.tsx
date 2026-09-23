@@ -295,6 +295,10 @@ export function DatabaseTree({ source, onSelect, selectedPath, webAvailable = tr
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [source, activeRepo]);
 
+  const restoreNodeInTree = useCallback(async () => {
+    await reloadTreeSilent();
+  }, [reloadTreeSilent]);
+
   const renameNodeInTree = useCallback(async (oldPath: string, newPath: string, newName: string) => {
     const renameRecursive = (nodes: TreeNode[]): TreeNode[] => {
       return nodes.map(node => {
@@ -926,7 +930,7 @@ export function DatabaseTree({ source, onSelect, selectedPath, webAvailable = tr
               getNodeTooltipContent={buildTooltipContent}
               formatSize={formatSize}
               formatDate={formatDate}
-              onNodeRestored={onNodeRestored}
+              onNodeRestored={onNodeRestored || restoreNodeInTree}
             />
           ))
         )}
@@ -1079,31 +1083,40 @@ const TreeNodeItem = memo(function TreeNodeItem({
       return;
     }
     setIsDeleting(true);
-    const result = await treeAction('delete', node.path, source, undefined, repository);
-    if (result.success) {
-      onNodeDeleted(node.path);
-      pendingDeleteNodeRef.current = node;
-      const id = pushToast({
-        variant: 'confirm',
-        title: 'Supprimé',
-        message: `"${node.name}" a été supprimé.`,
-        duration: 0,
-        confirmLabel: 'Restaurer',
-        cancelLabel: 'Garder',
-        onConfirm: () => {
-          if (pendingDeleteNodeRef.current) {
-            onNodeRestored?.(pendingDeleteNodeRef.current);
-            pendingDeleteNodeRef.current = null;
-          }
+
+    pendingDeleteNodeRef.current = node;
+
+    onNodeDeleted(node.path);
+
+    const id = pushToast({
+      variant: 'confirm',
+      title: 'Supprimé',
+      message: `"${node.name}" a été supprimé.`,
+      duration: 0,
+      confirmLabel: 'Annuler',
+      cancelLabel: 'Garder',
+      onConfirm: () => {
+        if (pendingDeleteNodeRef.current) {
+          onNodeRestored?.(pendingDeleteNodeRef.current);
+          pendingDeleteNodeRef.current = null;
         }
-      });
-      setTimeout(() => {
-        dismissToast(id);
-        pendingDeleteNodeRef.current = null;
-      }, 8000);
-    } else {
-      setActionError(result.error || 'Suppression impossible');
-    }
+        if (pendingDeleteTimerRef.current) {
+          clearTimeout(pendingDeleteTimerRef.current);
+          pendingDeleteTimerRef.current = null;
+        }
+      }
+    });
+
+    pendingDeleteTimerRef.current = window.setTimeout(async () => {
+      const result = await treeAction('delete', node.path, source, undefined, repository);
+      if (!result.success) {
+        setActionError(result.error || 'Suppression impossible');
+        onNodeRestored?.(node);
+      }
+      pendingDeleteNodeRef.current = null;
+      pendingDeleteTimerRef.current = null;
+    }, 8000);
+
     setIsDeleting(false);
   };
 
