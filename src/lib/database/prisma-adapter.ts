@@ -1298,7 +1298,7 @@ async writeJSON<T = unknown>(path: string, data: T): Promise<void> {
         filename: '.keep',
         mimeType: 'application/x-directory-placeholder',
         size: 0,
-        data: Buffer.empty
+        data: Buffer.alloc(0)
       }
     });
   }
