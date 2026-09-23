@@ -2,13 +2,16 @@
 'use client';
 
 import { useState, useEffect, useRef, useCallback, memo } from 'react';
-import { ChevronRight, ChevronDown, Folder, File, Database, RefreshCw, Factory, Users, Wrench, Layers, WifiOff, Pencil, Trash2, FolderPlus, X, Check } from 'lucide-react';
+import { ChevronRight, ChevronDown, Folder, File, Database, RefreshCw, Factory, Users, Wrench, Layers, WifiOff, Pencil, Trash2, FolderPlus, X, Check, Copy } from 'lucide-react';
 import { FileUploadButton } from '@/components/upload/file-upload-button';
 import { dedupeTree, type TreeNode } from '@/components/structure/tree-utils';
-import { WORKING_REPOSITORY_NAME } from '@/lib/config/repository';
+import { WORKING_REPOSITORY_NAME, WORKING_REPOSITORY_PATH } from '@/lib/config/repository';
 import { fetchStructureTree, treeAction as invokeTreeAction } from '@/lib/api/local-first';
 import { isTauriEnv } from '@/lib/tauri/env';
 import { StructureSource } from '@/lib/database/structure-types';
+import { useToastHelpers } from '@/components/notifications/toast-provider';
+import { ContextMenu } from '@/components/ui/context-menu';
+import { Tooltip } from '@/components/ui/tooltip';
 
 export type { TreeNode } from '@/components/structure/tree-utils';
 
@@ -140,6 +143,8 @@ export function DatabaseTree({ source, onSelect, selectedPath, webAvailable = tr
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const loadedPathsRef = useRef<Set<string>>(new Set());
   const loadingPathsRef = useRef<Set<string>>(new Set());
+  const [contextMenu, setContextMenu] = useState<{ x: number; y: number; node: TreeNode } | null>(null);
+  const toast = useToastHelpers();
 
   const isLocalEditable = source === 'local' && activeRepo !== null && activeRepo !== undefined && activeRepo !== '.data' && !activeRepo.endsWith('/.data') && (activeRepo === WORKING_REPOSITORY_NAME || activeRepo.startsWith('repositories/'));
   const mutationsEnabled = isLocalEditable || (source === 'web' && webAvailable && isAdmin && !isTauriEnv());
@@ -325,6 +330,20 @@ export function DatabaseTree({ source, onSelect, selectedPath, webAvailable = tr
     loadStructure('');
   }, [loadStructure]);
 
+  const handleCopyPath = useCallback((node: TreeNode, type: 'relative' | 'absolute') => {
+    const text = type === 'relative'
+      ? node.path
+      : source === 'local'
+        ? `%APPDATA%\\NexaFlow\\${WORKING_REPOSITORY_PATH}\\${node.path}`
+        : node.path;
+
+    navigator.clipboard.writeText(text).then(() => {
+      toast.success(`Chemin copié : ${text}`);
+    }).catch(() => {
+      toast.error('Impossible de copier le chemin');
+    });
+  }, [source, toast]);
+
   const isAncestorOf = (ancestorPath: string, descendantPath: string): boolean => {
     if (!ancestorPath) return false;
     return descendantPath === ancestorPath || descendantPath.startsWith(ancestorPath + '/');
@@ -467,6 +486,42 @@ export function DatabaseTree({ source, onSelect, selectedPath, webAvailable = tr
     return <File className="w-4 h-4 text-gray-500 flex-shrink-0" />;
   }, []);
 
+  const buildTooltipContent = useCallback((node: TreeNode): React.ReactNode => {
+    const metadata = node.metadata as Record<string, string | number | boolean | undefined> | undefined;
+    const lines: React.ReactNode[] = [];
+
+    lines.push(
+      <div key="type" className="font-medium text-gray-900">
+        {node.type === 'directory' ? 'Dossier' : 'Fichier'} — {node.name}
+      </div>
+    );
+
+    if (node.path) {
+      lines.push(
+        <div key="path" className="text-gray-500 break-all">
+          {node.path}
+        </div>
+      );
+    }
+
+    if (metadata) {
+      const entries = Object.entries(metadata).filter(([, value]) => value !== undefined && value !== '');
+      if (entries.length > 0) {
+        lines.push(<div key="sep" className="my-1 h-px bg-gray-200" />);
+        entries.forEach(([key, value]) => {
+          lines.push(
+            <div key={key} className="flex justify-between gap-4">
+              <span className="text-gray-500">{key}</span>
+              <span className="text-gray-900 font-medium">{String(value)}</span>
+            </div>
+          );
+        });
+      }
+    }
+
+    return <div className="flex flex-col gap-1">{lines}</div>;
+  }, []);
+
   useEffect(() => {
     const controller = new AbortController();
     setLoading(true);
@@ -589,9 +644,40 @@ export function DatabaseTree({ source, onSelect, selectedPath, webAvailable = tr
             onNodeAdded={addNodeToTree}
             onExpandParent={handleExpandParent}
             repository={activeRepo ?? undefined}
+            onContextMenu={(node, event) => setContextMenu({ x: event.clientX, y: event.clientY, node })}
+            getNodeTooltipContent={buildTooltipContent}
           />
         ))}
       </div>
+      {contextMenu && (
+        <ContextMenu
+          x={contextMenu.x}
+          y={contextMenu.y}
+          items={
+            source === 'local'
+              ? [
+                  {
+                    label: 'Copier le chemin relatif',
+                    onClick: () => handleCopyPath(contextMenu.node, 'relative'),
+                    icon: <Copy className="w-3.5 h-3.5" />,
+                  },
+                  {
+                    label: 'Copier le chemin absolu',
+                    onClick: () => handleCopyPath(contextMenu.node, 'absolute'),
+                    icon: <Copy className="w-3.5 h-3.5" />,
+                  },
+                ]
+              : [
+                  {
+                    label: 'Copier le chemin',
+                    onClick: () => handleCopyPath(contextMenu.node, 'relative'),
+                    icon: <Copy className="w-3.5 h-3.5" />,
+                  },
+                ]
+          }
+          onClose={() => setContextMenu(null)}
+        />
+      )}
     </div>
   );
 }
@@ -615,6 +701,8 @@ interface TreeNodeItemProps {
   onNodeAdded: (parentPath: string, newNode: TreeNode) => void;
   onExpandParent: (path: string) => void;
   repository?: string;
+  onContextMenu?: (node: TreeNode, event: React.MouseEvent) => void;
+  getNodeTooltipContent?: (node: TreeNode) => React.ReactNode;
 }
 
 const TreeNodeItem = memo(function TreeNodeItem({
@@ -635,7 +723,9 @@ const TreeNodeItem = memo(function TreeNodeItem({
   onNodeRenamed,
   onNodeAdded,
   onExpandParent,
-  repository
+  repository,
+  onContextMenu,
+  getNodeTooltipContent
 }: TreeNodeItemProps) {
   const isExpanded = expanded.has(node.path);
   const isSelected = selectedPath === node.path;
@@ -763,6 +853,10 @@ const TreeNodeItem = memo(function TreeNodeItem({
           ${isSelected ? 'bg-blue-50 border border-blue-200' : ''}`}
         style={{ paddingLeft }}
         onClick={handleRowClick}
+        onContextMenu={(e) => {
+          e.preventDefault();
+          onContextMenu?.(node, e);
+        }}
         role="treeitem"
         aria-expanded={node.type === 'directory' ? isExpanded : undefined}
         aria-selected={isSelected}
@@ -809,10 +903,12 @@ const TreeNodeItem = memo(function TreeNodeItem({
             </button>
           </form>
         ) : (
-          <span className={`truncate text-sm flex-1 min-w-0 ${isFileNotVectorized ? 'text-gray-400' : ''}`}>
-            {getNodeLabel(node)}
-            <VectorBadges node={node} source={source} />
-          </span>
+          <Tooltip content={getNodeTooltipContent?.(node)}>
+            <span className={`truncate text-sm flex-1 min-w-0 ${isFileNotVectorized ? 'text-gray-400' : ''}`}>
+              {getNodeLabel(node)}
+              <VectorBadges node={node} source={source} />
+            </span>
+          </Tooltip>
         )}
         {node.metadata?.equipmentCount !== undefined && !isEditing && (
           <span className="text-xs text-gray-400 ml-1">
@@ -918,6 +1014,8 @@ const TreeNodeItem = memo(function TreeNodeItem({
               onNodeAdded={onNodeAdded}
               onExpandParent={onExpandParent}
               repository={repository}
+              onContextMenu={onContextMenu}
+              getNodeTooltipContent={getNodeTooltipContent}
             />
           ))}
         </div>
