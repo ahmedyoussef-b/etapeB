@@ -442,3 +442,18 @@ model SystemVersion {
 
   @@index([publishedAt])
 }
+
+model WebFile {
+  id         String   @id @default(cuid())
+  path       String   @unique
+  content    String   @db.Text
+  mimeType   String?
+  size       Int
+  hash       String
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@index([path])
+  @@index([hash])
+  @@map("web_files")
+}
