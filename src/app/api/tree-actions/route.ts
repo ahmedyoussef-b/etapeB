@@ -11,6 +11,17 @@ function getWebAdapter() {
   return new PrismaAdapter();
 }
 
+function mapWebPathToAdapter(path: string): string {
+  if (path === '.data' || path === '.data/') return '.';
+  if (path.startsWith('.data/')) return path.slice(6);
+  return path;
+}
+
+function mapAdapterPathToWeb(path: string): string {
+  if (path === '.' || path === '') return '.data';
+  return `.data/${path}`;
+}
+
 export async function POST(request: Request) {
   try {
     const session = await getServerSession(authOptions);
@@ -41,6 +52,7 @@ export async function POST(request: Request) {
       );
     }
 
+    const adapterPath = mapWebPathToAdapter(path);
     const adapter = getWebAdapter();
 
     switch (action) {
@@ -50,31 +62,31 @@ export async function POST(request: Request) {
           return NextResponse.json({ error: 'Missing name for rename' }, { status: 400 });
         }
 
-        const parts = path.split('/').filter(Boolean);
+        const parts = adapterPath.split('/').filter(Boolean);
         parts[parts.length - 1] = newName;
         const newPath = parts.join('/');
 
-        if (newPath === path) {
+        if (newPath === adapterPath) {
           return NextResponse.json({ success: true, path, oldPath: path });
         }
 
-        const exists = await adapter.exists(path).catch(() => false);
+        const exists = await adapter.exists(adapterPath).catch(() => false);
         if (!exists) {
           return NextResponse.json({ error: 'File not found' }, { status: 404 });
         }
 
-        await adapter.rename(path, newPath);
+        await adapter.rename(adapterPath, newPath);
         revalidateTag('structure-web');
-        return NextResponse.json({ success: true, path: newPath, oldPath: path });
+        return NextResponse.json({ success: true, path: mapAdapterPathToWeb(newPath), oldPath: path });
       }
 
       case 'delete': {
-        const exists = await adapter.exists(path).catch(() => false);
+        const exists = await adapter.exists(adapterPath).catch(() => false);
         if (!exists) {
           return NextResponse.json({ error: 'File not found' }, { status: 404 });
         }
 
-        await adapter.delete(path);
+        await adapter.delete(adapterPath);
         revalidateTag('structure-web');
         return NextResponse.json({ success: true, deleted: 1 });
       }
@@ -85,10 +97,10 @@ export async function POST(request: Request) {
           return NextResponse.json({ error: 'Missing name for mkdir' }, { status: 400 });
         }
 
-        const newPath = path ? `${path}/${newName}` : newName;
+        const newPath = adapterPath ? `${adapterPath}/${newName}` : newName;
         await adapter.mkdir(newPath);
         revalidateTag('structure-web');
-        return NextResponse.json({ success: true, path: newPath });
+        return NextResponse.json({ success: true, path: mapAdapterPathToWeb(newPath) });
       }
 
       case 'create':
@@ -98,10 +110,10 @@ export async function POST(request: Request) {
           return NextResponse.json({ error: 'Missing name for create' }, { status: 400 });
         }
 
-        const newPath = path ? `${path}/${fileName}` : fileName;
+        const newPath = adapterPath ? `${adapterPath}/${fileName}` : fileName;
         await adapter.write(newPath, Buffer.from(''));
         revalidateTag('structure-web');
-        return NextResponse.json({ success: true, path: newPath });
+        return NextResponse.json({ success: true, path: mapAdapterPathToWeb(newPath) });
       }
 
       default:

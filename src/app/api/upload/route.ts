@@ -17,14 +17,6 @@ function mapAdapterPathToWeb(path: string): string {
 }
 
 export const POST = withAuth(async (request: NextRequest) => {
-  // En production Vercel, le FS est read-only : refuser l'upload local
-  if (process.env.VERCEL === '1') {
-    return NextResponse.json(
-      { error: 'Cette fonctionnalité est désactivée en production (FS read-only).' },
-      { status: 403 }
-    );
-  }
-
   try {
     const body = await request.json();
     const { file, targetPath, source, repository } = body;
@@ -59,6 +51,12 @@ export const POST = withAuth(async (request: NextRequest) => {
       }
       adapter = new WebDatabaseAdapter(webUrl || '', apiKey || '', true, databaseUrl);
     } else {
+      if (process.env.VERCEL === '1') {
+        return NextResponse.json(
+          { error: 'Cette fonctionnalité est désactivée en production (FS read-only).' },
+          { status: 403 }
+        );
+      }
       const activeRepo = repository || WORKING_REPOSITORY_NAME;
       adapter = new LocalDatabaseAdapter(activeRepo);
     }
