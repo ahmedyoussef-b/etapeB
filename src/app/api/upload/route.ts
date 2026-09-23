@@ -1,5 +1,6 @@
 export const runtime = 'nodejs';
 import { NextRequest, NextResponse } from 'next/server';
+import { revalidateTag } from 'next/cache';
 import { LocalDatabaseAdapter } from '@/lib/database/local-adapter';
 import { WebDatabaseAdapter } from '@/lib/database/web-adapter';
 import { withAuth } from '@/lib/api/auth-guard';
@@ -87,6 +88,7 @@ export const POST = withAuth(async (request: NextRequest) => {
       const versionedPath = `${dedupFolder}/${versionedName}`;
 
       await adapter.write(versionedPath, buffer);
+      if (source === 'web') revalidateTag('structure-web');
 
       const manifestPath = `${dedupFolder}/manifest.json`;
       let manifest: any = null;
@@ -101,6 +103,7 @@ export const POST = withAuth(async (request: NextRequest) => {
     } else {
       await adapter.mkdir(adapterTargetPath);
       await adapter.write(filePath, buffer);
+      if (source === 'web') revalidateTag('structure-web');
     }
 
     return NextResponse.json({
