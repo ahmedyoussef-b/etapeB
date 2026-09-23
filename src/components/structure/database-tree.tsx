@@ -12,6 +12,7 @@ import { StructureSource } from '@/lib/database/structure-types';
 import { useToastHelpers } from '@/components/notifications/toast-provider';
 import { ContextMenu } from '@/components/ui/context-menu';
 import { Tooltip } from '@/components/ui/tooltip';
+import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 
 export type { TreeNode } from '@/components/structure/tree-utils';
 
@@ -997,6 +998,7 @@ const TreeNodeItem = memo(function TreeNodeItem({
   const [isAdding, setIsAdding] = useState(false);
   const [newName, setNewName] = useState('');
   const [isDeleting, setIsDeleting] = useState(false);
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -1034,10 +1036,7 @@ const TreeNodeItem = memo(function TreeNodeItem({
       setActionError('Suppression impossible : la BDD locale (.data) est une référence immuable.');
       return;
     }
-    if (!isDeleting) {
-      setIsDeleting(true);
-      return;
-    }
+    setIsDeleting(true);
     const result = await treeAction('delete', node.path, source, undefined, repository);
     if (result.success) {
       onNodeDeleted(node.path);
@@ -1045,6 +1044,14 @@ const TreeNodeItem = memo(function TreeNodeItem({
       setActionError(result.error || 'Suppression impossible');
     }
     setIsDeleting(false);
+  };
+
+  const handleDeleteClick = () => {
+    if (!mutationsEnabled) {
+      setActionError('Suppression impossible : la BDD locale (.data) est une référence immuable.');
+      return;
+    }
+    setIsDeleteDialogOpen(true);
   };
 
   const handleAdd = async () => {
@@ -1210,15 +1217,15 @@ const TreeNodeItem = memo(function TreeNodeItem({
                   <FolderPlus className="w-3 h-3" />
                 </button>
               )}
-              <button
-                type="button"
-                disabled={!mutationsEnabled}
-                onClick={(e) => { stopRowClick(e); handleDelete(); }}
-                className={`p-1 rounded transition-colors disabled:cursor-not-allowed disabled:opacity-40 ${isDeleting ? 'text-red-600 bg-red-50' : 'text-gray-400 hover:text-red-600 hover:bg-red-50'}`}
-                title={!mutationsEnabled ? 'BDD locale en lecture seule' : isDeleting ? 'Cliquer pour confirmer' : 'Supprimer'}
-              >
-                <Trash2 className="w-3 h-3" />
-              </button>
+            <button
+              type="button"
+              disabled={!mutationsEnabled}
+              onClick={(e) => { stopRowClick(e); handleDeleteClick(); }}
+              className={`p-1 rounded transition-colors disabled:cursor-not-allowed disabled:opacity-40 ${isDeleting ? 'text-red-600 bg-red-50' : 'text-gray-400 hover:text-red-600 hover:bg-red-50'}`}
+              title={!mutationsEnabled ? 'BDD locale en lecture seule' : isDeleting ? 'Suppression en cours' : 'Supprimer'}
+            >
+              <Trash2 className="w-3 h-3" />
+            </button>
             </div>
           </div>
         )}
@@ -1238,6 +1245,19 @@ const TreeNodeItem = memo(function TreeNodeItem({
             </span>
           )}
         </div>
+        <ConfirmDialog
+          open={isDeleteDialogOpen}
+          onOpenChange={setIsDeleteDialogOpen}
+          title={`Supprimer ${node.type === 'directory' ? 'le dossier' : 'le fichier'} ?`}
+          description={
+            node.type === 'directory'
+              ? `Cette action est irréversible. "${node.name}" et tous ses enfants seront supprimés.`
+              : `Cette action est irréversible. Le fichier "${node.name}" sera supprimé.`
+          }
+          confirmLabel="Supprimer"
+          onConfirm={handleDelete}
+          isLoading={isDeleting}
+        />
       </div>
       {isAdding && (
         <div className="flex items-center gap-1 py-1 px-2" style={{ paddingLeft: `${(depth + 1) * 16 + 8}px` }} onClick={stopRowClick} onMouseDown={stopRowClick}>
