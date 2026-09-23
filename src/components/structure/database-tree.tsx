@@ -507,6 +507,32 @@ export function DatabaseTree({ source, onSelect, selectedPath, webAvailable = tr
     }));
   }, [sortField, sortDirection]);
 
+  const formatSize = useCallback((bytes?: number): string => {
+    if (!bytes || bytes <= 0) return '';
+    const units = ['B', 'KB', 'MB', 'GB'];
+    const i = Math.min(Math.floor(Math.log(bytes) / Math.log(1024)), units.length - 1);
+    const value = bytes / Math.pow(1024, i);
+    return `${value.toFixed(i === 0 ? 0 : 1)} ${units[i]}`;
+  }, []);
+
+  const formatDate = useCallback((dateString?: string): string => {
+    if (!dateString) return '';
+    const date = new Date(dateString);
+    if (Number.isNaN(date.getTime())) return '';
+    const now = new Date();
+    const diffMs = now.getTime() - date.getTime();
+    const diffMin = Math.floor(diffMs / 60000);
+    const diffHours = Math.floor(diffMs / 3600000);
+    const diffDays = Math.floor(diffMs / 86400000);
+
+    if (diffMin < 1) return 'à l\'instant';
+    if (diffMin < 60) return `il y a ${diffMin} min`;
+    if (diffHours < 24) return `il y a ${diffHours} h`;
+    if (diffDays === 1) return 'hier';
+    if (diffDays < 7) return `il y a ${diffDays} jours`;
+    return date.toLocaleDateString();
+  }, []);
+
   const findNodeByPath = useCallback((nodes: TreeNode[], path: string): TreeNode | undefined => {
     for (const node of nodes) {
       if (node.path === path) return node;
@@ -763,10 +789,12 @@ export function DatabaseTree({ source, onSelect, selectedPath, webAvailable = tr
             onNodeAdded={addNodeToTree}
             onExpandParent={handleExpandParent}
             repository={activeRepo ?? undefined}
-            onContextMenu={(node, event) => setContextMenu({ x: event.clientX, y: event.clientY, node })}
-            getNodeTooltipContent={buildTooltipContent}
-          />
-        ))}
+             onContextMenu={(node, event) => setContextMenu({ x: event.clientX, y: event.clientY, node })}
+             getNodeTooltipContent={buildTooltipContent}
+             formatSize={formatSize}
+             formatDate={formatDate}
+           />
+         ))}
       </div>
       {contextMenu && (
         <ContextMenu
@@ -822,6 +850,8 @@ interface TreeNodeItemProps {
   repository?: string;
   onContextMenu?: (node: TreeNode, event: React.MouseEvent) => void;
   getNodeTooltipContent?: (node: TreeNode) => React.ReactNode;
+  formatSize: (bytes?: number) => string;
+  formatDate: (dateString?: string) => string;
 }
 
 const TreeNodeItem = memo(function TreeNodeItem({
@@ -844,7 +874,9 @@ const TreeNodeItem = memo(function TreeNodeItem({
   onExpandParent,
   repository,
   onContextMenu,
-  getNodeTooltipContent
+  getNodeTooltipContent,
+  formatSize,
+  formatDate
 }: TreeNodeItemProps) {
   const isExpanded = expanded.has(node.path);
   const isSelected = selectedPath === node.path;
@@ -1076,11 +1108,22 @@ const TreeNodeItem = memo(function TreeNodeItem({
             )}
           </div>
         )}
-        {node.size && !node.metadata?.equipmentCount && !isEditing && (
-          <span className="text-xs text-gray-400">
-            {(node.size / 1024).toFixed(1)} KB
-          </span>
-        )}
+        <div className="flex items-center gap-3 text-xs text-gray-400 ml-auto pl-2 shrink-0">
+          {node.type === 'directory' && node.children && (
+            <span className="w-16 text-right tabular-nums">{node.children.length} éléments</span>
+          )}
+          {node.type === 'file' && node.size && (
+            <span className="w-16 text-right tabular-nums">{formatSize(node.size)}</span>
+          )}
+          {(node.metadata?.updatedAt || node.metadata?.createdAt) && (
+            <span className="w-20 text-right tabular-nums">{formatDate(node.metadata.updatedAt || node.metadata.createdAt)}</span>
+          )}
+          {isVectorSource && metadata?.vectorized !== undefined && (
+            <span className={`px-1.5 py-0.5 rounded text-[10px] font-medium ${metadata.vectorized ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'}`}>
+              {metadata.vectorized ? 'vectorisé' : 'non vectorisé'}
+            </span>
+          )}
+        </div>
       </div>
       {isAdding && (
         <div className="flex items-center gap-1 py-1 px-2" style={{ paddingLeft: `${(depth + 1) * 16 + 8}px` }} onClick={stopRowClick} onMouseDown={stopRowClick}>
@@ -1133,9 +1176,11 @@ const TreeNodeItem = memo(function TreeNodeItem({
               onNodeAdded={onNodeAdded}
               onExpandParent={onExpandParent}
               repository={repository}
-              onContextMenu={onContextMenu}
-              getNodeTooltipContent={getNodeTooltipContent}
-            />
+             onContextMenu={onContextMenu}
+             getNodeTooltipContent={getNodeTooltipContent}
+             formatSize={formatSize}
+             formatDate={formatDate}
+           />
           ))}
         </div>
       )}
