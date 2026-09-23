@@ -1276,7 +1276,13 @@ async writeJSON<T = unknown>(path: string, data: T): Promise<void> {
     const count = await prisma.document.count({
       where: { path: { startsWith: `${path}/` } }
     });
-    return count > 0;
+    if (count > 0) return true;
+
+    if (parts[0] === 'bank' || parts[0] === 'documents' || parts[0] === 'system') {
+      return true;
+    }
+
+    return false;
   }
 
   // ============================================================
