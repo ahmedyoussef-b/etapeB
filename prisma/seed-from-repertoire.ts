@@ -14,6 +14,7 @@ export interface SeedFile {
   path: string;
   content: string;
   size: number;
+  encoding: 'utf-8' | 'base64';
 }
 
 class MemoryFileSystem {
@@ -72,6 +73,9 @@ class MemoryFileSystem {
     const normalized = MemoryFileSystem.normalize(path);
     const file = this.files.get(normalized);
     if (!file) throw new Error(`File not found: ${path}`);
+    if (file.encoding === 'base64') {
+      return Buffer.from(file.content, 'base64');
+    }
     return Buffer.from(file.content, 'utf-8');
   }
 
@@ -120,7 +124,10 @@ async function _readFile(path: string, encoding?: string): Promise<any>;
 async function _readFile(path: string, encoding?: string): Promise<Buffer | string> {
   if (_memoryFs) {
     const buf = _memoryFs.readFile(path);
-    return encoding === 'utf-8' || encoding === 'utf8' ? buf.toString('utf-8') : Buffer.from(buf.buffer as ArrayBuffer, buf.byteOffset, buf.byteLength) as any;
+    if (encoding === 'utf-8' || encoding === 'utf8') {
+      return buf.toString('utf-8');
+    }
+    return buf;
   }
   return fs.readFile(path, encoding as any);
 }
