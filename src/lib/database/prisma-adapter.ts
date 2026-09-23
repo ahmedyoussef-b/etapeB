@@ -1278,7 +1278,7 @@ async writeJSON<T = unknown>(path: string, data: T): Promise<void> {
     });
     if (count > 0) return true;
 
-    if (parts[0] === 'bank' || parts[0] === 'documents' || parts[0] === 'system') {
+    if (path === 'bank' || path === 'documents' || path === 'system') {
       return true;
     }
 
