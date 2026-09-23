@@ -1,8 +1,8 @@
 //src/components/structure/database-tree.tsx
 'use client';
 
-import { useState, useEffect, useRef, useCallback, memo } from 'react';
-import { ChevronRight, ChevronDown, ChevronLeft, Folder, File, Database, RefreshCw, Factory, Users, Wrench, Layers, WifiOff, Pencil, Trash2, FolderPlus, X, Check, Copy, ArrowUpDown } from 'lucide-react';
+import { useState, useEffect, useRef, useCallback, memo, useMemo } from 'react';
+import { ChevronRight, ChevronDown, ChevronLeft, Search, Folder, File, Database, RefreshCw, Factory, Users, Wrench, Layers, WifiOff, Pencil, Trash2, FolderPlus, X, Check, Copy, ArrowUpDown } from 'lucide-react';
 import { FileUploadButton } from '@/components/upload/file-upload-button';
 import { dedupeTree, type TreeNode } from '@/components/structure/tree-utils';
 import { WORKING_REPOSITORY_NAME, WORKING_REPOSITORY_PATH } from '@/lib/config/repository';
@@ -150,6 +150,7 @@ export function DatabaseTree({ source, onSelect, selectedPath, webAvailable = tr
   const isNavigatingRef = useRef(false);
   const [sortField, setSortField] = useState<'name' | 'date' | 'size' | 'type'>('name');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
+  const [searchQuery, setSearchQuery] = useState('');
 
   const isLocalEditable = source === 'local' && activeRepo !== null && activeRepo !== undefined && activeRepo !== '.data' && !activeRepo.endsWith('/.data') && (activeRepo === WORKING_REPOSITORY_NAME || activeRepo.startsWith('repositories/'));
   const mutationsEnabled = isLocalEditable || (source === 'web' && webAvailable && isAdmin && !isTauriEnv());
@@ -533,6 +534,35 @@ export function DatabaseTree({ source, onSelect, selectedPath, webAvailable = tr
     return date.toLocaleDateString();
   }, []);
 
+  const filterTree = useCallback((nodes: TreeNode[], query: string): TreeNode[] => {
+    if (!query.trim()) return nodes;
+
+    const lowerQuery = query.toLowerCase();
+
+    const matchNode = (node: TreeNode): TreeNode | null => {
+      const nameMatches = node.name.toLowerCase().includes(lowerQuery);
+      let childMatches: TreeNode[] = [];
+
+      if (node.children) {
+        const matchedChildren = node.children
+          .map(child => matchNode(child))
+          .filter((child): child is TreeNode => child !== null);
+        childMatches = matchedChildren;
+      }
+
+      if (nameMatches || childMatches.length > 0) {
+        return {
+          ...node,
+          children: childMatches.length > 0 ? childMatches : node.children,
+        };
+      }
+
+      return null;
+    };
+
+    return nodes.map(node => matchNode(node)).filter((node): node is TreeNode => node !== null);
+  }, []);
+
   const findNodeByPath = useCallback((nodes: TreeNode[], path: string): TreeNode | undefined => {
     for (const node of nodes) {
       if (node.path === path) return node;
@@ -760,41 +790,73 @@ export function DatabaseTree({ source, onSelect, selectedPath, webAvailable = tr
           <ArrowUpDown className="w-4 h-4" />
         </button>
         <span className="text-xs text-gray-500 ml-1">Arborescence</span>
+        <div className="ml-auto flex items-center gap-1">
+          <Search className="w-3.5 h-3.5 text-gray-400" />
+          <input
+            type="text"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder="Filtrer..."
+            className="text-xs border border-gray-200 rounded px-1.5 py-0.5 bg-white text-gray-700 w-32 focus:outline-none focus:ring-1 focus:ring-blue-500"
+          />
+        </div>
       </div>
+      {searchQuery.trim() && (
+        <div className="text-xs text-gray-500 px-2 py-1 border-b bg-gray-50">
+          {(() => {
+            const sorted = sortNodes(nodes);
+            const filtered = filterTree(sorted, searchQuery);
+            return `${filtered.length} résultat${filtered.length !== 1 ? 's' : ''}`;
+          })()}
+        </div>
+      )}
       <div className="flex-1 overflow-y-auto p-2 min-h-0">
-        {sortNodes(nodes).map(node => (
-          <TreeNodeItem
-            key={node.path}
-            node={node}
-            depth={0}
-            expanded={expanded}
-            onToggle={toggleExpand}
-            onSelect={handleSelect}
-            selectedPath={selectedPath}
-            getNodeIcon={getNodeIcon}
-            getNodeLabel={getNodeLabel}
-            source={source}
-            onUploaded={handleUploaded}
-            uploadEnabled={
-              source === 'web'
-                ? webAvailable && isAdmin
-                : source === 'vector'
-                  ? false
-                  : true
-            }
-            mutationsEnabled={mutationsEnabled}
-            isAdmin={isAdmin}
-            onNodeDeleted={removeNodeFromTree}
-            onNodeRenamed={renameNodeInTree}
-            onNodeAdded={addNodeToTree}
-            onExpandParent={handleExpandParent}
-            repository={activeRepo ?? undefined}
-             onContextMenu={(node, event) => setContextMenu({ x: event.clientX, y: event.clientY, node })}
-             getNodeTooltipContent={buildTooltipContent}
-             formatSize={formatSize}
-             formatDate={formatDate}
-           />
-         ))}
+        {(() => {
+          const sorted = sortNodes(nodes);
+          const filtered = filterTree(sorted, searchQuery);
+
+          if (filtered.length === 0 && searchQuery.trim()) {
+            return (
+              <div className="p-4 text-center text-gray-500 text-sm">
+                Aucun résultat pour "{searchQuery}"
+              </div>
+            );
+          }
+
+          return filtered.map(node => (
+            <TreeNodeItem
+              key={node.path}
+              node={node}
+              depth={0}
+              expanded={expanded}
+              onToggle={toggleExpand}
+              onSelect={handleSelect}
+              selectedPath={selectedPath}
+              getNodeIcon={getNodeIcon}
+              getNodeLabel={getNodeLabel}
+              source={source}
+              onUploaded={handleUploaded}
+              uploadEnabled={
+                source === 'web'
+                  ? webAvailable && isAdmin
+                  : source === 'vector'
+                    ? false
+                    : true
+              }
+              mutationsEnabled={mutationsEnabled}
+              isAdmin={isAdmin}
+              onNodeDeleted={removeNodeFromTree}
+              onNodeRenamed={renameNodeInTree}
+              onNodeAdded={addNodeToTree}
+              onExpandParent={handleExpandParent}
+              repository={activeRepo ?? undefined}
+              onContextMenu={(node, event) => setContextMenu({ x: event.clientX, y: event.clientY, node })}
+              getNodeTooltipContent={buildTooltipContent}
+              formatSize={formatSize}
+              formatDate={formatDate}
+            />
+          ));
+        })()}
       </div>
       {contextMenu && (
         <ContextMenu
