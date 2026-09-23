@@ -9,7 +9,7 @@ import { WORKING_REPOSITORY_NAME, WORKING_REPOSITORY_PATH } from '@/lib/config/r
 import { fetchStructureTree, treeAction as invokeTreeAction } from '@/lib/api/local-first';
 import { isTauriEnv } from '@/lib/tauri/env';
 import { StructureSource } from '@/lib/database/structure-types';
-import { useToastHelpers } from '@/components/notifications/toast-provider';
+import { useToastHelpers, useToast } from '@/components/notifications/toast-provider';
 import { ContextMenu } from '@/components/ui/context-menu';
 import { Tooltip } from '@/components/ui/tooltip';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
@@ -23,6 +23,7 @@ interface DatabaseTreeProps {
   webAvailable?: boolean;
   activeRepo?: string | null;
   isAdmin?: boolean;
+  onNodeRestored?: (node: TreeNode) => void;
 }
 
 async function treeAction(action: string, path: string, source: string, name?: string, repository?: string) {
@@ -136,7 +137,7 @@ function isTreeFullyLoaded(nodes: TreeNode[]): boolean {
   });
 }
 
-export function DatabaseTree({ source, onSelect, selectedPath, webAvailable = true, activeRepo, isAdmin = false }: DatabaseTreeProps) {
+export function DatabaseTree({ source, onSelect, selectedPath, webAvailable = true, activeRepo, isAdmin = false, onNodeRestored }: DatabaseTreeProps) {
   const [nodes, setNodes] = useState<TreeNode[] | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -146,6 +147,7 @@ export function DatabaseTree({ source, onSelect, selectedPath, webAvailable = tr
   const loadingPathsRef = useRef<Set<string>>(new Set());
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number; node: TreeNode } | null>(null);
   const toast = useToastHelpers();
+  const { push: pushToast, dismiss: dismissToast } = useToast();
   const [history, setHistory] = useState<string[]>([]);
   const [historyIndex, setHistoryIndex] = useState(-1);
   const isNavigatingRef = useRef(false);
@@ -242,8 +244,27 @@ export function DatabaseTree({ source, onSelect, selectedPath, webAvailable = tr
         });
     };
     setNodes(prev => {
+      const findNode = (nodes: TreeNode[], targetPath: string): TreeNode | null => {
+        for (const node of nodes) {
+          if (node.path === targetPath) return node;
+          if (node.children) {
+            const found = findNode(node.children, targetPath);
+            if (found) return found;
+          }
+        }
+        return null;
+      };
+
+      const removedNode = prev ? findNode(prev, path) : null;
+      const removedCounts = removedNode?.children ? countNodes(removedNode.children) : null;
       const next = prev ? dedupeTree(removeRecursive(prev)) : prev;
-      console.log('[DatabaseTree] removeNodeFromTree state updated', { path, source, count: next?.length ?? 0 });
+      const remainingCounts = next ? countNodes(next) : null;
+      console.log('[DatabaseTree] removeNodeFromTree state updated', {
+        path,
+        source,
+        remaining: remainingCounts,
+        removed: removedCounts,
+      });
       return next;
     });
     setExpanded(prev => {
@@ -905,6 +926,7 @@ export function DatabaseTree({ source, onSelect, selectedPath, webAvailable = tr
               getNodeTooltipContent={buildTooltipContent}
               formatSize={formatSize}
               formatDate={formatDate}
+              onNodeRestored={onNodeRestored}
             />
           ))
         )}
@@ -965,6 +987,7 @@ interface TreeNodeItemProps {
   getNodeTooltipContent?: (node: TreeNode) => React.ReactNode;
   formatSize: (bytes?: number) => string;
   formatDate: (dateString?: string) => string;
+  onNodeRestored?: (node: TreeNode) => void;
 }
 
 const TreeNodeItem = memo(function TreeNodeItem({
@@ -989,7 +1012,8 @@ const TreeNodeItem = memo(function TreeNodeItem({
   onContextMenu,
   getNodeTooltipContent,
   formatSize,
-  formatDate
+  formatDate,
+  onNodeRestored
 }: TreeNodeItemProps) {
   const isExpanded = expanded.has(node.path);
   const isSelected = selectedPath === node.path;
@@ -1001,6 +1025,9 @@ const TreeNodeItem = memo(function TreeNodeItem({
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const pendingDeleteTimerRef = useRef<number | null>(null);
+  const pendingDeleteNodeRef = useRef<TreeNode | null>(null);
+  const { push: pushToast, dismiss: dismissToast } = useToast();
 
   const paddingLeft = `${depth * 16 + 8}px`;
 
@@ -1022,9 +1049,24 @@ const TreeNodeItem = memo(function TreeNodeItem({
     const parts = oldPath.split('/');
     parts[parts.length - 1] = editName.trim();
     const newPath = parts.join('/');
+    const oldName = node.name;
     const result = await treeAction('rename', node.path, source, editName.trim(), repository);
     if (result.success) {
       onNodeRenamed(oldPath, newPath, editName.trim());
+      const id = pushToast({
+        variant: 'confirm',
+        title: 'Renommé',
+        message: `"${oldName}" → "${editName.trim()}"`,
+        duration: 0,
+        confirmLabel: 'Annuler',
+        cancelLabel: 'Garder',
+        onConfirm: () => {
+          treeAction('rename', newPath, source, oldName, repository).then(() => {
+            onNodeRenamed(newPath, oldPath, oldName);
+          });
+        }
+      });
+      setTimeout(() => dismissToast(id), 8000);
     } else {
       setActionError(result.error || 'Renommage impossible');
     }
@@ -1040,6 +1082,25 @@ const TreeNodeItem = memo(function TreeNodeItem({
     const result = await treeAction('delete', node.path, source, undefined, repository);
     if (result.success) {
       onNodeDeleted(node.path);
+      pendingDeleteNodeRef.current = node;
+      const id = pushToast({
+        variant: 'confirm',
+        title: 'Supprimé',
+        message: `"${node.name}" a été supprimé.`,
+        duration: 0,
+        confirmLabel: 'Restaurer',
+        cancelLabel: 'Garder',
+        onConfirm: () => {
+          if (pendingDeleteNodeRef.current) {
+            onNodeRestored?.(pendingDeleteNodeRef.current);
+            pendingDeleteNodeRef.current = null;
+          }
+        }
+      });
+      setTimeout(() => {
+        dismissToast(id);
+        pendingDeleteNodeRef.current = null;
+      }, 8000);
     } else {
       setActionError(result.error || 'Suppression impossible');
     }
@@ -1310,11 +1371,12 @@ const TreeNodeItem = memo(function TreeNodeItem({
               onNodeAdded={onNodeAdded}
               onExpandParent={onExpandParent}
               repository={repository}
-             onContextMenu={onContextMenu}
-             getNodeTooltipContent={getNodeTooltipContent}
-             formatSize={formatSize}
-             formatDate={formatDate}
-           />
+              onContextMenu={onContextMenu}
+              getNodeTooltipContent={getNodeTooltipContent}
+              formatSize={formatSize}
+              formatDate={formatDate}
+              onNodeRestored={onNodeRestored}
+            />
           ))}
         </div>
       )}
