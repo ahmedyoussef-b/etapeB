@@ -46,6 +46,12 @@ export async function startSync(): Promise<any> {
 
 export async function treeAction(action: string, path: string, source: string, name?: string, repository?: string): Promise<any> {
   if (isTauriEnv()) {
+    if (source === "vector") {
+      throw new Error("La source vectorielle est en lecture seule.");
+    }
+    if (source === "web") {
+      throw new Error("En Tauri, les mutations Web passent par l'API Vercel.");
+    }
     return invoke("tree_action", { action, path, source, name, repository });
   }
   const response = await fetch("/api/tree-actions", {

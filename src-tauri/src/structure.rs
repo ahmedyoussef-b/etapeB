@@ -129,7 +129,8 @@ pub fn get_repository_info() -> Result<Value, String> {
 pub fn tree_action(app: AppHandle, action: String, path: String, source: String, name: Option<String>, repository: Option<String>) -> Result<Value, String> {
     if source != "local" {
         return Err(format!(
-            "Les mutations ne sont autorisées que pour la source 'local'. Source reçue: '{}'",
+            "En mode desktop, seules les mutations de la source 'local' sont autorisées. \
+             Les mutations Web passent par l'API Vercel. Source reçue: '{}'",
             source
         ));
     }
@@ -142,7 +143,18 @@ pub fn tree_action(app: AppHandle, action: String, path: String, source: String,
         "rename" => {
             let new_name = name.filter(|n| !n.is_empty()).ok_or("missing name")?;
             let new_path = target.parent().map(|p| p.join(&new_name)).unwrap_or(PathBuf::from(&new_name));
+            let old_rel = crate::vectorizer::extract_relative_path(&target);
             fs::rename(&target, &new_path).map_err(|e| e.to_string())?;
+            if let Err(e) = crate::vectorizer::delete_from_chroma_internal(&app, &old_rel) {
+                log::warn!("[tree_action/rename] chroma delete failed: {}", e);
+            }
+            let app_clone = app.clone();
+            let new_path_clone = new_path.clone();
+            tauri::async_runtime::spawn(async move {
+                if let Err(e) = crate::vectorizer::vectorize_single_file_internal(&app_clone, &new_path_clone).await {
+                    log::warn!("[tree_action/rename] chroma vectorize failed: {}", e);
+                }
+            });
             Ok(json!({"success": true}))
         }
         "delete" => {
@@ -150,6 +162,10 @@ pub fn tree_action(app: AppHandle, action: String, path: String, source: String,
                 fs::remove_dir_all(&target).map_err(|e| e.to_string())?;
             } else {
                 fs::remove_file(&target).map_err(|e| e.to_string())?;
+            }
+            let rel_path = crate::vectorizer::extract_relative_path(&target);
+            if let Err(e) = crate::vectorizer::delete_from_chroma_internal(&app, &rel_path) {
+                log::warn!("[tree_action/delete] chroma sync failed: {}", e);
             }
             Ok(json!({"success": true}))
         }

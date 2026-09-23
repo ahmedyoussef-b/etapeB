@@ -18,8 +18,10 @@ use std::path::{Path, PathBuf};
 use tauri::Emitter;
 use walkdir::WalkDir;
 use tauri::Manager;
+use tauri::AppHandle;
 use crate::vectorizer::{LocalChromaStore, SearchResult};
 use crate::watcher::WatcherState;
+use serde_json::{json, Value};
 
 #[derive(serde::Serialize, serde::Deserialize, Clone, Debug)]
 pub struct RagAnswer {
@@ -153,7 +155,10 @@ fn ensure_initial_repository(app: &tauri::AppHandle) -> Result<(), String> {
 
 #[tauri::command]
 fn get_user_data_path() -> String {
-    // Retourne %APPDATA%/NexaFlow/
+    _get_user_data_path()
+}
+
+pub(crate) fn _get_user_data_path() -> String {
     #[cfg(target_os = "windows")]
     {
         if let Ok(appdata) = std::env::var("APPDATA") {
@@ -267,7 +272,27 @@ async fn read_file_content(app: tauri::AppHandle, path: String) -> Result<FileCo
 }
 
 #[tauri::command]
-async fn write_file_content(path: String, content: String) -> Result<(), String> {
+async fn write_file_content(app: tauri::AppHandle, path: String, content: String) -> Result<(), String> {
+    write_file_content_core(path.clone(), content)?;
+
+    let path_ref = std::path::Path::new(&path);
+    let app_clone = app.clone();
+    let path_buf = path_ref.to_path_buf();
+    tauri::async_runtime::spawn(async move {
+        if let Err(e) = crate::vectorizer::vectorize_single_file_internal(
+            &app_clone,
+            &path_buf,
+        )
+        .await
+        {
+            log::warn!("[write_file_content] vectorize failed: {}", e);
+        }
+    });
+
+    Ok(())
+}
+
+fn write_file_content_core(path: String, content: String) -> Result<(), String> {
     use std::fs;
     use std::path::Path;
 
@@ -289,6 +314,20 @@ async fn write_file_content(path: String, content: String) -> Result<(), String>
     })?;
 
     Ok(())
+}
+
+#[tauri::command]
+fn delete_from_chroma(app: AppHandle, path: String) -> Result<Value, String> {
+    crate::vectorizer::delete_from_chroma_internal(&app, &path)
+        .map(|count| json!({"success": true, "deleted": count}))
+}
+
+#[tauri::command]
+async fn vectorize_single_file(app: AppHandle, path: String) -> Result<Value, String> {
+    let p = std::path::PathBuf::from(&path);
+    crate::vectorizer::vectorize_single_file_internal(&app, &p)
+        .await
+        .map(|count| json!({"success": true, "chunks": count}))
 }
 
 #[tauri::command]
@@ -567,6 +606,8 @@ pub fn run() {
             api_commands::get_sync_stats,
             api_commands::get_system_versions,
             api_commands::purge_sync_cache,
+            delete_from_chroma,
+            vectorize_single_file,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
@@ -586,7 +627,7 @@ mod tests_atomic_write {
         let target = dir.join("test_file.txt");
         let content = "hello atomic world";
 
-        write_file_content(target.to_string_lossy().to_string(), content.to_string()).await.unwrap();
+        write_file_content_core(target.to_string_lossy().to_string(), content.to_string()).unwrap();
 
         let read_back = std::fs::read(&target).unwrap();
         assert_eq!(read_back, content.as_bytes(), "contenu identique");
@@ -605,10 +646,10 @@ mod tests_atomic_write {
 
         let target = dir.join("test_file.txt");
 
-        write_file_content(target.to_string_lossy().to_string(), "version 1".to_string()).await.unwrap();
+        write_file_content_core(target.to_string_lossy().to_string(), "version 1".to_string()).unwrap();
         assert_eq!(std::fs::read(&target).unwrap(), b"version 1");
 
-        write_file_content(target.to_string_lossy().to_string(), "version 2".to_string()).await.unwrap();
+        write_file_content_core(target.to_string_lossy().to_string(), "version 2".to_string()).unwrap();
         assert_eq!(std::fs::read(&target).unwrap(), b"version 2");
 
         let tmp = PathBuf::from(format!("{}.tmp", target.to_string_lossy()));
@@ -623,7 +664,7 @@ mod tests_atomic_write {
         let _ = std::fs::remove_dir_all(&dir);
 
         let target = dir.join("subdir").join("nested").join("file.txt");
-        write_file_content(target.to_string_lossy().to_string(), "nested content".to_string()).await.unwrap();
+        write_file_content_core(target.to_string_lossy().to_string(), "nested content".to_string()).unwrap();
 
         assert!(target.exists(), "fichier créé dans répertoire imbriqué");
         assert_eq!(std::fs::read(&target).unwrap(), b"nested content");

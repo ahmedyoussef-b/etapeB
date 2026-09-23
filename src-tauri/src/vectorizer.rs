@@ -1,7 +1,9 @@
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fs;
-use std::path::Path;
+use std::path::{Path, PathBuf};
+use tauri::AppHandle;
+use crate::_get_user_data_path;
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct ChunkMetadata {
@@ -340,4 +342,42 @@ pub async fn vectorize_file(
         success: true,
         error: None,
     })
+}
+
+pub fn delete_from_chroma_internal(
+    _app: &AppHandle,
+    rel_path: &str,
+) -> Result<usize, String> {
+    let base = _get_user_data_path();
+    let chroma_path = PathBuf::from(&base).join("chroma");
+
+    let mut store = LocalChromaStore::load(&chroma_path);
+
+    let prefix = format!("{}/", rel_path);
+    let ids: Vec<String> = store
+        .records
+        .iter()
+        .filter(|(_, r)| r.metadata.path == rel_path || r.metadata.path.starts_with(&prefix))
+        .map(|(id, _)| id.clone())
+        .collect();
+
+    let count = ids.len();
+    for id in &ids {
+        store.records.remove(id);
+    }
+
+    store.save(&chroma_path)?;
+    log::info!("[chroma] deleted {} chunks for {}", count, rel_path);
+    Ok(count)
+}
+
+pub async fn vectorize_single_file_internal(
+    _app: &AppHandle,
+    path: &Path,
+) -> Result<usize, String> {
+    let base = _get_user_data_path();
+    let chroma_path = PathBuf::from(&base).join("chroma");
+
+    let result = vectorize_file(path, &chroma_path).await?;
+    Ok(result.chunks_count)
 }
