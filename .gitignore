@@ -95,3 +95,6 @@ docs/app/
 
 # Seed bundle backup
 *.bak
+
+# Snapshots locaux
+backups/
