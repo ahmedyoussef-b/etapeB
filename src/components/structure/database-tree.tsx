@@ -153,6 +153,7 @@ export function DatabaseTree({ source, onSelect, selectedPath, webAvailable = tr
   const [history, setHistory] = useState<string[]>([]);
   const [historyIndex, setHistoryIndex] = useState(-1);
   const isNavigatingRef = useRef(false);
+  const hasPendingDeleteRef = useRef(false);
   const [sortField, setSortField] = useState<'name' | 'date' | 'size' | 'type'>('name');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
   const [searchQuery, setSearchQuery] = useState('');
@@ -287,6 +288,7 @@ export function DatabaseTree({ source, onSelect, selectedPath, webAvailable = tr
 
   const pollTree = useCallback(async () => {
     if (source !== 'web') return;
+    if (hasPendingDeleteRef.current) return;
     try {
       const data = await fetchStructureTree(source, '', activeRepo || undefined);
       if (data?.success && data.data) {
@@ -961,6 +963,7 @@ export function DatabaseTree({ source, onSelect, selectedPath, webAvailable = tr
               formatSize={formatSize}
               formatDate={formatDate}
               onNodeRestored={onNodeRestored || restoreNodeInTree}
+              onPendingDeleteChange={(pending) => { hasPendingDeleteRef.current = pending; }}
             />
           ))
         )}
@@ -1022,6 +1025,7 @@ interface TreeNodeItemProps {
   formatSize: (bytes?: number) => string;
   formatDate: (dateString?: string) => string;
   onNodeRestored?: (node: TreeNode) => void;
+  onPendingDeleteChange?: (pending: boolean) => void;
 }
 
 const TreeNodeItem = memo(function TreeNodeItem({
@@ -1047,7 +1051,8 @@ const TreeNodeItem = memo(function TreeNodeItem({
   getNodeTooltipContent,
   formatSize,
   formatDate,
-  onNodeRestored
+  onNodeRestored,
+  onPendingDeleteChange
 }: TreeNodeItemProps) {
   const isExpanded = expanded.has(node.path);
   const isSelected = selectedPath === node.path;
@@ -1118,6 +1123,7 @@ const TreeNodeItem = memo(function TreeNodeItem({
     setIsDeleting(true);
 
     pendingDeleteNodeRef.current = node;
+    onPendingDeleteChange?.(true);
 
     onNodeDeleted(node.path);
 
@@ -1140,6 +1146,7 @@ const TreeNodeItem = memo(function TreeNodeItem({
           clearTimeout(pendingDeleteTimerRef.current);
           pendingDeleteTimerRef.current = null;
         }
+        onPendingDeleteChange?.(false);
       }
     });
 
@@ -1151,6 +1158,7 @@ const TreeNodeItem = memo(function TreeNodeItem({
       }
       pendingDeleteNodeRef.current = null;
       pendingDeleteTimerRef.current = null;
+      onPendingDeleteChange?.(false);
     }, 8000);
 
     setIsDeleting(false);
@@ -1425,6 +1433,7 @@ const TreeNodeItem = memo(function TreeNodeItem({
               formatSize={formatSize}
               formatDate={formatDate}
               onNodeRestored={onNodeRestored}
+              onPendingDeleteChange={onPendingDeleteChange}
             />
           ))}
         </div>
