@@ -654,7 +654,12 @@ async function buildTreeForSource(source: string, adapter: DatabaseAdapter, rela
 }
 
 export async function GET(request: NextRequest) {
-  const user = await getAuthenticatedUser(request);
+  let user;
+  try {
+    user = await getAuthenticatedUser(request);
+  } catch {
+    return unauthenticatedResponse();
+  }
   if (!user) return unauthenticatedResponse();
   if (!hasPermission(user.role, 'settings:*')) return unauthorizedResponse();
 
