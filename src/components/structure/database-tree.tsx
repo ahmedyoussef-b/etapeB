@@ -166,7 +166,7 @@ export function DatabaseTree({ source, onSelect, selectedPath, webAvailable = tr
   const [searchQuery, setSearchQuery] = useState('');
 
   const isLocalEditable = source === 'local' && activeRepo !== null && activeRepo !== undefined && activeRepo !== '.data' && !activeRepo.endsWith('/.data') && (activeRepo === WORKING_REPOSITORY_NAME || activeRepo.startsWith('repositories/'));
-  const mutationsEnabled = isLocalEditable || (source === 'web' && webAvailable && isAdmin && !isTauriEnv());
+  const mutationsEnabled = isLocalEditable || (source === 'web' && webAvailable && isAdmin);
 
   useEffect(() => {
     setHistory([]);

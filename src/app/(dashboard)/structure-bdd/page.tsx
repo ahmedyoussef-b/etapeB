@@ -252,7 +252,7 @@ export default function StructureBDDPage() {
 
   const isLocalEditable = source === "local" && activeRepo !== ".data";
 
-  const canMutate = isLocalEditable || (source === "web" && (role as string) === "admin" && !isTauriEnv());
+  const canMutate = isLocalEditable || (source === "web" && (role as string) === "admin");
 
   const handleCopyPath = useCallback(async (node: TreeNode) => {
     const text = source === "local"
