@@ -50,35 +50,34 @@ export async function GET(_request: NextRequest) {
 
     try {
       const [dbBlocks, dbEquipments, dbGroups, dbGroupEquipments] = await Promise.all([
-        prisma.block.findMany(),
-        prisma.equipment.findMany(),
-        prisma.group.findMany(),
-        prisma.groupEquipment.findMany(),
+        prisma.block.findMany({ select: { code: true } }),
+        prisma.equipment.findMany({ select: { code: true, blocCode: true } }),
+        prisma.group.findMany({ select: { code: true } }),
+        prisma.groupEquipment.findMany({ select: { code: true, groupeCode: true } }),
       ]);
 
-      // Read .data/ structure
       const localAdapter = new LocalDatabaseAdapter('.data');
-      const centraleEntries = await localAdapter.list('Centrale').catch(() => []);
-      const groupesEntries = await localAdapter.list('Groupes').catch(() => []);
+      const [centraleEntries, groupesEntries] = await Promise.all([
+        localAdapter.list('Centrale').catch(() => []),
+        localAdapter.list('Groupes').catch(() => []),
+      ]);
 
       const localBlockNames = centraleEntries.filter(e => !e.startsWith('.'));
       const localGroupNames = groupesEntries.filter(e => !e.startsWith('.'));
 
-      const localEquipments: string[] = [];
-      for (const block of localBlockNames) {
-        const eqs = await localAdapter.list(`Centrale/${block}`).catch(() => []);
-        for (const eq of eqs.filter(e => !e.startsWith('.'))) {
-          localEquipments.push(`${block}/${eq}`);
-        }
-      }
+      const equipmentLists = await Promise.all(
+        localBlockNames.map(block => localAdapter.list(`Centrale/${block}`).catch(() => []))
+      );
+      const localEquipments = equipmentLists.flatMap((eqs, i) =>
+        eqs.filter(e => !e.startsWith('.')).map(eq => `${localBlockNames[i]}/${eq}`)
+      );
 
-      const localGroupEquipments: string[] = [];
-      for (const group of localGroupNames) {
-        const geqs = await localAdapter.list(`Groupes/${group}`).catch(() => []);
-        for (const geq of geqs.filter(e => !e.startsWith('.'))) {
-          localGroupEquipments.push(`${group}/${geq}`);
-        }
-      }
+      const groupEquipmentLists = await Promise.all(
+        localGroupNames.map(group => localAdapter.list(`Groupes/${group}`).catch(() => []))
+      );
+      const localGroupEquipments = groupEquipmentLists.flatMap((geqs, i) =>
+        geqs.filter(e => !e.startsWith('.')).map(geq => `${localGroupNames[i]}/${geq}`)
+      );
 
       const dbBlockCodes = new Set(dbBlocks.map(b => b.code));
       const dbEquipKeys = new Set(dbEquipments.map(e => `${e.blocCode}/${e.code}`));
