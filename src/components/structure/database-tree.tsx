@@ -31,9 +31,7 @@ interface DatabaseTreeProps {
 }
 
 async function treeAction(action: string, path: string, source: string, name?: string, repository?: string) {
-  console.log('[DatabaseTree] treeAction', { action, path, source, name, repository });
   const data = await invokeTreeAction(action, path, source, name, repository);
-  console.log('[DatabaseTree] treeAction result', { action, path, source, ok: data?.success ?? false, data });
   return data;
 }
 
@@ -163,16 +161,13 @@ export function DatabaseTree({ source, onSelect, selectedPath, webAvailable = tr
   const mutationsEnabled = isLocalEditable || (source === 'web' && webAvailable && isAdmin && !isTauriEnv());
 
   useEffect(() => {
-    console.log('[DatabaseTree] source changed', { source, webAvailable });
     setHistory([]);
     setHistoryIndex(-1);
   }, [source, webAvailable]);
 
   const loadStructure = useCallback(async (path: string = '', signal?: AbortSignal) => {
     try {
-      console.log('[DatabaseTree] loadStructure start', { source, path, activeRepo });
       const data = await fetchStructureTree(source, path || undefined, activeRepo || undefined);
-      console.log('[DatabaseTree] loadStructure result', { source, path, success: data?.success, sourceUsed: (data as any)?.sourceUsed, topLevelNodes: (data as any)?.data?.length, firstNodeChildren: (data as any)?.data?.[0]?.children?.length });
 
       if (!data?.success) {
         if ((data as any)?.available === false) {
@@ -223,10 +218,8 @@ export function DatabaseTree({ source, onSelect, selectedPath, webAvailable = tr
 
   const loadChildren = useCallback(async (node: TreeNode) => {
     if (node.type !== 'directory') return;
-    console.log('[DatabaseTree] loadChildren start', { source, path: node.path, activeRepo });
     try {
       const data = await fetchStructureTree(source, node.path, activeRepo || undefined);
-      console.log('[DatabaseTree] loadChildren result', { source, path: node.path, success: data?.success, childrenCount: data?.data?.length });
 
       if (data?.success && data.data) {
         updateNodeChildren(node.path, data.data);
@@ -237,7 +230,6 @@ export function DatabaseTree({ source, onSelect, selectedPath, webAvailable = tr
   }, [source, activeRepo, updateNodeChildren]);
 
   const removeNodeFromTree = useCallback((path: string) => {
-    console.log('[DatabaseTree] removeNodeFromTree start', { path, source });
     const removeRecursive = (nodes: TreeNode[]): TreeNode[] => {
       return nodes
         .filter(node => node.path !== path)
@@ -264,12 +256,6 @@ export function DatabaseTree({ source, onSelect, selectedPath, webAvailable = tr
       const removedCounts = removedNode?.children ? countNodes(removedNode.children) : null;
       const next = prev ? dedupeTree(removeRecursive(prev)) : prev;
       const remainingCounts = next ? countNodes(next) : null;
-      console.log('[DatabaseTree] removeNodeFromTree state updated', {
-        path,
-        source,
-        remaining: remainingCounts,
-        removed: removedCounts,
-      });
       return next;
     });
     setExpanded(prev => {
@@ -277,19 +263,17 @@ export function DatabaseTree({ source, onSelect, selectedPath, webAvailable = tr
       next.delete(path);
       return next;
     });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [source]);
 
   const reloadTreeSilent = useCallback(async () => {
-    console.log('[DatabaseTree] reloadTreeSilent start', { source, activeRepo });
     try {
       const data = await fetchStructureTree(source, '', activeRepo || undefined);
-      console.log('[DatabaseTree] reloadTreeSilent fetch result', { success: data?.success, topLevelNodes: (data as any)?.data?.length });
       if (data?.success && data.data) {
         const rootNodes = data.data;
         if (rootNodes.length > 0) {
           const fullyLoaded = isTreeFullyLoaded(rootNodes) ? rootNodes : dedupeTree(await loadAllChildren(rootNodes));
           const counts = countNodes(fullyLoaded);
-          console.log('[DatabaseTree] reloadTreeSilent setNodes', counts);
           setNodes(fullyLoaded);
           setExpanded(new Set(collectDirectoryPaths(fullyLoaded)));
         } else {
@@ -307,7 +291,6 @@ export function DatabaseTree({ source, onSelect, selectedPath, webAvailable = tr
   }, [reloadTreeSilent]);
 
   const renameNodeInTree = useCallback(async (oldPath: string, newPath: string, newName: string) => {
-    console.log('[DatabaseTree] renameNodeInTree start', { oldPath, newPath, newName, source });
     const renameRecursive = (nodes: TreeNode[]): TreeNode[] => {
       return nodes.map(node => {
         if (node.path === oldPath) {
@@ -335,11 +318,9 @@ export function DatabaseTree({ source, onSelect, selectedPath, webAvailable = tr
     });
 
     await reloadTreeSilent();
-    console.log('[DatabaseTree] renameNodeInTree done', { oldPath, newPath, newName });
   }, [reloadTreeSilent]);
 
   const addNodeToTree = useCallback(async (parentPath: string, newNode: TreeNode) => {
-    console.log('[DatabaseTree] addNodeToTree start', { parentPath, newNode: { name: newNode.name, path: newNode.path, type: newNode.type }, source });
     const addRecursive = (nodes: TreeNode[]): TreeNode[] => {
       return nodes.map(node => {
         if (node.path === parentPath) {
@@ -360,7 +341,6 @@ export function DatabaseTree({ source, onSelect, selectedPath, webAvailable = tr
     setNodes(prev => (prev ? dedupeTree(addRecursive(prev)) : prev));
 
     await reloadTreeSilent();
-    console.log('[DatabaseTree] addNodeToTree done', { parentPath, newNodeName: newNode.name });
   }, [reloadTreeSilent]);
 
   const handleExpandParent = useCallback((path: string) => {
@@ -401,7 +381,6 @@ export function DatabaseTree({ source, onSelect, selectedPath, webAvailable = tr
     const CONCURRENCY = 2;
 
     if (depth > MAX_DEPTH) {
-      console.log('[DatabaseTree] loadAllChildren max depth reached', { depth, parentPath });
       return nodes;
     }
 
@@ -413,7 +392,6 @@ export function DatabaseTree({ source, onSelect, selectedPath, webAvailable = tr
     const directories = nodes.filter(
       n => n.type === 'directory' && !isAncestorOf(n.path, parentPath)
     );
-    console.log('[DatabaseTree] loadAllChildren start', { depth, parentPath, directories: directories.map(d => d.path) });
 
     const results = await mapWithConcurrency(
       directories,
@@ -450,7 +428,6 @@ export function DatabaseTree({ source, onSelect, selectedPath, webAvailable = tr
     const enrichedMap = new Map(results.map(r => [r.path, r]));
     const enriched = nodes.map(n => enrichedMap.get(n.path) || n);
     const counts = countNodes(enriched);
-    console.log('[DatabaseTree] loadAllChildren done', { depth, parentPath, counts });
     return enriched;
   };
 
@@ -490,7 +467,6 @@ export function DatabaseTree({ source, onSelect, selectedPath, webAvailable = tr
 
   const toggleExpand = useCallback(async (node: TreeNode) => {
     const wasExpanded = expanded.has(node.path);
-    console.log('[DatabaseTree] toggleExpand', { source, path: node.path, wasExpanded, type: node.type });
     setExpanded(prev => {
       const next = new Set(prev);
       if (next.has(node.path)) {
@@ -503,6 +479,7 @@ export function DatabaseTree({ source, onSelect, selectedPath, webAvailable = tr
     if (!node.children || node.children.length === 0) {
       await loadChildren(node);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [loadChildren, expanded, source]);
 
   const expandAll = useCallback((nodes: TreeNode[]) => {
@@ -524,7 +501,6 @@ export function DatabaseTree({ source, onSelect, selectedPath, webAvailable = tr
   }, []);
 
   const handleSelect = useCallback((node: TreeNode) => {
-    console.log('[DatabaseTree] handleSelect', { source, path: node.path, type: node.type });
     if (!isNavigatingRef.current) {
       setHistory(prev => {
         const next = prev.slice(0, historyIndex + 1);
@@ -634,7 +610,6 @@ export function DatabaseTree({ source, onSelect, selectedPath, webAvailable = tr
   }, []);
 
   const handleBack = useCallback(() => {
-    console.log('[DatabaseTree] handleBack', { historyIndex, historyLength: history.length });
     if (historyIndex > 0) {
       isNavigatingRef.current = true;
       const newIndex = historyIndex - 1;
@@ -649,7 +624,6 @@ export function DatabaseTree({ source, onSelect, selectedPath, webAvailable = tr
   }, [historyIndex, history, nodes, onSelect, findNodeByPath]);
 
   const handleForward = useCallback(() => {
-    console.log('[DatabaseTree] handleForward', { historyIndex, historyLength: history.length });
     if (historyIndex < history.length - 1) {
       isNavigatingRef.current = true;
       const newIndex = historyIndex + 1;
@@ -731,15 +705,12 @@ export function DatabaseTree({ source, onSelect, selectedPath, webAvailable = tr
     loadedPathsRef.current = new Set();
     loadingPathsRef.current = new Set();
 
-    console.log('[DatabaseTree] mount loadStructure start', { source, activeRepo });
     loadStructure('', controller.signal).then(async (rootNodes) => {
-      console.log('[DatabaseTree] mount loadStructure result', { rootNodesCount: rootNodes?.length });
       if (rootNodes && rootNodes.length > 0) {
         const fullyLoaded = source === 'web'
           ? rootNodes
           : dedupeTree(await loadAllChildren(rootNodes));
         const counts = countNodes(fullyLoaded);
-        console.log('[DatabaseTree] mount initial load', counts);
         setNodes(fullyLoaded);
         setExpanded(new Set());
       } else {
@@ -1076,9 +1047,7 @@ const TreeNodeItem = memo(function TreeNodeItem({
     parts[parts.length - 1] = editName.trim();
     const newPath = parts.join('/');
     const oldName = node.name;
-    console.log('[DatabaseTree] handleRename start', { source, oldPath, newPath, newName: editName.trim(), repository });
     const result = await treeAction('rename', node.path, source, editName.trim(), repository);
-    console.log('[DatabaseTree] handleRename result', { source, oldPath, newPath, success: result.success, error: result.error });
     if (result.success) {
       onNodeRenamed(oldPath, newPath, editName.trim());
       const id = pushToast({
@@ -1132,9 +1101,7 @@ const TreeNodeItem = memo(function TreeNodeItem({
     });
 
     pendingDeleteTimerRef.current = window.setTimeout(async () => {
-      console.log('[DatabaseTree] handleDelete confirm', { source, path: node.path, name: node.name, repository });
       const result = await treeAction('delete', node.path, source, undefined, repository);
-      console.log('[DatabaseTree] handleDelete result', { source, path: node.path, success: result.success, error: result.error });
       if (!result.success) {
         setActionError(result.error || 'Suppression impossible');
         onNodeRestored?.(node);
@@ -1164,9 +1131,7 @@ const TreeNodeItem = memo(function TreeNodeItem({
       setIsAdding(false);
       return;
     }
-    console.log('[DatabaseTree] handleAdd start', { source, parentPath: node.path, newName: newName.trim(), repository });
     const result = await treeAction('mkdir', node.path, source, newName.trim(), repository);
-    console.log('[DatabaseTree] handleAdd result', { source, parentPath: node.path, newName: newName.trim(), success: result.success, error: result.error });
     if (result.success) {
       const newNode: TreeNode = {
         name: newName.trim(),

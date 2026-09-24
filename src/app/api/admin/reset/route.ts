@@ -55,13 +55,17 @@ export async function POST(request: Request) {
 
     await prisma.$transaction(async (tx) => {
       for (const entry of TRUNCATE_ORDER) {
+        if (entry.model === 'block') {
+          await (tx as any).user.updateMany({ where: {}, data: { blockId: null as any } });
+        }
         await (tx as any)[entry.model].deleteMany({ where: {} });
         tablesTruncated.push(entry.table);
       }
-      const result = await seedDatabase(tx as any);
-      filesInserted = result.filesInserted;
-      usersUpserted = result.usersUpserted;
     });
+
+    const seedResult = await seedDatabase(prisma);
+    filesInserted = seedResult.filesInserted;
+    usersUpserted = seedResult.usersUpserted;
 
     const duration = Date.now() - startTime;
 

@@ -42,15 +42,12 @@ export class LocalDatabaseAdapter implements StorageAdapter {
   }
 
   async read(path: string): Promise<Buffer> {
-    console.log('[local-adapter] read start', { path, readOnly: this.readOnly });
     try {
       const fullPath = this.resolvePath(path);
       const data = await fs.readFile(fullPath);
-      console.log('[local-adapter] read success', { path, fullPath, size: data.length });
       return data;
     } catch (error: any) {
       if (error.code === 'ENOENT') {
-        console.log('[local-adapter] read not found', { path });
         throw new StorageError('NOT_FOUND', `Fichier non trouvé: ${path}`, path);
       }
       console.error('[local-adapter] read error', { path, error: error.message });
@@ -60,12 +57,10 @@ export class LocalDatabaseAdapter implements StorageAdapter {
 
   async write(path: string, data: Buffer): Promise<void> {
     this.assertWritable(path);
-    console.log('[local-adapter] write start', { path, size: data.length, readOnly: this.readOnly });
     try {
       const fullPath = this.resolvePath(path);
       await this.ensureDirectory(nodePath.dirname(fullPath));
       await fs.writeFile(fullPath, data);
-      console.log('[local-adapter] write success', { path, fullPath });
     } catch (error: any) {
       console.error('[local-adapter] write error', { path, error: error.message });
       throw new StorageError('WRITE_ERROR', `Erreur d'écriture: ${error.message}`, path);
@@ -74,11 +69,9 @@ export class LocalDatabaseAdapter implements StorageAdapter {
 
   async mkdir(path: string): Promise<void> {
     this.assertWritable(path);
-    console.log('[local-adapter] mkdir start', { path, readOnly: this.readOnly });
     try {
       const fullPath = this.resolvePath(path);
       await this.ensureDirectory(fullPath);
-      console.log('[local-adapter] mkdir success', { path, fullPath });
     } catch (error: any) {
       console.error('[local-adapter] mkdir error', { path, error: error.message });
       throw new StorageError('MKDIR_ERROR', `Erreur création répertoire: ${error.message}`, path);
@@ -86,29 +79,23 @@ export class LocalDatabaseAdapter implements StorageAdapter {
   }
 
   async exists(path: string): Promise<boolean> {
-    console.log('[local-adapter] exists', { path });
     try {
       const fullPath = this.resolvePath(path);
       await fs.access(fullPath);
-      console.log('[local-adapter] exists result', { path, exists: true });
       return true;
     } catch {
-      console.log('[local-adapter] exists result', { path, exists: false });
       return false;
     }
   }
 
   async list(path: string): Promise<string[]> {
-    console.log('[local-adapter] list start', { path });
     try {
       const fullPath = this.resolvePath(path);
       const entries = await fs.readdir(fullPath, { withFileTypes: true });
       const names = entries.map(entry => entry.name);
-      console.log('[local-adapter] list result', { path, fullPath, count: names.length });
       return names;
     } catch (error: any) {
       if (error.code === 'ENOENT') {
-        console.log('[local-adapter] list not found', { path });
         return [];
       }
       console.error('[local-adapter] list error', { path, error: error.message });
@@ -118,20 +105,16 @@ export class LocalDatabaseAdapter implements StorageAdapter {
 
   async delete(path: string): Promise<void> {
     this.assertWritable(path);
-    console.log('[local-adapter] delete start', { path, readOnly: this.readOnly });
     try {
       const fullPath = this.resolvePath(path);
       const stats = await fs.stat(fullPath);
       if (stats.isDirectory()) {
         await fs.rm(fullPath, { recursive: true });
-        console.log('[local-adapter] delete directory success', { path, fullPath });
       } else {
         await fs.unlink(fullPath);
-        console.log('[local-adapter] delete file success', { path, fullPath });
       }
     } catch (error: any) {
       if (error.code === 'ENOENT') {
-        console.log('[local-adapter] delete already absent', { path });
         return;
       }
       console.error('[local-adapter] delete error', { path, error: error.message });
@@ -141,13 +124,11 @@ export class LocalDatabaseAdapter implements StorageAdapter {
 
   async rename(oldPath: string, newPath: string): Promise<void> {
     this.assertWritable(oldPath);
-    console.log('[local-adapter] rename start', { oldPath, newPath, readOnly: this.readOnly });
     try {
       const fullOldPath = this.resolvePath(oldPath);
       const fullNewPath = this.resolvePath(newPath);
       await this.ensureDirectory(nodePath.dirname(fullNewPath));
       await fs.rename(fullOldPath, fullNewPath);
-      console.log('[local-adapter] rename success', { oldPath, newPath, fullOldPath, fullNewPath });
     } catch (error: any) {
       if (error.code === 'ENOENT') {
         console.error('[local-adapter] rename not found', { oldPath, newPath });
