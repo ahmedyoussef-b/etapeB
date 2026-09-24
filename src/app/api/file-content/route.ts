@@ -2,7 +2,7 @@ export const runtime = 'nodejs';
 import { NextRequest, NextResponse } from 'next/server';
 import { LocalDatabaseAdapter } from '@/lib/database/local-adapter';
 import { WebDatabaseAdapter } from '@/lib/database/web-adapter';
-import { withAuth } from '@/lib/api/auth-guard';
+import { getAuthenticatedUser, hasPermission, unauthorizedResponse, unauthenticatedResponse } from '@/lib/api/auth-guard';
 import { getPrismaClient } from '@/lib/services/db';
 import { WORKING_REPOSITORY_NAME } from '@/lib/config/repository';
 
@@ -150,16 +150,36 @@ async function loadQrContent(requestPath: string): Promise<string | null> {
   return null;
 }
 
-export const GET = withAuth(async (request: NextRequest) => {
-  try {
-    const url = new URL(request.url);
-    const path = url.searchParams.get('path');
-    const source = url.searchParams.get('source') || 'local';
-    const repository = url.searchParams.get('repository');
+export async function GET(request: NextRequest) {
+  const url = new URL(request.url);
+  const source = url.searchParams.get('source') || 'local';
+  const path = url.searchParams.get('path');
 
-    if (!path) {
-      return NextResponse.json({ success: false, error: 'Chemin requis' }, { status: 400 });
+  if (source !== 'web') {
+    let user;
+    try {
+      user = await getAuthenticatedUser(request);
+    } catch {
+      return unauthenticatedResponse();
     }
+    if (!user) return unauthenticatedResponse();
+    if (!hasPermission(user.role, 'settings:*')) return unauthorizedResponse();
+  }
+
+  if (!path) {
+    return NextResponse.json({ success: false, error: 'Chemin requis' }, { status: 400 });
+  }
+
+  const repository = url.searchParams.get('repository');
+
+  if (source === 'web') {
+    const sanitized = path.replace(/^(\.\.(\/)?)+/, '');
+    if (sanitized !== path || path.startsWith('/')) {
+      return NextResponse.json({ success: false, error: 'Chemin invalide' }, { status: 400 });
+    }
+  }
+
+  try {
 
     const adapterPath = source === 'web' ? mapWebPathToAdapter(path) : path;
     let adapter: LocalDatabaseAdapter | WebDatabaseAdapter;
@@ -293,4 +313,4 @@ export const GET = withAuth(async (request: NextRequest) => {
       error: error instanceof Error ? error.message : String(error)
     }, { status: 500 });
   }
-}, 'settings:*');
+}

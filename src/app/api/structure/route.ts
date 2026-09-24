@@ -654,21 +654,24 @@ async function buildTreeForSource(source: string, adapter: DatabaseAdapter, rela
 }
 
 export async function GET(request: NextRequest) {
-  let user;
-  try {
-    user = await getAuthenticatedUser(request);
-  } catch {
-    return unauthenticatedResponse();
+  const url = new URL(request.url);
+  const source = url.searchParams.get('source') || 'local';
+
+  if (source !== 'web') {
+    let user;
+    try {
+      user = await getAuthenticatedUser(request);
+    } catch {
+      return unauthenticatedResponse();
+    }
+    if (!user) return unauthenticatedResponse();
+    if (!hasPermission(user.role, 'settings:*')) return unauthorizedResponse();
   }
-  if (!user) return unauthenticatedResponse();
-  if (!hasPermission(user.role, 'settings:*')) return unauthorizedResponse();
 
   try {
-    const url = new URL(request.url);
-    const source = url.searchParams.get('source') || 'local';
     const path = url.searchParams.get('path') || '';
 
-    console.log('[API /structure] GET start', { source, path, user: user.id, role: user.role });
+    console.log('[API /structure] GET start', { source, path, public: source === 'web' });
 
     let adapter: DatabaseAdapter | undefined;
     const sourceUsed = source;
