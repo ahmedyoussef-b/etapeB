@@ -1092,9 +1092,12 @@ const TreeNodeItem = memo(function TreeNodeItem({
         title: 'Renommé',
         message: `"${oldName}" → "${editName.trim()}"`,
         duration: 0,
-        confirmLabel: 'Annuler',
-        cancelLabel: 'Garder',
+        confirmLabel: 'OK',
+        cancelLabel: 'Annuler',
         onConfirm: () => {
+          dismissToast(id);
+        },
+        onCancel: () => {
           treeAction('rename', newPath, source, oldName, repository).then(() => {
             onNodeRenamed(newPath, oldPath, oldName);
           });
@@ -1123,9 +1126,12 @@ const TreeNodeItem = memo(function TreeNodeItem({
       title: 'Supprimé',
       message: `"${node.name}" a été supprimé.`,
       duration: 0,
-      confirmLabel: 'Annuler',
-      cancelLabel: 'Garder',
+      confirmLabel: 'OK',
+      cancelLabel: 'Annuler',
       onConfirm: () => {
+        dismissToast(id);
+      },
+      onCancel: () => {
         if (pendingDeleteNodeRef.current) {
           onNodeRestored?.(pendingDeleteNodeRef.current);
           pendingDeleteNodeRef.current = null;

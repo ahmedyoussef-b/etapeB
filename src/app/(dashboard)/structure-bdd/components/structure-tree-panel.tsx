@@ -5,6 +5,7 @@ import { useState } from "react";
 import { DatabaseTree, TreeNode } from "@/components/structure/database-tree";
 import { FolderTree, Search, Server, Globe, Brain, RefreshCw } from "lucide-react";
 import { StructureSource } from "@/lib/database/structure-types";
+import { useToast } from "@/components/notifications/toast-provider";
 
 interface StructureTreePanelProps {
   source: StructureSource;
@@ -34,6 +35,8 @@ export function StructureTreePanel({
   onDelete,
 }: StructureTreePanelProps) {
   const [filterText, setFilterText] = useState("");
+  const { toasts } = useToast();
+  const hasPendingConfirm = toasts.some(t => t.variant === "confirm");
 
   const getSourceIcon = () => {
     switch (source) {
@@ -79,8 +82,9 @@ export function StructureTreePanel({
             <button
               type="button"
               onClick={onRefresh}
-              className="p-1 hover:bg-gray-200 rounded text-gray-500 transition-colors"
-              title="Rafraîchir l'arborescence"
+              disabled={hasPendingConfirm}
+              className={`p-1 hover:bg-gray-200 rounded text-gray-500 transition-colors ${hasPendingConfirm ? "opacity-50 cursor-not-allowed" : ""}`}
+              title={hasPendingConfirm ? "Attendez la confirmation ou annulation de la suppression" : "Rafraîchir l'arborescence"}
             >
               <RefreshCw className="w-3.5 h-3.5" />
             </button>
