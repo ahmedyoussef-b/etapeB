@@ -273,7 +273,6 @@ export function DatabaseTree({ source, onSelect, selectedPath, webAvailable = tr
         const rootNodes = data.data;
         if (rootNodes.length > 0) {
           const fullyLoaded = isTreeFullyLoaded(rootNodes) ? rootNodes : dedupeTree(await loadAllChildren(rootNodes));
-          const counts = countNodes(fullyLoaded);
           setNodes(fullyLoaded);
           setExpanded(new Set(collectDirectoryPaths(fullyLoaded)));
         } else {
@@ -284,6 +283,18 @@ export function DatabaseTree({ source, onSelect, selectedPath, webAvailable = tr
       console.error('[DatabaseTree] reloadTreeSilent error', { source, activeRepo, error: err instanceof Error ? err.message : String(err) });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [source, activeRepo]);
+
+  const pollTree = useCallback(async () => {
+    if (source !== 'web') return;
+    try {
+      const data = await fetchStructureTree(source, '', activeRepo || undefined);
+      if (data?.success && data.data) {
+        setNodes(dedupeTree(data.data || []));
+      }
+    } catch (err) {
+      console.error('[DatabaseTree] pollTree error', { source, activeRepo, error: err instanceof Error ? err.message : String(err) });
+    }
   }, [source, activeRepo]);
 
   const restoreNodeInTree = useCallback(async () => {
@@ -736,6 +747,32 @@ export function DatabaseTree({ source, onSelect, selectedPath, webAvailable = tr
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [source, loadStructure]);
+
+  useEffect(() => {
+    if (source !== 'web') return;
+
+    const refresh = () => {
+      pollTree();
+    };
+
+    const onFocus = () => refresh();
+    window.addEventListener('focus', onFocus);
+
+    const onVisibilityChange = () => {
+      if (document.visibilityState === 'visible') refresh();
+    };
+    document.addEventListener('visibilitychange', onVisibilityChange);
+
+    const intervalId = setInterval(() => {
+      if (document.visibilityState === 'visible') refresh();
+    }, 30000);
+
+    return () => {
+      window.removeEventListener('focus', onFocus);
+      document.removeEventListener('visibilitychange', onVisibilityChange);
+      clearInterval(intervalId);
+    };
+  }, [source, pollTree]);
 
   const visibleNodes = useMemo(() => {
     if (!nodes) return [];
