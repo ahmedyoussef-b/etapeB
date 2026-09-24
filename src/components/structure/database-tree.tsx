@@ -1082,11 +1082,23 @@ const TreeNodeItem = memo(function TreeNodeItem({
   const isFileNotVectorized = isVectorSource && node.type === 'file' && metadata?.vectorized !== true;
 
   const handleRename = async () => {
+    const reqId = Math.random().toString(36).slice(2, 8);
+    console.log(`[MUTATION-FLOW][RENAME][${reqId}][1] Début`, {
+      nodePath: node.path,
+      oldName: node.name,
+      newName: editName.trim(),
+      source,
+      repository,
+      isTauri: isTauriEnv(),
+      mutationsEnabled,
+    });
     if (!editName.trim() || editName === node.name) {
+      console.log(`[MUTATION-FLOW][RENAME][${reqId}][2] No change — early return`);
       setIsEditing(false);
       return;
     }
     if (!mutationsEnabled) {
+      console.log(`[MUTATION-FLOW][RENAME][${reqId}][2] mutationsEnabled=false`);
       setActionError('Renommage impossible : la BDD locale (.data) est une référence immuable.');
       setIsEditing(false);
       return;
@@ -1097,7 +1109,11 @@ const TreeNodeItem = memo(function TreeNodeItem({
     const newPath = parts.join('/');
     const oldName = node.name;
     try {
+      console.log(`[MUTATION-FLOW][RENAME][${reqId}][3] Appel treeAction`);
       const result = await treeAction('rename', node.path, source, editName.trim(), repository);
+      console.log(`[MUTATION-FLOW][RENAME][${reqId}][4] Résultat`, {
+        success: result?.success, error: result?.error, fullResult: result,
+      });
       if (result.success) {
         onNodeRenamed(oldPath, newPath, editName.trim());
         const id = pushToast({
@@ -1121,13 +1137,23 @@ const TreeNodeItem = memo(function TreeNodeItem({
         setActionError(result.error || 'Renommage impossible');
       }
     } catch (err) {
+      console.error(`[MUTATION-FLOW][RENAME][ERROR]`, {
+        message: err instanceof Error ? err.message : String(err),
+        stack: err instanceof Error ? err.stack : undefined,
+      });
       setActionError(err instanceof Error ? err.message : 'Renommage impossible');
     }
     setIsEditing(false);
   };
 
   const handleDelete = async () => {
+    const reqId = Math.random().toString(36).slice(2, 8);
+    console.log(`[MUTATION-FLOW][DELETE][${reqId}][1] Début`, {
+      nodePath: node.path, nodeName: node.name, source, repository,
+      isTauri: isTauriEnv(), mutationsEnabled,
+    });
     if (!mutationsEnabled) {
+      console.log(`[MUTATION-FLOW][DELETE][${reqId}][2] mutationsEnabled=false`);
       setActionError('Suppression impossible : la BDD locale (.data) est une référence immuable.');
       return;
     }
@@ -1149,6 +1175,7 @@ const TreeNodeItem = memo(function TreeNodeItem({
         dismissToast(id);
       },
       onCancel: () => {
+        console.log(`[MUTATION-FLOW][DELETE][${reqId}][2] Cancelled by user`);
         if (pendingDeleteNodeRef.current) {
           onNodeRestored?.(pendingDeleteNodeRef.current);
           pendingDeleteNodeRef.current = null;
@@ -1162,13 +1189,23 @@ const TreeNodeItem = memo(function TreeNodeItem({
     });
 
     pendingDeleteTimerRef.current = window.setTimeout(async () => {
+      console.log(`[MUTATION-FLOW][DELETE][${reqId}][3] Timer fired → treeAction delete`);
       try {
         const result = await treeAction('delete', node.path, source, undefined, repository);
+        console.log(`[MUTATION-FLOW][DELETE][${reqId}][4] Résultat`, {
+          success: result?.success, error: result?.error, fullResult: result,
+        });
         if (!result.success) {
           setActionError(result.error || 'Suppression impossible');
           onNodeRestored?.(node);
+        } else {
+          console.log(`[MUTATION-FLOW][DELETE][${reqId}][5] SUCCESS`);
         }
       } catch (err) {
+        console.error(`[MUTATION-FLOW][DELETE][ERROR]`, {
+          message: err instanceof Error ? err.message : String(err),
+          stack: err instanceof Error ? err.stack : undefined,
+        });
         setActionError(err instanceof Error ? err.message : 'Suppression impossible');
         onNodeRestored?.(node);
       }
@@ -1189,17 +1226,28 @@ const TreeNodeItem = memo(function TreeNodeItem({
   };
 
   const handleAdd = async () => {
+    const reqId = Math.random().toString(36).slice(2, 8);
+    console.log(`[MUTATION-FLOW][MKDIR][${reqId}][1] Début`, {
+      parentPath: node.path, dirName: newName.trim(),
+      source, repository, isTauri: isTauriEnv(), mutationsEnabled,
+    });
     if (!newName.trim()) {
+      console.log(`[MUTATION-FLOW][MKDIR][${reqId}][2] No name — early return`);
       setIsAdding(false);
       return;
     }
     if (!mutationsEnabled) {
+      console.log(`[MUTATION-FLOW][MKDIR][${reqId}][2] mutationsEnabled=false`);
       setActionError('Création impossible : la BDD locale (.data) est une référence immuable.');
       setIsAdding(false);
       return;
     }
     try {
+      console.log(`[MUTATION-FLOW][MKDIR][${reqId}][3] Appel treeAction mkdir`);
       const result = await treeAction('mkdir', node.path, source, newName.trim(), repository);
+      console.log(`[MUTATION-FLOW][MKDIR][${reqId}][4] Résultat`, {
+        success: result?.success, error: result?.error, fullResult: result,
+      });
       if (result.success) {
         const newNode: TreeNode = {
           name: newName.trim(),
@@ -1213,6 +1261,10 @@ const TreeNodeItem = memo(function TreeNodeItem({
         setActionError(result.error || 'Création impossible');
       }
     } catch (err) {
+      console.error(`[MUTATION-FLOW][MKDIR][ERROR]`, {
+        message: err instanceof Error ? err.message : String(err),
+        stack: err instanceof Error ? err.stack : undefined,
+      });
       setActionError(err instanceof Error ? err.message : 'Création impossible');
     }
     setIsAdding(false);
