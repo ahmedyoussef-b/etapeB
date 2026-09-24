@@ -774,7 +774,7 @@ export function DatabaseTree({ source, onSelect, selectedPath, webAvailable = tr
 
     const intervalId = setInterval(() => {
       if (document.visibilityState === 'visible') refresh();
-    }, 30000);
+    }, 60000);
 
     return () => {
       window.removeEventListener('focus', onFocus);

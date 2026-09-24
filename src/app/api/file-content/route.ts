@@ -25,6 +25,58 @@ function mapWebPathToAdapter(path: string): string {
   return path;
 }
 
+function getImageMime(ext: string) {
+  if (ext === '.svg') return 'image/svg+xml';
+  if (ext === '.png') return 'image/png';
+  if (ext === '.gif') return 'image/gif';
+  if (ext === '.webp') return 'image/webp';
+  if (ext === '.bmp') return 'image/bmp';
+  return 'image/jpeg';
+}
+
+function buildFileResponse(buffer: Buffer, adapterPath: string, sourceUsed: string, cache: boolean) {
+  const ext = getExtension(adapterPath);
+  if (isText(adapterPath)) {
+    return NextResponse.json({
+      success: true,
+      kind: 'text',
+      content: buffer.toString('utf-8'),
+      size: buffer.length,
+      mimeType: 'text/plain',
+      sourceUsed: sourceUsed
+    }, cache ? { headers: { 'Cache-Control': 'public, max-age=60, must-revalidate' } } : undefined);
+  }
+  if (isImage(adapterPath)) {
+    const mime = getImageMime(ext);
+    return NextResponse.json({
+      success: true,
+      kind: 'image',
+      content: `data:${mime};base64,${buffer.toString('base64')}`,
+      size: buffer.length,
+      mimeType: mime,
+      sourceUsed: sourceUsed
+    }, cache ? { headers: { 'Cache-Control': 'public, max-age=60, must-revalidate' } } : undefined);
+  }
+  if (isPdf(adapterPath)) {
+    return NextResponse.json({
+      success: true,
+      kind: 'pdf',
+      content: `data:application/pdf;base64,${buffer.toString('base64')}`,
+      size: buffer.length,
+      mimeType: 'application/pdf',
+      sourceUsed: sourceUsed
+    }, cache ? { headers: { 'Cache-Control': 'public, max-age=60, must-revalidate' } } : undefined);
+  }
+  return NextResponse.json({
+    success: true,
+    kind: 'binary',
+    content: buffer.toString('base64'),
+    size: buffer.length,
+    mimeType: 'application/octet-stream',
+    sourceUsed: sourceUsed
+  }, cache ? { headers: { 'Cache-Control': 'public, max-age=60, must-revalidate' } } : undefined);
+}
+
 /**
  * Q/R files are stored in the `Document` table under versioned paths like
  * `registry/items/{baseName}/{baseName}_vN.json`. When the caller requests the
@@ -180,68 +232,21 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-
     const adapterPath = source === 'web' ? mapWebPathToAdapter(path) : path;
-    let adapter: LocalDatabaseAdapter | WebDatabaseAdapter;
 
     if (source === 'web') {
-      // For web source, try the BDD web (Neon/pgAdmin) FIRST, then fall back to .data/
       const webUrl = process.env.WEB_API_URL;
       const apiKey = process.env.WEB_API_KEY;
       const databaseUrl = process.env.DATABASE_URL;
       if (!webUrl && !databaseUrl) {
         return NextResponse.json({ success: false, error: 'BDD Web non configurée (DATABASE_URL ou WEB_API_URL requis)' }, { status: 503 });
       }
-      const webAdapter = new WebDatabaseAdapter(webUrl || '', apiKey || '', true, databaseUrl);
-      try {
-        const existsInWeb = await webAdapter.exists(adapterPath);
-        if (existsInWeb) {
-          adapter = webAdapter;
-        } else {
-          // Q/R files are stored in Document rows under versioned paths.
-          // Check the database directly before falling back to disk.
-          const qrData = await loadQrContent(adapterPath);
-          if (qrData) {
-            return NextResponse.json({
-              success: true,
-              kind: 'text',
-              content: qrData,
-              size: qrData.length,
-              mimeType: 'text/plain',
-              sourceUsed: 'web'
-            });
-          }
-          // Fallback to .data/ (canonical reference)
-          const canonicalAdapter = new LocalDatabaseAdapter('.data');
-          if (await canonicalAdapter.exists(adapterPath)) {
-            adapter = canonicalAdapter;
-          } else {
-            // Last resort: active workspace
-            const activeRepo = repository || WORKING_REPOSITORY_NAME;
-            const workspaceAdapter = new LocalDatabaseAdapter(activeRepo);
-            if (await workspaceAdapter.exists(adapterPath)) {
-              adapter = workspaceAdapter;
-            } else {
-              return NextResponse.json({ success: false, error: 'Fichier introuvable' }, { status: 404 });
-            }
-          }
-        }
-      } catch {
-        // Fallback to .data/ on error
-        const canonicalAdapter = new LocalDatabaseAdapter('.data');
-        if (await canonicalAdapter.exists(adapterPath)) {
-          adapter = canonicalAdapter;
-        } else {
-          return NextResponse.json({ success: false, error: 'Fichier introuvable' }, { status: 404 });
-        }
-      }
-    } else {
-      const activeRepo = repository || WORKING_REPOSITORY_NAME;
-      adapter = new LocalDatabaseAdapter(activeRepo);
-    }
 
-    if (!(await adapter.exists(adapterPath))) {
-      // Last check: Q/R files (versioned Directory + IndexRecord) before giving up
+      const webAdapter = new WebDatabaseAdapter(webUrl || '', apiKey || '', true, databaseUrl);
+      let buffer: Buffer | null = null;
+      let readSource: string | null = null;
+
+      // 1. Q/R content
       const qrData = await loadQrContent(adapterPath);
       if (qrData) {
         return NextResponse.json({
@@ -251,62 +256,43 @@ export async function GET(request: NextRequest) {
           size: qrData.length,
           mimeType: 'text/plain',
           sourceUsed: 'web'
-        });
+        }, { headers: { 'Cache-Control': 'public, max-age=60, must-revalidate' } });
       }
-      return NextResponse.json({ success: false, error: 'Fichier introuvable' }, { status: 404 });
+
+      // 2. Web adapter
+      try {
+        buffer = await webAdapter.read(adapterPath);
+        readSource = 'web';
+      } catch { /* not in web */ }
+
+      // 3. Fallback .data/
+      if (!buffer) {
+        try {
+          const canonicalAdapter = new LocalDatabaseAdapter('.data');
+          buffer = await canonicalAdapter.read(adapterPath);
+          readSource = 'local';
+        } catch { /* not in .data */ }
+      }
+
+      // 4. Fallback workspace
+      if (!buffer) {
+        const activeRepo = repository || WORKING_REPOSITORY_NAME;
+        const workspaceAdapter = new LocalDatabaseAdapter(activeRepo);
+        buffer = await workspaceAdapter.read(adapterPath);
+        readSource = 'local';
+      }
+
+      if (!buffer) {
+        return NextResponse.json({ success: false, error: 'Fichier introuvable' }, { status: 404 });
+      }
+
+      return buildFileResponse(buffer, adapterPath, readSource!, true);
     }
 
-    const usedLocalFallback = source === 'web' && adapter instanceof LocalDatabaseAdapter;
+    const activeRepo = repository || WORKING_REPOSITORY_NAME;
+    const adapter = new LocalDatabaseAdapter(activeRepo);
     const buffer = await adapter.read(adapterPath);
-    const ext = getExtension(adapterPath);
-
-    if (isText(adapterPath)) {
-      return NextResponse.json({
-        success: true,
-        kind: 'text',
-        content: buffer.toString('utf-8'),
-        size: buffer.length,
-        mimeType: 'text/plain',
-        sourceUsed: usedLocalFallback ? 'local' : source
-      });
-    }
-
-    if (isImage(adapterPath)) {
-      const mime = ext === '.svg' ? 'image/svg+xml'
-        : ext === '.png' ? 'image/png'
-        : ext === '.gif' ? 'image/gif'
-        : ext === '.webp' ? 'image/webp'
-        : ext === '.bmp' ? 'image/bmp'
-        : 'image/jpeg';
-      return NextResponse.json({
-        success: true,
-        kind: 'image',
-        content: `data:${mime};base64,${buffer.toString('base64')}`,
-        size: buffer.length,
-        mimeType: mime,
-        sourceUsed: usedLocalFallback ? 'local' : source
-      });
-    }
-
-    if (isPdf(adapterPath)) {
-      return NextResponse.json({
-        success: true,
-        kind: 'pdf',
-        content: `data:application/pdf;base64,${buffer.toString('base64')}`,
-        size: buffer.length,
-        mimeType: 'application/pdf',
-        sourceUsed: usedLocalFallback ? 'local' : source
-      });
-    }
-
-    return NextResponse.json({
-      success: true,
-      kind: 'binary',
-      content: buffer.toString('base64'),
-      size: buffer.length,
-      mimeType: 'application/octet-stream',
-      sourceUsed: usedLocalFallback ? 'local' : source
-    });
+    return buildFileResponse(buffer, adapterPath, 'local', false);
   } catch (error) {
     return NextResponse.json({
       success: false,

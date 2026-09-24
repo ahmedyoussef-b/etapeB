@@ -1,6 +1,7 @@
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 import { NextRequest, NextResponse } from 'next/server';
+import { unstable_cache } from 'next/cache';
 import { LocalDatabaseAdapter } from '@/lib/database/local-adapter';
 import { WebDatabaseAdapter } from '@/lib/database/web-adapter';
 import { getAuthenticatedUser, hasPermission, unauthorizedResponse, unauthenticatedResponse } from '@/lib/api/auth-guard';
@@ -25,6 +26,33 @@ function mapWebPathToAdapter(path: string): string {
 function mapAdapterPathToWeb(path: string): string {
   if (path === '.' || path === '') return '.data';
   return `.data/${path}`;
+}
+
+const getCachedWebTree = unstable_cache(
+  async (activeRepo: string, webUrl: string | undefined, apiKey: string | undefined, databaseUrl: string) => {
+    const webAdapter = new WebDatabaseAdapter(webUrl || '', apiKey || '', !webUrl, databaseUrl);
+    return buildDatabaseTree(activeRepo, webAdapter);
+  },
+  ['structure-tree'],
+  { revalidate: 30, tags: ['structure-web'] }
+);
+
+async function getCachedWebNode(
+  tree: TreeNode[],
+  targetPath: string | undefined
+): Promise<TreeNode | null> {
+  if (!targetPath) return null;
+  const findNode = (nodes: TreeNode[], targetPath: string): TreeNode | null => {
+    for (const n of nodes) {
+      if (n.path === targetPath) return n;
+      if (n.children) {
+        const found = findNode(n.children, targetPath);
+        if (found) return found;
+      }
+    }
+    return null;
+  };
+  return findNode(tree, targetPath);
 }
 
 async function buildExactTree(adapter: DatabaseAdapter, relativePath = '.', shouldInclude?: (name: string) => boolean): Promise<TreeNode[]> {
@@ -687,21 +715,10 @@ export async function GET(request: NextRequest) {
         if (!webUrl && !databaseUrl) {
           throw new Error('BDD Web non configurée');
         }
-        const webAdapter = new WebDatabaseAdapter(webUrl || '', apiKey || '', !webUrl, databaseUrl);
-        const tree = await buildDatabaseTree(activeRepo, webAdapter);
+        const tree = await getCachedWebTree(activeRepo, webUrl, apiKey, databaseUrl);
 
         if (path) {
-          const findNode = (nodes: TreeNode[], targetPath: string): TreeNode | null => {
-            for (const n of nodes) {
-              if (n.path === targetPath) return n;
-              if (n.children) {
-                const found = findNode(n.children, targetPath);
-                if (found) return found;
-              }
-            }
-            return null;
-          };
-          const found = findNode(tree, path);
+          const found = await getCachedWebNode(tree, path);
           if (!found) {
             return NextResponse.json({ success: false, error: 'Chemin introuvable', available: false }, { status: 404 });
           }
