@@ -30,11 +30,13 @@ function mapAdapterPathToWeb(path: string): string {
 async function buildExactTree(adapter: DatabaseAdapter, relativePath = '.', shouldInclude?: (name: string) => boolean): Promise<TreeNode[]> {
   const entries = await adapter.list(relativePath || '.');
   const visibleEntries = shouldInclude ? entries.filter(shouldInclude) : entries.filter(isVisibleEntry);
+  console.log('[buildExactTree] list', { relativePath, total: entries.length, visible: visibleEntries.length });
   const nodes: TreeNode[] = [];
 
   for (const entry of visibleEntries) {
     const fullPath = relativePath === '.' || !relativePath ? entry : `${relativePath}/${entry}`;
     const entryType = await detectEntryType(adapter, fullPath);
+    console.log('[buildExactTree] entry', { relativePath, entry, fullPath, entryType });
 
     if (entryType === 'file') {
       nodes.push({ name: entry, path: fullPath, type: 'file', metadata: undefined });
@@ -56,6 +58,7 @@ async function buildExactTree(adapter: DatabaseAdapter, relativePath = '.', shou
     return a.name.localeCompare(b.name);
   });
 
+  console.log('[buildExactTree] done', { relativePath, nodes: nodes.length, names: nodes.map(n => n.name) });
   return nodes;
 }
 
@@ -69,12 +72,14 @@ async function buildExactTreeFromDisk(absDir: string, relPath: string, basePath?
     return { name: relPath.split('/').pop() || relPath, path: relPath, type: 'directory', children: [], metadata: { type: 'ROOT' } };
   }
 
+  console.log('[buildExactTreeFromDisk] list', { absDir, relPath, total: entries.length });
   // Filtre local : on masque les fichiers mirror et tout fichier/dossier caché
   const visibleEntries = entries.filter(name => {
     if (name === 'mirror_repertoire.json' || name === 'mirror.json') return false;
     if (name.startsWith('.')) return false;
     return true;
   });
+  console.log('[buildExactTreeFromDisk] visible', { relPath, visible: visibleEntries.length, filteredOut: entries.length - visibleEntries.length });
   const children: TreeNode[] = [];
 
   for (const entry of visibleEntries) {
@@ -88,6 +93,7 @@ async function buildExactTreeFromDisk(absDir: string, relPath: string, basePath?
     } catch {
       isDir = false;
     }
+    console.log('[buildExactTreeFromDisk] entry', { relPath, entry, fullPath, isDir });
 
     if (isDir) {
       children.push(await buildExactTreeFromDisk(absEntryPath, fullPath, basePath));
@@ -102,6 +108,7 @@ async function buildExactTreeFromDisk(absDir: string, relPath: string, basePath?
     return a.name.localeCompare(b.name);
   });
 
+  console.log('[buildExactTreeFromDisk] done', { relPath, children: children.length, names: children.map(n => n.name) });
   return {
     name: relPath.split('/').pop() || relPath,
     path: relPath,
@@ -120,17 +127,22 @@ async function buildDatabaseTree(
     }
     const prisma = getPrismaClient();
 
+    console.log('[buildDatabaseTree] start', { repositoryPath });
+
     try {
+      console.log('[buildDatabaseTree] prisma queries start');
       const [blocks, equipments, groups, groupEquipments] = await Promise.all([
         prisma.block.findMany({ orderBy: { code: 'asc' } }),
         prisma.equipment.findMany({ orderBy: { code: 'asc' } }),
         prisma.group.findMany({ orderBy: { code: 'asc' } }),
         prisma.groupEquipment.findMany({ orderBy: { code: 'asc' } }),
       ]);
+      console.log('[buildDatabaseTree] prisma queries done', { blocks: blocks.length, equipments: equipments.length, groups: groups.length, groupEquipments: groupEquipments.length });
 
       const nodes: TreeNode[] = [];
 
       // ── Centrale/ ──────────────────────────────────────────────────────────
+      console.log('[buildDatabaseTree] Centrale build start');
       const centraleNode: TreeNode = {
         name: 'Centrale',
         path: 'Centrale',
@@ -172,6 +184,7 @@ async function buildDatabaseTree(
         blockMap.set(block.code, blockNode);
         centraleNode.children!.push(blockNode);
       }
+      console.log('[buildDatabaseTree] Centrale blocks', { blocks: centraleNode.children?.length });
 
       // Add equipments to their blocks, organized by subsystem
       for (const block of blocks) {
@@ -334,6 +347,7 @@ async function buildDatabaseTree(
       }
 
       nodes.push(centraleNode);
+      console.log('[buildDatabaseTree] Centrale built', { children: centraleNode.children?.length });
 
       if (centraleNode.children!.length === 0) {
         try {
@@ -347,6 +361,7 @@ async function buildDatabaseTree(
       }
 
       // ── Groupes/ ───────────────────────────────────────────────────────────
+      console.log('[buildDatabaseTree] Groupes build start');
       const groupesNode: TreeNode = {
         name: 'Groupes',
         path: 'Groupes',
@@ -468,6 +483,7 @@ async function buildDatabaseTree(
       }
 
       nodes.push(groupesNode);
+      console.log('[buildDatabaseTree] Groupes built', { children: groupesNode.children?.length });
 
       if (groupesNode.children!.length === 0) {
         try {
@@ -482,6 +498,7 @@ async function buildDatabaseTree(
 
       // ── Extra root directories ─────────────────────────────────────────────
       const extraDirs = ['bank', 'documents', 'indexes', 'library', 'registry', 'system'];
+      console.log('[buildDatabaseTree] extra dirs start', { extraDirs });
 
       const extraDirFilter = (name: string) => {
         if (name === 'mirror_repertoire.json' || name === 'mirror.json') return false;
@@ -490,9 +507,13 @@ async function buildDatabaseTree(
       };
 
       for (const dir of extraDirs) {
-        if (nodes.find(n => n.name === dir)) continue;
+        if (nodes.find(n => n.name === dir)) {
+          console.log('[buildDatabaseTree] extra dir skip (already exists)', { dir });
+          continue;
+        }
 
         try {
+          console.log('[buildDatabaseTree] extra dir build', { dir });
           const tree = await buildExactTree(webAdapter, dir, extraDirFilter);
           nodes.push({
             name: dir,
@@ -501,6 +522,7 @@ async function buildDatabaseTree(
             children: tree,
             metadata: { type: 'ROOT' }
           });
+          console.log('[buildDatabaseTree] extra dir done', { dir, children: tree.length });
         } catch (e) {
           console.warn(`[buildDatabaseTree] failed to build tree for ${dir}:`, e);
           nodes.push({ name: dir, path: dir, type: 'directory', children: [] });
@@ -509,6 +531,7 @@ async function buildDatabaseTree(
 
       // ── Attach uploaded documents from prisma.document ────────────────────
       try {
+        console.log('[buildDatabaseTree] documents attach start');
         const allDocuments = await prisma.document.findMany({
           select: {
             id: true,
@@ -521,7 +544,9 @@ async function buildDatabaseTree(
             metadata: true,
           }
         });
+        console.log('[buildDatabaseTree] documents loaded', { count: allDocuments.length });
         attachDocumentsToTree(nodes, allDocuments);
+        console.log('[buildDatabaseTree] documents attached');
       } catch (docErr) {
         console.warn('[buildDatabaseTree] warning loading documents:', docErr);
       }
@@ -529,14 +554,19 @@ async function buildDatabaseTree(
       // Sort top-level nodes alphabetically
       nodes.sort((a, b) => a.name.localeCompare(b.name));
 
-      console.log('[buildDatabaseTree] blocks:', blocks.length, 'equipments:', equipments.length, 'groups:', groups.length, 'groupEquipments:', groupEquipments.length);
-      console.log('[buildDatabaseTree] centraleNode.children:', centraleNode.children?.length);
-      console.log('[buildDatabaseTree] groupesNode.children:', groupesNode.children?.length);
-      console.log('[buildDatabaseTree] top-level nodes:', nodes.map(n => n.name));
+      console.log('[buildDatabaseTree] summary', {
+        blocks: blocks.length,
+        equipments: equipments.length,
+        groups: groups.length,
+        groupEquipments: groupEquipments.length,
+        topLevelNodes: nodes.map(n => n.name),
+        centraleChildren: centraleNode.children?.length,
+        groupesChildren: groupesNode.children?.length
+      });
 
       return nodes;
     } catch (error) {
-      console.error('[buildDatabaseTree] error:', error);
+      console.error('[buildDatabaseTree] error', { error: error instanceof Error ? error.message : String(error), stack: error instanceof Error ? error.stack : undefined });
       throw error;
     }
   }
@@ -664,6 +694,8 @@ export async function GET(request: NextRequest) {
     const source = url.searchParams.get('source') || 'local';
     const path = url.searchParams.get('path') || '';
 
+    console.log('[API /structure] GET start', { source, path, user: user.id, role: user.role });
+
     let adapter: DatabaseAdapter | undefined;
     const sourceUsed = source;
     let adapterPath: string | undefined;
@@ -678,12 +710,14 @@ export async function GET(request: NextRequest) {
         if (!webUrl && !databaseUrl) {
           throw new Error('BDD Web non configurée');
         }
+        console.log('[API /structure] web adapter init', { webUrl: !!webUrl, databaseUrl: !!databaseUrl, usePrisma: !!databaseUrl });
         const webAdapter = new WebDatabaseAdapter(webUrl || '', apiKey || '', !webUrl, databaseUrl);
+        console.log('[API /structure] buildDatabaseTree start');
         const tree = await buildDatabaseTree(activeRepo, webAdapter);
-        console.log('[API /structure] web source returned', tree.length, 'top-level nodes');
-        console.log('[API /structure] web tree:', JSON.stringify(tree.map(n => ({ name: n.name, children: n.children?.length }))));
+        console.log('[API /structure] buildDatabaseTree done', { topLevelNodes: tree.length, nodes: tree.map(n => ({ name: n.name, children: n.children?.length })) });
 
         if (path) {
+          console.log('[API /structure] web path lookup', { path });
           const findNode = (nodes: TreeNode[], targetPath: string): TreeNode | null => {
             for (const n of nodes) {
               if (n.path === targetPath) return n;
@@ -696,8 +730,10 @@ export async function GET(request: NextRequest) {
           };
           const found = findNode(tree, path);
           if (!found) {
+            console.log('[API /structure] web path not found', { path });
             return NextResponse.json({ success: false, error: 'Chemin introuvable', available: false }, { status: 404 });
           }
+          console.log('[API /structure] web path found', { path, children: found.children?.length });
           return NextResponse.json({
             success: true,
             data: found.children ?? [],
@@ -716,7 +752,8 @@ export async function GET(request: NextRequest) {
           root: '',
           available: true
         }, { headers: { 'Cache-Control': 'no-store' } });
-      } catch {
+      } catch (err) {
+        console.error('[API /structure] web error', { error: err instanceof Error ? err.message : String(err) });
         return NextResponse.json({
           success: false,
           error: 'Base de donnees web non disponible',
@@ -737,7 +774,9 @@ export async function GET(request: NextRequest) {
     }
 
     if (!path) {
+      console.log('[API /structure] buildTreeForSource start', { source, adapterPath });
       const structure = await buildTreeForSource(source, adapter!, '.');
+      console.log('[API /structure] buildTreeForSource done', { source, nodes: structure.length, names: structure.map(n => n.name) });
       return NextResponse.json({
         success: true,
         data: structure,
@@ -749,6 +788,7 @@ export async function GET(request: NextRequest) {
     }
 
     const actualPath = source === 'web' ? mapWebPathToAdapter(path) : path;
+    console.log('[API /structure] path lookup', { source, path, actualPath });
     if (!adapter) {
       return NextResponse.json({ success: false, error: 'Source non configurée', available: false }, { status: 500 });
     }
@@ -783,10 +823,12 @@ export async function GET(request: NextRequest) {
       throw err;
     }
 
+    console.log('[API /structure] path list result', { source, actualPath, items: items.length, itemsList: items });
     const nodes: TreeNode[] = [];
     for (const item of items.filter(isVisibleEntry)) {
       const adapterFullPath = actualPath ? `${actualPath}/${item}` : item;
       const itemType = await detectEntryType(adapter, adapterFullPath);
+      console.log('[API /structure] path entry', { source, item, adapterFullPath, itemType });
 
       if (itemType === 'file') {
         nodes.push({
@@ -811,6 +853,7 @@ export async function GET(request: NextRequest) {
       return a.name.localeCompare(b.name);
     });
 
+    console.log('[API /structure] path response', { source, actualPath, nodes: nodes.length, names: nodes.map(n => n.name) });
     return NextResponse.json({
       success: true,
       data: nodes,
@@ -821,7 +864,7 @@ export async function GET(request: NextRequest) {
     }, { headers: { 'Cache-Control': 'no-store' } });
 
   } catch (error) {
-    console.error('Erreur structure:', error);
+    console.error('[API /structure] error', { error: error instanceof Error ? error.message : String(error), stack: error instanceof Error ? error.stack : undefined });
     return NextResponse.json({
       success: false,
       error: error instanceof Error ? error.message : String(error),
