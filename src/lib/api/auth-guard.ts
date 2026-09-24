@@ -58,7 +58,12 @@ export async function getAuthenticatedUser(req: NextRequest) {
           select: { id: true, email: true, role: true, name: true },
         });
         if (user) {
-          const role = (user.role as string) in RBAC_MATRIX ? (user.role as Role) : "rondier";
+          // Normalize role to lowercase to match RBAC_MATRIX keys
+          const normalizedRole = (user.role as string).toLowerCase();
+          const role: Role = (normalizedRole in RBAC_MATRIX ? normalizedRole : "rondier") as Role;
+          console.log('[AUTH-GUARD][Bearer] User found', {
+            id: user.id, email: user.email, dbRole: user.role, normalizedRole: role,
+          });
           return {
             id: user.id,
             email: user.email,
