@@ -676,14 +676,14 @@ export function DatabaseTree({ source, onSelect, selectedPath, webAvailable = tr
     const lines: React.ReactNode[] = [];
 
     lines.push(
-      <div key="type" className="font-medium text-gray-900">
+      <div key="__tooltip_type__" className="font-medium text-gray-900">
         {node.type === 'directory' ? 'Dossier' : 'Fichier'} — {node.name}
       </div>
     );
 
     if (node.path) {
       lines.push(
-        <div key="path" className="text-gray-500 break-all">
+        <div key="__tooltip_path__" className="text-gray-500 break-all">
           {node.path}
         </div>
       );
@@ -692,10 +692,10 @@ export function DatabaseTree({ source, onSelect, selectedPath, webAvailable = tr
     if (metadata) {
       const entries = Object.entries(metadata).filter(([, value]) => value !== undefined && value !== '');
       if (entries.length > 0) {
-        lines.push(<div key="sep" className="my-1 h-px bg-gray-200" />);
+        lines.push(<div key="__tooltip_sep__" className="my-1 h-px bg-gray-200" />);
         entries.forEach(([key, value]) => {
           lines.push(
-            <div key={key} className="flex justify-between gap-4">
+            <div key={`__tooltip_meta_${key}`} className="flex justify-between gap-4">
               <span className="text-gray-500">{key}</span>
               <span className="text-gray-900 font-medium">{String(value)}</span>
             </div>
