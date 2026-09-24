@@ -6,7 +6,6 @@ import { cn } from "@/lib/utils";
 import { InitializationProvider } from "@/components/providers/initialization-provider";
 import { InitializationGuard } from "@/components/initialization/initialization-guard";
 import { SetupGuard } from "@/components/setup/setup-guard";
-import { RuntimeDebug } from "@/components/developpement/runtime-debug";
 
 const inter = Inter({ subsets: ["latin"], variable: "--font-sans" });
 
@@ -31,7 +30,6 @@ export default function RootLayout({
               </SetupGuard>
             </InitializationGuard>
           </InitializationProvider>
-          <RuntimeDebug />
         </Providers>
       </body>
     </html>
