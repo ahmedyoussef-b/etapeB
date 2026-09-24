@@ -267,6 +267,69 @@ pub async fn tree_action_web(
 }
 
 #[tauri::command]
+pub async fn upload_web(
+    _app: AppHandle,
+    vercel_url: String,
+    file_name: String,
+    base64_data: String,
+    target_path: Option<String>,
+) -> Result<serde_json::Value, String> {
+    eprintln!("[UPLOAD-WEB-RUST][1] Début file_name={}", file_name);
+
+    let token = match crate::credentials::request_inject_token(&vercel_url).await {
+        Ok(t) => {
+            eprintln!("[UPLOAD-WEB-RUST][2] Token OK (len={})", t.len());
+            t
+        }
+        Err(e) => {
+            eprintln!("[UPLOAD-WEB-RUST][ERROR-TOKEN] {}", e);
+            return Err(format!("Token error: {}", e));
+        }
+    };
+
+    let url = format!("{}/api/upload", vercel_url.trim_end_matches('/'));
+    eprintln!("[UPLOAD-WEB-RUST][3] POST {}", url);
+
+    let body = serde_json::json!({
+        "file": {
+            "name": file_name,
+            "base64": base64_data,
+        },
+        "targetPath": target_path,
+        "source": "web",
+        "repository": null,
+    });
+
+    let client = reqwest::Client::new();
+    let response = client
+        .post(&url)
+        .header("Authorization", format!("Bearer {}", token))
+        .header("Content-Type", "application/json")
+        .json(&body)
+        .send()
+        .await
+        .map_err(|e| {
+            eprintln!("[UPLOAD-WEB-RUST][ERROR-HTTP] {}", e);
+            format!("HTTP error: {}", e)
+        })?;
+
+    let status = response.status();
+    let text = response.text().await.unwrap_or_default();
+    eprintln!("[UPLOAD-WEB-RUST][4] HTTP status={} body={}", status, text);
+
+    if !status.is_success() {
+        eprintln!("[UPLOAD-WEB-RUST][ERROR-STATUS] {}", status);
+        return Err(text);
+    }
+
+    let json: serde_json::Value = serde_json::from_str(&text)
+        .map_err(|e| format!("JSON error: {}", e))?;
+
+    eprintln!("[UPLOAD-WEB-RUST][5] SUCCESS");
+    Ok(json)
+}
+
+#[tauri::command]
 pub async fn get_publish_queue(
     _page: Option<usize>,
     _limit: Option<usize>,

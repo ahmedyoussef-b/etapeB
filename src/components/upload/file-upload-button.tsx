@@ -97,6 +97,15 @@ export function FileUploadButton({
             repository: repository || null,
           });
           data = res;
+        } else if (isTauriEnv() && source === 'web') {
+          console.log('[UPLOAD][Tauri-web] invoke upload_web', { fileName: file.name, targetPath });
+          const res = await invoke<any>('upload_web', {
+            vercelUrl: 'https://etape-b.vercel.app',
+            fileName: file.name,
+            base64Data: base64,
+            targetPath: targetPath || null,
+          });
+          data = res;
         } else {
           console.log('[UPLOAD][web|browser] fetch /api/upload', { fileName: file.name, targetPath });
           const response = await fetch('/api/upload', {
