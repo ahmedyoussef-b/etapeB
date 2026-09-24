@@ -269,10 +269,12 @@ export default function StructureBDDPage() {
         title: "Supprimé",
         message: `"${node.name}" a été supprimé.`,
         duration: 0,
-        confirmLabel: "Annuler",
-        cancelLabel: "Garder",
-        onConfirm: async () => {
-          await treeAction("rename", node.path, source, node.name, activeRepo || undefined);
+        confirmLabel: "OK",
+        cancelLabel: "Annuler",
+        onConfirm: () => {
+          dismissToast(id);
+        },
+        onCancel: () => {
           setRefreshKey(k => k + 1);
         }
       });
