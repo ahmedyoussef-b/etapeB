@@ -115,6 +115,158 @@ pub async fn upload_file(
 }
 
 #[tauri::command]
+pub async fn reset_web(
+    _app: AppHandle,
+    vercel_url: String,
+    backup: Option<bool>,
+) -> Result<serde_json::Value, String> {
+    println!("[RESET-WEB-RUST][1] Début");
+    println!("[RESET-WEB-RUST][2] URL: {}", vercel_url);
+    println!("[RESET-WEB-RUST][3] Backup: {:?}", backup);
+
+    let token = match crate::credentials::request_inject_token(&vercel_url).await {
+        Ok(t) => {
+            println!("[RESET-WEB-RUST][4] Token obtenu (len={})", t.len());
+            t
+        }
+        Err(e) => {
+            eprintln!("[RESET-WEB-RUST][ERROR] Token échoué: {}", e);
+            return Err(format!("Token error: {}", e));
+        }
+    };
+
+    let client = reqwest::Client::builder()
+        .timeout(std::time::Duration::from_secs(30))
+        .build()
+        .map_err(|e| format!("Erreur construction client HTTP: {}", e))?;
+
+    let url = format!(
+        "{}/api/admin/reset",
+        vercel_url.trim_end_matches('/')
+    );
+
+    let body = serde_json::json!({
+        "backup": backup.unwrap_or(false),
+    });
+    println!("[RESET-WEB-RUST][5] POST {} body={}", url, body);
+
+    let response = client
+        .post(&url)
+        .header("Authorization", format!("Bearer {}", token))
+        .header("Content-Type", "application/json")
+        .json(&body)
+        .send()
+        .await
+        .map_err(|e| {
+            eprintln!("[RESET-WEB-RUST][ERROR] HTTP échoué: {}", e);
+            format!("HTTP error: {}", e)
+        })?;
+
+    let status = response.status();
+    println!("[RESET-WEB-RUST][6] HTTP status: {}", status);
+
+    let text = response.text().await.unwrap_or_default();
+    println!("[RESET-WEB-RUST][7] Response body: {}", text);
+
+    let json: serde_json::Value = serde_json::from_str(&text)
+        .map_err(|e| {
+            eprintln!("[RESET-WEB-RUST][ERROR] JSON parse: {}", e);
+            format!("JSON error: {}", e)
+        })?;
+
+    if !status.is_success() {
+        let err = json.get("error").and_then(|v| v.as_str()).unwrap_or("Unknown");
+        eprintln!("[RESET-WEB-RUST][ERROR] Status: {}, error: {}", status, err);
+        return Err(err.to_string());
+    }
+
+    println!("[RESET-WEB-RUST][8] SUCCESS");
+    Ok(json)
+}
+
+#[tauri::command]
+pub async fn tree_action_web(
+    _app: AppHandle,
+    vercel_url: String,
+    action: String,
+    path: String,
+    name: Option<String>,
+    repository: Option<String>,
+) -> Result<serde_json::Value, String> {
+    println!("[TREE-ACTION-RUST][1] Début");
+    println!("[TREE-ACTION-RUST][2] URL: {}", vercel_url);
+    println!("[TREE-ACTION-RUST][3] action={} path={} name={:?} repository={:?}", action, path, name, repository);
+
+    let token = match crate::credentials::request_inject_token(&vercel_url).await {
+        Ok(t) => {
+            println!("[TREE-ACTION-RUST][4] Token obtenu (len={})", t.len());
+            t
+        }
+        Err(e) => {
+            eprintln!("[TREE-ACTION-RUST][ERROR] Token échoué: {}", e);
+            return Err(format!("Token error: {}", e));
+        }
+    };
+
+    let client = reqwest::Client::builder()
+        .timeout(std::time::Duration::from_secs(30))
+        .build()
+        .map_err(|e| format!("Erreur construction client HTTP: {}", e))?;
+
+    let url = format!(
+        "{}/api/tree-actions",
+        vercel_url.trim_end_matches('/')
+    );
+
+    let mut body = serde_json::json!({
+        "action": action,
+        "path": path,
+        "source": "web",
+    });
+
+    if let Some(name) = name {
+        body["name"] = serde_json::Value::String(name);
+    }
+    if let Some(repository) = repository {
+        body["repository"] = serde_json::Value::String(repository);
+    }
+
+    println!("[TREE-ACTION-RUST][5] POST {} body={}", url, body);
+
+    let response = client
+        .post(&url)
+        .header("Authorization", format!("Bearer {}", token))
+        .header("Content-Type", "application/json")
+        .json(&body)
+        .send()
+        .await
+        .map_err(|e| {
+            eprintln!("[TREE-ACTION-RUST][ERROR] HTTP échoué: {}", e);
+            format!("HTTP error: {}", e)
+        })?;
+
+    let status = response.status();
+    println!("[TREE-ACTION-RUST][6] HTTP status: {}", status);
+
+    let text = response.text().await.unwrap_or_default();
+    println!("[TREE-ACTION-RUST][7] Response body: {}", text);
+
+    if !status.is_success() {
+        eprintln!("[TREE-ACTION-RUST][ERROR] Status: {}, body: {}", status, text);
+        return Err(format!("Erreur HTTP {}: {}", status, text));
+    }
+
+    let json: serde_json::Value = serde_json::from_str(&text)
+        .map_err(|e| {
+            eprintln!("[TREE-ACTION-RUST][ERROR] JSON parse: {}", e);
+            format!("Erreur parsing JSON: {}", e)
+        })?;
+
+    println!("[TREE-ACTION-RUST][8] SUCCESS");
+    Ok(json)
+}
+
+#[tauri::command]
 pub async fn get_publish_queue(
     _page: Option<usize>,
     _limit: Option<usize>,

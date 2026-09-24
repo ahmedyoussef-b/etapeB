@@ -27,6 +27,12 @@ interface FileContent {
 
 const TEXT_PREVIEW_LIMIT = 50 * 1024;
 
+const buildDataUri = (entry: FileContent | null | undefined): string | null => {
+  if (!entry || entry.kind === 'text' || entry.kind === 'binary') return null;
+  if (entry.content.startsWith('data:')) return entry.content;
+  return `data:${entry.mimeType};base64,${entry.content}`;
+};
+
 export function StructureDetailPanel({ node, source, available = true, repository, onCopyPath, onDownload, onRename, onDelete, canMutate = false }: StructureDetailPanelProps) {
   const [content, setContent] = useState<FileContent | null>(null);
   const [loading, setLoading] = useState(false);
@@ -259,14 +265,14 @@ export function StructureDetailPanel({ node, source, available = true, repositor
 {content && content.kind === 'image' && (
           <div className="bg-gray-50 rounded-lg p-2 flex items-center justify-center">
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={content.content} alt={node.name} className="max-w-full max-h-96 object-contain rounded" />
+            <img src={buildDataUri(content)!} alt={node.name} className="max-w-full max-h-96 object-contain rounded" />
           </div>
         )}
 
         {content && content.kind === 'pdf' && (
           <div className="bg-gray-50 rounded-lg p-2">
             <iframe
-              src={content.content}
+              src={buildDataUri(content)!}
               title={node.name}
               className="w-full h-[600px] rounded border border-gray-200"
             />

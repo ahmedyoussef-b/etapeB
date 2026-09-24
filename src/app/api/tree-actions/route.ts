@@ -1,6 +1,5 @@
-import { NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth/next';
-import { authOptions } from '@/lib/auth/options';
+import { NextRequest, NextResponse } from 'next/server';
+import { getAuthenticatedUser } from '@/lib/api/auth-guard';
 import { PrismaAdapter } from '@/lib/database/prisma-adapter';
 import { revalidateTag } from 'next/cache';
 
@@ -29,10 +28,11 @@ function isProtectedRoot(path: string): boolean {
   return parts.length === 1 && PROTECTED_ROOTS.includes(parts[0]);
 }
 
-export async function POST(request: Request) {
+export async function POST(request: NextRequest) {
   try {
-    const session = await getServerSession(authOptions);
-    if (!session || session.user?.role !== 'admin') {
+    const user = await getAuthenticatedUser(request);
+    const isAdmin = user.role?.toLowerCase() === 'admin';
+    if (!isAdmin) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 

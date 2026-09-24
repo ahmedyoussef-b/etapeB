@@ -2,6 +2,8 @@ import { getServerSession } from "next-auth/next";
 import { NextRequest, NextResponse } from "next/server";
 import { authOptions } from "@/lib/auth/options";
 import { Role, Permission, RBAC_MATRIX } from "@/lib/types/rbac";
+import { verifyInjectToken } from "@/lib/auth/inject-token";
+import { getPrismaClient } from "@/lib/services/db";
 import logger from "@/lib/logger";
 
 // Rate limiting store (in-memory, for production use Redis)
@@ -36,17 +38,39 @@ export async function getAuthenticatedUser(req: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
 
-    if (!session?.user) {
-      logger.warn('Unauthenticated request', { url: req.url, ip: req.ip });
-      throw new Error("Unauthorized");
+    if (session?.user) {
+      return {
+        id: session.user.id,
+        email: session.user.email!,
+        role: session.user.role as Role,
+        name: session.user.name,
+      };
     }
 
-    return {
-      id: session.user.id,
-      email: session.user.email!,
-      role: session.user.role as Role,
-      name: session.user.name,
-    };
+    const authHeader = req.headers.get("authorization");
+    if (authHeader?.startsWith("Bearer ")) {
+      const token = authHeader.slice("Bearer ".length).trim();
+      const verified = verifyInjectToken(token);
+      if (verified?.sub) {
+        const prisma = getPrismaClient();
+        const user = await prisma.user.findUnique({
+          where: { id: verified.sub },
+          select: { id: true, email: true, role: true, name: true },
+        });
+        if (user) {
+          const role = (user.role as string) in RBAC_MATRIX ? (user.role as Role) : "rondier";
+          return {
+            id: user.id,
+            email: user.email,
+            role,
+            name: user.name,
+          };
+        }
+      }
+    }
+
+    logger.warn('Unauthenticated request', { url: req.url, ip: req.ip });
+    throw new Error("Unauthorized");
   } catch (error) {
     logger.warn('Auth failed', { url: req.url, ip: req.ip, error: error instanceof Error ? error.message : String(error) });
     throw error;

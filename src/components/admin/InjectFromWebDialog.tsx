@@ -19,9 +19,10 @@ interface InjectReport {
 interface InjectFromWebDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  onComplete?: () => void;
 }
 
-export function InjectFromWebDialog({ open, onOpenChange }: InjectFromWebDialogProps) {
+export function InjectFromWebDialog({ open, onOpenChange, onComplete }: InjectFromWebDialogProps) {
   const [hasCreds, setHasCreds] = useState(false);
   const [vercelUrl, setVercelUrl] = useState("https://etape-b.vercel.app");
   const [isInjecting, setIsInjecting] = useState(false);
@@ -118,6 +119,8 @@ export function InjectFromWebDialog({ open, onOpenChange }: InjectFromWebDialogP
           "Injection Web"
         );
       }
+
+      onComplete?.();
     } catch (err) {
       setIsInjecting(false);
       const message = err instanceof Error ? err.message : "Erreur inconnue";

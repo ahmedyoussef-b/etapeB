@@ -1,6 +1,5 @@
-import { NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth/next';
-import { authOptions } from '@/lib/auth/options';
+import { NextRequest, NextResponse } from 'next/server';
+import { getAuthenticatedUser } from '@/lib/api/auth-guard';
 import { getPrismaClient } from '@/lib/services/db';
 import { revalidateTag } from 'next/cache';
 import { seedDatabase } from '@/lib/seed-db';
@@ -37,14 +36,31 @@ const PRESERVED_TABLES = [
   '_prisma_migrations',
 ];
 
-export async function POST(request: Request) {
+export async function POST(request: NextRequest) {
+  const reqId = Math.random().toString(36).slice(2, 8);
+  console.log(`[RESET-API][${reqId}][1] Début`);
+
   try {
-    const session = await getServerSession(authOptions);
-    if (!session || session.user?.role !== 'admin') {
+    const authHeader = request.headers.get('authorization');
+    console.log(`[RESET-API][${reqId}][2] Authorization header`, {
+      hasHeader: !!authHeader,
+      prefix: authHeader?.substring(0, 20),
+    });
+
+    const user = await getAuthenticatedUser(request);
+    console.log(`[RESET-API][${reqId}][3] User`, {
+      id: user.id, email: user.email, role: user.role,
+    });
+
+    const isAdmin = user.role?.toLowerCase() === 'admin';
+    if (!isAdmin) {
+      console.log(`[RESET-API][${reqId}][4] NON-ADMIN refusé`);
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
     const body = await request.json().catch(() => ({}));
+    console.log(`[RESET-API][${reqId}][5] Body`, body);
+
     const backup = body.backup === true;
 
     const prisma = getPrismaClient();
@@ -71,6 +87,12 @@ export async function POST(request: Request) {
 
     revalidateTag('structure-web');
 
+    console.log(`[RESET-API][${reqId}][6] SUCCESS`, {
+      tablesTruncated: tablesTruncated.length,
+      filesInserted,
+      usersUpserted,
+      duration,
+    });
     return NextResponse.json({
       success: true,
       tablesTruncated,
@@ -79,7 +101,11 @@ export async function POST(request: Request) {
       duration,
     });
   } catch (err) {
-    console.error('[API /admin/reset] Erreur:', err);
+    console.error(`[RESET-API][${reqId}][ERROR]`, {
+      message: err instanceof Error ? err.message : String(err),
+      stack: err instanceof Error ? err.stack : undefined,
+      toString: String(err),
+    });
     return NextResponse.json(
       { success: false, error: err instanceof Error ? err.message : 'Internal error' },
       { status: 500 }

@@ -607,6 +607,8 @@ pub fn run() {
             sync::sync_status,
             sync::sync_progress,
             api_commands::upload_file,
+            api_commands::tree_action_web,
+            api_commands::reset_web,
             api_commands::get_publish_queue,
             api_commands::get_sync_stats,
             api_commands::get_system_versions,

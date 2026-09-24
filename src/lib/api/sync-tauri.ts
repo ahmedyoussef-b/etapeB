@@ -39,6 +39,7 @@ export async function syncFromWeb(
   if (isTauriEnv()) {
     return invoke<SyncResult>('sync_from_web', { mode, repository, force });
   }
+
   const res = await fetch('/api/sync', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -49,7 +50,10 @@ export async function syncFromWeb(
 
 export async function syncStatus(repository?: string): Promise<SyncStatus> {
   if (isTauriEnv()) {
-    return invoke<SyncStatus>('sync_status', { repository });
+    const url = new URL('https://etape-b.vercel.app/api/structure/sync-status');
+    if (repository) url.searchParams.set('repository', repository);
+    const res = await fetch(url.toString());
+    return res.json();
   }
   const res = await fetch(`/api/structure/sync-status?repository=${repository || ''}`);
   return res.json();

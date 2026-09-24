@@ -1096,28 +1096,32 @@ const TreeNodeItem = memo(function TreeNodeItem({
     parts[parts.length - 1] = editName.trim();
     const newPath = parts.join('/');
     const oldName = node.name;
-    const result = await treeAction('rename', node.path, source, editName.trim(), repository);
-    if (result.success) {
-      onNodeRenamed(oldPath, newPath, editName.trim());
-      const id = pushToast({
-        variant: 'confirm',
-        title: 'Renommé',
-        message: `"${oldName}" → "${editName.trim()}"`,
-        duration: 0,
-        confirmLabel: 'OK',
-        cancelLabel: 'Annuler',
-        onConfirm: () => {
-          dismissToast(id);
-        },
-        onCancel: () => {
-          treeAction('rename', newPath, source, oldName, repository).then(() => {
-            onNodeRenamed(newPath, oldPath, oldName);
-          });
-        }
-      });
-      setTimeout(() => dismissToast(id), 8000);
-    } else {
-      setActionError(result.error || 'Renommage impossible');
+    try {
+      const result = await treeAction('rename', node.path, source, editName.trim(), repository);
+      if (result.success) {
+        onNodeRenamed(oldPath, newPath, editName.trim());
+        const id = pushToast({
+          variant: 'confirm',
+          title: 'Renommé',
+          message: `"${oldName}" → "${editName.trim()}"`,
+          duration: 0,
+          confirmLabel: 'OK',
+          cancelLabel: 'Annuler',
+          onConfirm: () => {
+            dismissToast(id);
+          },
+          onCancel: () => {
+            treeAction('rename', newPath, source, oldName, repository).then(() => {
+              onNodeRenamed(newPath, oldPath, oldName);
+            }).catch(() => {});
+          }
+        });
+        setTimeout(() => dismissToast(id), 8000);
+      } else {
+        setActionError(result.error || 'Renommage impossible');
+      }
+    } catch (err) {
+      setActionError(err instanceof Error ? err.message : 'Renommage impossible');
     }
     setIsEditing(false);
   };
@@ -1158,9 +1162,14 @@ const TreeNodeItem = memo(function TreeNodeItem({
     });
 
     pendingDeleteTimerRef.current = window.setTimeout(async () => {
-      const result = await treeAction('delete', node.path, source, undefined, repository);
-      if (!result.success) {
-        setActionError(result.error || 'Suppression impossible');
+      try {
+        const result = await treeAction('delete', node.path, source, undefined, repository);
+        if (!result.success) {
+          setActionError(result.error || 'Suppression impossible');
+          onNodeRestored?.(node);
+        }
+      } catch (err) {
+        setActionError(err instanceof Error ? err.message : 'Suppression impossible');
         onNodeRestored?.(node);
       }
       pendingDeleteNodeRef.current = null;
@@ -1189,18 +1198,22 @@ const TreeNodeItem = memo(function TreeNodeItem({
       setIsAdding(false);
       return;
     }
-    const result = await treeAction('mkdir', node.path, source, newName.trim(), repository);
-    if (result.success) {
-      const newNode: TreeNode = {
-        name: newName.trim(),
-        path: node.path ? `${node.path}/${newName.trim()}` : newName.trim(),
-        type: 'directory',
-        children: []
-      };
-      onNodeAdded(node.path, newNode);
-      onExpandParent(node.path);
-    } else {
-      setActionError(result.error || 'Création impossible');
+    try {
+      const result = await treeAction('mkdir', node.path, source, newName.trim(), repository);
+      if (result.success) {
+        const newNode: TreeNode = {
+          name: newName.trim(),
+          path: node.path ? `${node.path}/${newName.trim()}` : newName.trim(),
+          type: 'directory',
+          children: []
+        };
+        onNodeAdded(node.path, newNode);
+        onExpandParent(node.path);
+      } else {
+        setActionError(result.error || 'Création impossible');
+      }
+    } catch (err) {
+      setActionError(err instanceof Error ? err.message : 'Création impossible');
     }
     setIsAdding(false);
     setNewName('');

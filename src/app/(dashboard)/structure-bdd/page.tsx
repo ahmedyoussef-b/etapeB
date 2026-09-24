@@ -124,7 +124,14 @@ export default function StructureBDDPage() {
   }, []);
 
   const handleResetConfirm = useCallback(async ({ backup }: { backup: boolean }) => {
+    const reqId = Math.random().toString(36).slice(2, 8);
+    console.log(`[RESET-FLOW][${reqId}][1] Début reset`, {
+      source, backup, isTauri: isTauriEnv(), activeRepo,
+      timestamp: new Date().toISOString(),
+    });
+
     if (source === "vector") {
+      console.log(`[RESET-FLOW][${reqId}][2] Vector source rejected`);
       toast.error("La source vectorielle ne peut pas être réinitialisée");
       return;
     }
@@ -132,26 +139,68 @@ export default function StructureBDDPage() {
     setResetting(true);
     try {
       if (backup && isTauriEnv()) {
+        console.log(`[RESET-FLOW][${reqId}][3] Backup Tauri invoked`);
         try {
-          await invoke("create_backup", { repository: activeRepo || ".data" });
-        } catch {
+          const br = await invoke("create_backup", { repository: activeRepo || ".data" });
+          console.log(`[RESET-FLOW][${reqId}][4] Backup result`, br);
+        } catch (berr) {
+          console.warn(`[RESET-FLOW][${reqId}][ERROR] Backup failed`, berr);
           toast.warning("Backup échoué, le reset continue");
         }
       }
-      const res = await fetch("/api/admin/reset", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ backup }),
-      });
-      const json = await res.json();
+
+      let json: any;
+      if (isTauriEnv()) {
+        console.log(`[RESET-FLOW][${reqId}][5] Tauri mode path: source=${source}`);
+        if (source === "web") {
+          console.log(`[RESET-FLOW][${reqId}][6a] Invoking reset_web`, { vercelUrl: "https://etape-b.vercel.app", backup });
+          const result = await invoke<any>("reset_web", {
+            vercelUrl: "https://etape-b.vercel.app",
+            backup,
+          });
+          console.log(`[RESET-FLOW][${reqId}][7a] reset_web result`, result);
+          json = result;
+        } else if (source === "local") {
+          console.log(`[RESET-FLOW][${reqId}][6b] Invoking reset_local_repository`, { repository: activeRepo || ".data" });
+          const result = await invoke<any>("reset_local_repository", {
+            repository: activeRepo || ".data",
+          });
+          console.log(`[RESET-FLOW][${reqId}][7b] reset_local_repository result`, result);
+          json = result;
+        } else {
+          console.warn(`[RESET-FLOW][${reqId}][ERROR] Unsupported source`, source);
+          throw new Error("Source de reset non supportée : " + source);
+        }
+      } else {
+        console.log(`[RESET-FLOW][${reqId}][6c] Browser mode → fetch /api/admin/reset`);
+        const res = await fetch("/api/admin/reset", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ backup }),
+        });
+        console.log(`[RESET-FLOW][${reqId}][7c] HTTP status`, res.status);
+        const text = await res.text();
+        console.log(`[RESET-FLOW][${reqId}][8c] Raw body`, text);
+        json = JSON.parse(text);
+      }
+
+      console.log(`[RESET-FLOW][${reqId}][9] Final result`, { json });
+
       if (json?.success) {
+        console.log(`[RESET-FLOW][${reqId}][10] SUCCESS`);
         toast.success("Réinitialisation terminée");
         window.location.reload();
       } else {
+        console.log(`[RESET-FLOW][${reqId}][10] FAILURE`, { error: json?.error });
         toast.error(json?.error || "Erreur lors de la réinitialisation");
       }
-    } catch {
-      toast.error("Erreur lors de la réinitialisation");
+    } catch (err) {
+      console.error(`[RESET-FLOW][${reqId}][ERROR]`, {
+        message: err instanceof Error ? err.message : String(err),
+        stack: err instanceof Error ? err.stack : undefined,
+        toString: String(err),
+      });
+      toast.error(err instanceof Error ? err.message : "Erreur lors de la réinitialisation");
     } finally {
       setResetting(false);
     }
@@ -460,6 +509,10 @@ export default function StructureBDDPage() {
       <InjectFromWebDialog
         open={isInjectDialogOpen}
         onOpenChange={setIsInjectDialogOpen}
+        onComplete={() => {
+          setRefreshKey(k => k + 1);
+          refetchStatus();
+        }}
       />
     </div>
   );

@@ -193,7 +193,7 @@ pub async fn inject_from_web(
                     continue;
                 }
 
-                if target_abs.exists() {
+                if target_abs.exists() && final_path != target_abs {
                     if let Err(e) = fs::remove_file(&target_abs) {
                         log::warn!("[inject] failed to remove original {}: {}", target_abs.display(), e);
                     }
