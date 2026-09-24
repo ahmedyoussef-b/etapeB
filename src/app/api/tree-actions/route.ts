@@ -22,6 +22,13 @@ function mapAdapterPathToWeb(path: string): string {
   return `.data/${path}`;
 }
 
+const PROTECTED_ROOTS = ['bank', 'documents', 'system'] as readonly string[];
+
+function isProtectedRoot(path: string): boolean {
+  const parts = path.split('/').filter(p => p);
+  return parts.length === 1 && PROTECTED_ROOTS.includes(parts[0]);
+}
+
 export async function POST(request: Request) {
   try {
     const session = await getServerSession(authOptions);
@@ -81,6 +88,13 @@ export async function POST(request: Request) {
       }
 
       case 'delete': {
+        if (isProtectedRoot(adapterPath)) {
+          return NextResponse.json(
+            { error: 'Ce répertoire est structurel et ne peut être supprimé' },
+            { status: 403 }
+          );
+        }
+
         const exists = await adapter.exists(adapterPath).catch(() => false);
         if (!exists) {
           return NextResponse.json({ error: 'File not found' }, { status: 404 });

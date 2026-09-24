@@ -139,6 +139,13 @@ function isTreeFullyLoaded(nodes: TreeNode[]): boolean {
   });
 }
 
+const PROTECTED_ROOTS = ['bank', 'documents', 'system'] as readonly string[];
+
+function isProtectedRoot(path: string): boolean {
+  const parts = path.split('/').filter(p => p);
+  return parts.length === 1 && PROTECTED_ROOTS.includes(parts[0]);
+}
+
 export function DatabaseTree({ source, onSelect, selectedPath, webAvailable = true, activeRepo, isAdmin = false, onNodeRestored, onCopyPath, onDownload, onRename, onDelete }: DatabaseTreeProps) {
   const [nodes, setNodes] = useState<TreeNode[] | null>(null);
   const [loading, setLoading] = useState(true);
@@ -1337,10 +1344,10 @@ const TreeNodeItem = memo(function TreeNodeItem({
               )}
             <button
               type="button"
-              disabled={!mutationsEnabled}
+              disabled={!mutationsEnabled || isProtectedRoot(node.path)}
               onClick={(e) => { stopRowClick(e); handleDeleteClick(); }}
               className={`p-1 rounded transition-colors disabled:cursor-not-allowed disabled:opacity-40 ${isDeleting ? 'text-red-600 bg-red-50' : 'text-gray-400 hover:text-red-600 hover:bg-red-50'}`}
-              title={!mutationsEnabled ? 'BDD locale en lecture seule' : isDeleting ? 'Suppression en cours' : 'Supprimer'}
+              title={!mutationsEnabled ? 'BDD locale en lecture seule' : isProtectedRoot(node.path) ? 'Répertoire structurel — non supprimable' : isDeleting ? 'Suppression en cours' : 'Supprimer'}
             >
               <Trash2 className="w-3 h-3" />
             </button>
