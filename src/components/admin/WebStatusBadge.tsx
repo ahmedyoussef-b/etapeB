@@ -9,7 +9,7 @@ import { isTauriEnv } from '@/lib/tauri/env';
 
 export function WebStatusBadge() {
   const isTauri = isTauriEnv();
-  const { data: session } = isTauri ? { data: undefined } : useSession();
+  const { data: session } = useSession();
   const isAdmin = session?.user?.role?.toLowerCase() === 'admin';
   const [count, setCount] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
