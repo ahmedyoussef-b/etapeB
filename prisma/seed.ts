@@ -45,30 +45,6 @@ async function main() {
   }
   console.log('✅ Utilisateurs par défaut créés');
 
-  const ownerEmail = process.env.OWNER_EMAIL;
-  const ownerPassword = process.env.OWNER_PASSWORD;
-
-  if (ownerEmail && ownerPassword) {
-    const existingOwner = await prisma.user.findUnique({
-      where: { email: ownerEmail },
-    });
-
-    if (!existingOwner) {
-      const ownerHash = await hash(ownerPassword, 10);
-      await prisma.user.create({
-        data: {
-          email: ownerEmail,
-          name: 'Owner',
-          role: 'ADMIN',
-          password: ownerHash,
-        },
-      });
-      console.log(`[SEED] Owner créé: ${ownerEmail}`);
-    } else {
-      console.log(`[SEED] Owner existe déjà: ${ownerEmail}`);
-    }
-  }
-
   console.log('📸 Création du snapshot initial (côté Local)...');
   try {
     const dataDir = nodePath.resolve(process.cwd(), '.data');

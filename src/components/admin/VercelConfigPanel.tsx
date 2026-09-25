@@ -92,11 +92,11 @@ export function VercelConfigPanel() {
         <div className="space-y-3">
           <div className="space-y-2">
             <label className="text-sm font-medium">Email Vercel</label>
-            <Input
+             <Input
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              placeholder="admin@example.com"
+              placeholder="admin@nexaflow.local"
               disabled={isTesting}
             />
           </div>
