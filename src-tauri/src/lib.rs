@@ -538,6 +538,61 @@ async fn trigger_local_vectorization(app: tauri::AppHandle) -> Result<Vectorizat
     Ok(stats)
 }
 
+#[tauri::command]
+async fn vectorize_now(app: tauri::AppHandle, repository: Option<String>) -> Result<Value, String> {
+    let repo_dir = crate::structure::resolve_repository_path(repository.as_deref());
+    let user_path = crate::get_user_data_path();
+    let chroma_path = PathBuf::from(user_path).join("chroma");
+
+    log::info!("[SDB-RUST-VEC] vectorize_now ENTRÉE repo={}", repo_dir.display());
+
+    let stats = auto_vectorizer::scan_and_vectorize(&repo_dir, &chroma_path, Some(&app)).await;
+
+    log::info!(
+        "[SDB-RUST-VEC] vectorize_now terminé: {}/{} fichiers ({} chunks)",
+        stats.vectorized_files, stats.total_files, stats.total_chunks
+    );
+
+    Ok(json!({
+        "success": true,
+        "totalFiles": stats.total_files,
+        "vectorizedFiles": stats.vectorized_files,
+        "totalChunks": stats.total_chunks,
+        "lastUpdate": stats.last_update,
+        "message": format!("{} fichiers vectorisés", stats.vectorized_files),
+    }))
+}
+
+#[tauri::command]
+fn purge_vectoriel() -> Result<Value, String> {
+    let user_path = crate::get_user_data_path();
+    let chroma_path = PathBuf::from(user_path).join("chroma");
+    let meta_file = chroma_path.join("meta.json");
+
+    let chroma_existed = chroma_path.exists();
+    let meta_existed = meta_file.exists();
+
+    if chroma_existed {
+        std::fs::remove_dir_all(&chroma_path).map_err(|e: std::io::Error| e.to_string())?;
+    }
+    if meta_existed {
+        std::fs::remove_file(&meta_file).map_err(|e: std::io::Error| e.to_string())?;
+    }
+
+    log::info!(
+        "[SDB-RUST-VEC] purge_vectoriel terminé: chroma={} meta={}",
+        chroma_existed,
+        meta_existed
+    );
+
+    Ok(json!({
+        "success": true,
+        "chromaPurged": chroma_existed,
+        "metaPurged": meta_existed,
+        "message": "Base vectorielle purgée",
+    }))
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
@@ -571,9 +626,6 @@ pub fn run() {
 
             // Démarrer la surveillance locale des fichiers
             let _ = watcher::start_watching(app_handle.clone(), repo_path.clone());
-
-            // Démarrer la vectorisation locale automatique
-            auto_vectorizer::start_auto_vectorizer(app_handle, repo_path, chroma_path);
 
             // Arrêter le watcher quand la fenêtre se ferme
             if let Some(window) = app.get_webview_window("main") {
@@ -631,6 +683,8 @@ pub fn run() {
             api_commands::purge_sync_cache,
             delete_from_chroma,
             vectorize_single_file,
+            vectorize_now,
+            purge_vectoriel,
             save_vercel_credentials,
             clear_vercel_credentials,
             has_vercel_credentials,

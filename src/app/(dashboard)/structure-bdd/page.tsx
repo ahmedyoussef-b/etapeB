@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useCallback } from "react";
-import { Database, Rocket, RefreshCw, Server, Globe, Brain, ArrowDownToLine, Copy, Download, Pencil, Trash2 } from "lucide-react";
+import { Database, Rocket, RefreshCw, Server, Globe, Brain, ArrowDownToLine, Copy, Download, Pencil, Trash2, Loader2 } from "lucide-react";
 import { StructureTreePanel } from "./components/structure-tree-panel";
 import { useSyncStatus } from "./hooks/useSyncStatus";
 import { StructureDetailPanel } from "@/components/structure/structure-detail-panel";
@@ -83,8 +83,9 @@ export default function StructureBDDPage() {
   const isVercel = !!process.env.NEXT_PUBLIC_VERCEL_ENV;
   const [selectedNode, setSelectedNode] = useState<TreeNode | null>(null);
   const [activeRepo, setActiveRepo] = useState<string>('repository');
-  const [resetting, setResetting] = useState(false);
+  const [resetting, setResetting] = useState<'local' | 'web' | null>(null);
   const [syncingFiles, setSyncingFiles] = useState(false);
+  const [vectorizing, setVectorizing] = useState(false);
   const [isInjectDialogOpen, setIsInjectDialogOpen] = useState(false);
   const toast = useToastHelpers();
   const { push: pushToast, dismiss: dismissToast } = useToast();
@@ -130,7 +131,7 @@ export default function StructureBDDPage() {
     console.log('[SDB-UI] source affichée (ignorée):', source);
     console.log('[SDB-UI] cible FORCÉE:', target);
 
-    setResetting(true);
+    setResetting('local');
     try {
       let result: any;
       if (isTauriEnv()) {
@@ -146,6 +147,7 @@ export default function StructureBDDPage() {
       } else {
         if (target === 'local') {
           toast.error('Reset local uniquement en Tauri');
+          setResetting(null);
           return;
         }
         console.log('[SDB-API] appel /api/admin/reset (navigateur)');
@@ -166,7 +168,7 @@ export default function StructureBDDPage() {
       console.error(`[SDB-UI] erreur reset ${target}:`, err);
       toast.error('Erreur lors de la réinitialisation');
     } finally {
-      setResetting(false);
+      setResetting(null);
     }
   };
 
@@ -213,6 +215,64 @@ export default function StructureBDDPage() {
       setSyncingFiles(false);
     }
   }, [activeRepo, toast, refetchStatus]);
+
+  const handleVectorize = async () => {
+    console.log('[SDB-UI] === VECTORIZE ===');
+    setVectorizing(true);
+    try {
+      let result: any;
+      if (isTauriEnv()) {
+        result = await invoke('vectorize_now', {
+          repository: activeRepo || 'repository',
+        });
+      } else {
+        toast.error('Vectorisation uniquement en Tauri');
+        return;
+      }
+
+      console.log('[SDB-UI] vectorize terminé:', result);
+
+      if (result?.success) {
+        toast.success(`Vectorisation: ${result.vectorizedFiles}/${result.totalFiles} fichiers (${result.totalChunks} chunks)`);
+      } else {
+        toast.error(result?.error || 'Erreur de vectorisation');
+      }
+    } catch (err) {
+      console.error('[SDB-UI] erreur vectorize:', err);
+      toast.error('Erreur de vectorisation');
+    } finally {
+      setVectorizing(false);
+    }
+  };
+
+  const handlePurgeVectoriel = async () => {
+    const confirmed = window.confirm('Purge de la base vectorielle ?\nCela supprimera tous les embeddings Chroma et le fichier meta.json.');
+    if (!confirmed) return;
+
+    setVectorizing(true);
+    try {
+      let result: any;
+      if (isTauriEnv()) {
+        result = await invoke('purge_vectoriel');
+      } else {
+        toast.error('Purge vectorielle uniquement en Tauri');
+        return;
+      }
+
+      console.log('[SDB-UI] purge vectoriel terminé:', result);
+
+      if (result?.success) {
+        toast.success(result.message || 'Base vectorielle purgée');
+      } else {
+        toast.error(result?.error || 'Erreur lors de la purge vectorielle');
+      }
+    } catch (err) {
+      console.error('[SDB-UI] erreur purge vectoriel:', err);
+      toast.error('Erreur lors de la purge vectorielle');
+    } finally {
+      setVectorizing(false);
+    }
+  };
 
   const isLocalEditable = source === "local" && activeRepo !== ".data";
 
@@ -357,12 +417,16 @@ export default function StructureBDDPage() {
             <span className="text-[10px] text-gray-500">chroma/</span>
           </button>
           )}
+
+          <div className="w-px h-6 bg-gray-300 mx-1" />
+
           {isLocalEditable && (
             <button
               type="button"
               onClick={handleSyncFiles}
               disabled={syncingFiles}
               className="inline-flex items-center gap-2 px-3 py-2 border border-gray-200 rounded-lg hover:bg-gray-50 text-sm disabled:opacity-50"
+              title="Synchronise les fichiers Web non-injectés vers le repository local"
             >
               {syncingFiles ? (
                 <RefreshCw className="w-4 h-4 animate-spin" />
@@ -372,46 +436,86 @@ export default function StructureBDDPage() {
               Synchroniser depuis Web
             </button>
           )}
+          {(role as string) === "admin" && isTauriEnv() && (
+            <button
+              type="button"
+              onClick={() => setIsInjectDialogOpen(true)}
+              className="inline-flex items-center gap-2 px-3 py-2 border border-gray-200 rounded-lg hover:bg-gray-50 text-sm"
+              title="Télécharge les fichiers Web non-injectés vers le repository local"
+            >
+              <ArrowDownToLine className="w-4 h-4" />
+              Injection vers Local
+            </button>
+          )}
+
+          <div className="w-px h-6 bg-gray-300 mx-1" />
+
           {(role as string) === "admin" && source !== "vector" && (
             <button
               type="button"
               onClick={() => handleReset('local')}
-              disabled={resetting}
+              disabled={resetting === 'local'}
               className="inline-flex items-center gap-2 px-3 py-2 border border-gray-200 rounded-lg hover:bg-gray-50 text-sm disabled:opacity-50"
+              title="Réinitialise la BDD locale depuis .data/ (immuable)"
             >
-              {resetting ? (
+              {resetting === 'local' ? (
                 <RefreshCw className="w-4 h-4 animate-spin" />
               ) : (
                 <Database className="w-4 h-4" />
               )}
-              Réinitialiser depuis .data/
+              Reset BDD Locale
             </button>
           )}
           {(role as string) === "admin" && isTauriEnv() && (
             <button
               type="button"
               onClick={() => handleReset('web')}
-              disabled={resetting}
+              disabled={resetting === 'web'}
               className="inline-flex items-center gap-2 px-3 py-2 border border-gray-200 rounded-lg hover:bg-gray-50 text-sm disabled:opacity-50"
+              title="Réinitialise la BDD Web depuis .data/ (immuable)"
             >
-              {resetting ? (
+              {resetting === 'web' ? (
                 <RefreshCw className="w-4 h-4 animate-spin" />
               ) : (
                 <Database className="w-4 h-4" />
               )}
-              Réinitialiser depuis Web
+              Reset BDD Web
             </button>
           )}
+
+          <div className="w-px h-6 bg-gray-300 mx-1" />
+
           {(role as string) === "admin" && isTauriEnv() && (
-            <button
-              type="button"
-              onClick={() => setIsInjectDialogOpen(true)}
-              className="inline-flex items-center gap-2 px-3 py-2 border border-gray-200 rounded-lg hover:bg-gray-50 text-sm"
-            >
-              <ArrowDownToLine className="w-4 h-4" />
-              Injecter depuis Web
-            </button>
+            <>
+              <button
+                type="button"
+                onClick={handleVectorize}
+                disabled={vectorizing}
+                className="inline-flex items-center gap-2 px-3 py-2 border border-gray-200 rounded-lg hover:bg-gray-50 text-sm disabled:opacity-50"
+                title="Vectorise manuellement les fichiers du repository local (Chroma)"
+              >
+                {vectorizing ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  <Brain className="w-4 h-4" />
+                )}
+                {vectorizing ? 'Vectorisation...' : 'Vectoriser'}
+              </button>
+              <button
+                type="button"
+                onClick={handlePurgeVectoriel}
+                disabled={vectorizing}
+                className="inline-flex items-center gap-2 px-3 py-2 border border-gray-200 rounded-lg hover:bg-gray-50 text-sm disabled:opacity-50"
+                title="Supprime la BDD vectorielle locale"
+              >
+                <Trash2 className="w-4 h-4" />
+                Purger vectoriel
+              </button>
+            </>
           )}
+
+          <div className="w-px h-6 bg-gray-300 mx-1" />
+
           <button
             type="button"
             onClick={handleOpenImplante}

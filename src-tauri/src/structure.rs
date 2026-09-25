@@ -9,7 +9,6 @@ use zip::write::FileOptions;
 use zip::ZipWriter;
 
 use crate::watcher;
-use crate::auto_vectorizer;
 
 pub const MANDATORY_ROOTS: &[&str] = &[
     "Centrale", "Groupes", "bank", "documents",
@@ -262,7 +261,6 @@ pub fn tree_action(app: AppHandle, action: String, path: String, source: String,
             }
 
             let _ = watcher::start_watching(app.clone(), repo_dir.clone());
-            auto_vectorizer::start_auto_vectorizer(app, repo_dir.clone(), chroma_path);
 
             Ok(json!({
                 "success": true,
@@ -355,7 +353,6 @@ pub fn reset_local_repository(app: AppHandle, repository: Option<String>) -> Res
     }
 
     let _ = watcher::start_watching(app.clone(), repo_dir.clone());
-    auto_vectorizer::start_auto_vectorizer(app, repo_dir.clone(), chroma_path);
 
     log::info!("[SDB-RUST] reset_local_repository SORTIE success=true deleted={} copied={} chroma={}", files_deleted, files_copied, chroma_deleted);
     Ok(json!({
