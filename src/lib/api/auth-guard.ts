@@ -61,9 +61,6 @@ export async function getAuthenticatedUser(req: NextRequest) {
           // Normalize role to lowercase to match RBAC_MATRIX keys
           const normalizedRole = (user.role as string).toLowerCase();
           const role: Role = (normalizedRole in RBAC_MATRIX ? normalizedRole : "rondier") as Role;
-          console.log('[AUTH-GUARD][Bearer] User found', {
-            id: user.id, email: user.email, dbRole: user.role, normalizedRole: role,
-          });
           return {
             id: user.id,
             email: user.email,

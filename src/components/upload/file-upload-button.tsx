@@ -89,7 +89,6 @@ export function FileUploadButton({
 
         let data: any;
         if (isTauriEnv() && source !== 'web') {
-          console.log('[UPLOAD][Tauri-local] invoke upload_file', { fileName: file.name, targetPath });
           const res = await invoke<any>('upload_file', {
             fileName: file.name,
             destinationPath: targetPath || null,
@@ -98,7 +97,6 @@ export function FileUploadButton({
           });
           data = res;
         } else if (isTauriEnv() && source === 'web') {
-          console.log('[UPLOAD][Tauri-web] invoke upload_web', { fileName: file.name, targetPath });
           const res = await invoke<any>('upload_web', {
             vercelUrl: 'https://etape-b.vercel.app',
             fileName: file.name,
@@ -107,7 +105,6 @@ export function FileUploadButton({
           });
           data = res;
         } else {
-          console.log('[UPLOAD][web|browser] fetch /api/upload', { fileName: file.name, targetPath });
           const response = await fetch('/api/upload', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -128,22 +125,16 @@ export function FileUploadButton({
             message: data.message || 'OK',
             targetPath: data.filePath || data.path
           });
-          console.log(`[MUTATION-FLOW][UPLOAD][${file.name}] SUCCESS`, data);
         } else {
           uploadResults.push({
             success: false, file: file.name, path: targetPath, action: 'error',
             message: data.error || data.message || 'Erreur upload'
           });
-          console.error(`[MUTATION-FLOW][UPLOAD][${file.name}] ERROR`, data);
         }
       } catch (err) {
         uploadResults.push({
           success: false, file: file.name, path: targetPath, action: 'error',
           message: err instanceof Error ? err.message : 'Erreur inconnue'
-        });
-        console.error(`[MUTATION-FLOW][UPLOAD][${file.name}][ERROR]`, {
-          message: err instanceof Error ? err.message : String(err),
-          stack: err instanceof Error ? err.stack : undefined,
         });
       }
 
@@ -164,12 +155,9 @@ export function FileUploadButton({
     else if (dedup > 0) toast.success(`${ok - dedup} uploadé(s), ${dedup} dédupliqué(s)`, 'Upload terminé');
     else toast.success(`${ok} fichier(s) uploadé(s)`);
 
-     if (ok > 0 || dedup > 0) {
-       console.log('[MUTATION-FLOW][UPLOAD][COMPLETE]', { total: files.length, ok, dedup, failed });
-       window.dispatchEvent(new CustomEvent('structure-refresh'));
-     } else {
-       console.error('[MUTATION-FLOW][UPLOAD][FAILED]', { total: files.length, failed });
-     }
+    if (ok > 0 || dedup > 0) {
+      window.dispatchEvent(new CustomEvent('structure-refresh'));
+    }
 
     onUploadComplete?.(uploadResults);
   }, [targetPath, source, maxSize, onUploadProgress, onUploadComplete, toast]);

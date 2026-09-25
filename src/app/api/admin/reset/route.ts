@@ -37,30 +37,15 @@ const PRESERVED_TABLES = [
 ];
 
 export async function POST(request: NextRequest) {
-  const reqId = Math.random().toString(36).slice(2, 8);
-  console.log(`[RESET-API][${reqId}][1] Début`);
-
   try {
-    const authHeader = request.headers.get('authorization');
-    console.log(`[RESET-API][${reqId}][2] Authorization header`, {
-      hasHeader: !!authHeader,
-      prefix: authHeader?.substring(0, 20),
-    });
-
     const user = await getAuthenticatedUser(request);
-    console.log(`[RESET-API][${reqId}][3] User`, {
-      id: user.id, email: user.email, role: user.role,
-    });
 
     const isAdmin = user.role?.toLowerCase() === 'admin';
     if (!isAdmin) {
-      console.log(`[RESET-API][${reqId}][4] NON-ADMIN refusé`);
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
     const body = await request.json().catch(() => ({}));
-    console.log(`[RESET-API][${reqId}][5] Body`, body);
-
     const backup = body.backup === true;
 
     const prisma = getPrismaClient();
@@ -87,12 +72,6 @@ export async function POST(request: NextRequest) {
 
     revalidateTag('structure-web');
 
-    console.log(`[RESET-API][${reqId}][6] SUCCESS`, {
-      tablesTruncated: tablesTruncated.length,
-      filesInserted,
-      usersUpserted,
-      duration,
-    });
     return NextResponse.json({
       success: true,
       tablesTruncated,
@@ -101,11 +80,7 @@ export async function POST(request: NextRequest) {
       duration,
     });
   } catch (err) {
-    console.error(`[RESET-API][${reqId}][ERROR]`, {
-      message: err instanceof Error ? err.message : String(err),
-      stack: err instanceof Error ? err.stack : undefined,
-      toString: String(err),
-    });
+    console.error('Erreur reset:', err);
     return NextResponse.json(
       { success: false, error: err instanceof Error ? err.message : 'Internal error' },
       { status: 500 }

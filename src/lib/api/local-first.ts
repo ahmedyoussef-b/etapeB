@@ -57,57 +57,28 @@ export async function startSync(): Promise<any> {
   return response.json();
 }
 export async function treeAction(action: string, path: string, source: string, name?: string, repository?: string): Promise<any> {
-  const reqId = Math.random().toString(36).slice(2, 8);
-  console.log(`[TREE-ACTION][${reqId}][1] Appel`, {
-    action, path, source, name, repository,
-    isTauri: isTauriEnv(),
-    timestamp: new Date().toISOString(),
-  });
-
-  try {
-    if (isTauriEnv()) {
-      if (source === "vector") {
-        console.log(`[TREE-ACTION][${reqId}][2] Vector source rejected`);
-        throw new Error("La source vectorielle est en lecture seule.");
-      }
-      if (source === "web") {
-        console.log(`[TREE-ACTION][${reqId}][3] Tauri+web → tree_action_web`);
-        const result = await invoke('tree_action_web', {
-          vercelUrl: 'https://etape-b.vercel.app',
-          action,
-          path,
-          name: name || null,
-          repository: repository || null,
-        });
-        console.log(`[TREE-ACTION][${reqId}][4] tree_action_web result`, result);
-        return result;
-      }
-      console.log(`[TREE-ACTION][${reqId}][3] Tauri+local → tree_action`);
-      const result = await invoke("tree_action", { action, path, source, name, repository });
-      console.log(`[TREE-ACTION][${reqId}][4] tree_action result`, result);
-      return result;
+  if (isTauriEnv()) {
+    if (source === "vector") {
+      throw new Error("La source vectorielle est en lecture seule.");
     }
-
-    console.log(`[TREE-ACTION][${reqId}][3] Browser → fetch /api/tree-actions`);
-    const response = await fetch("/api/tree-actions", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ action, path, source, name, repository }),
-    });
-    console.log(`[TREE-ACTION][${reqId}][4] HTTP status`, response.status);
-    const text = await response.text();
-    console.log(`[TREE-ACTION][${reqId}][5] Raw body`, text);
-    const json = JSON.parse(text);
-    console.log(`[TREE-ACTION][${reqId}][6] Parsed`, json);
-    return json;
-  } catch (err) {
-    console.error(`[TREE-ACTION][${reqId}][ERROR]`, {
-      message: err instanceof Error ? err.message : String(err),
-      stack: err instanceof Error ? err.stack : undefined,
-      toString: String(err),
-    });
-    throw err;
+    if (source === "web") {
+      return invoke('tree_action_web', {
+        vercelUrl: 'https://etape-b.vercel.app',
+        action,
+        path,
+        name: name || null,
+        repository: repository || null,
+      });
+    }
+    return invoke("tree_action", { action, path, source, name, repository });
   }
+
+  const response = await fetch("/api/tree-actions", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ action, path, source, name, repository }),
+  });
+  return response.json();
 }
 
 export async function fetchFileContent(path: string, source: string, repository?: string): Promise<any> {

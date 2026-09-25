@@ -120,20 +120,8 @@ pub async fn reset_web(
     vercel_url: String,
     backup: Option<bool>,
 ) -> Result<serde_json::Value, String> {
-    println!("[RESET-WEB-RUST][1] Début");
-    println!("[RESET-WEB-RUST][2] URL: {}", vercel_url);
-    println!("[RESET-WEB-RUST][3] Backup: {:?}", backup);
-
-    let token = match crate::credentials::request_inject_token(&vercel_url).await {
-        Ok(t) => {
-            println!("[RESET-WEB-RUST][4] Token obtenu (len={})", t.len());
-            t
-        }
-        Err(e) => {
-            eprintln!("[RESET-WEB-RUST][ERROR] Token échoué: {}", e);
-            return Err(format!("Token error: {}", e));
-        }
-    };
+    let token = crate::credentials::request_inject_token(&vercel_url).await
+        .map_err(|e| format!("Token error: {}", e))?;
 
     let client = reqwest::Client::builder()
         .timeout(std::time::Duration::from_secs(30))
@@ -148,7 +136,6 @@ pub async fn reset_web(
     let body = serde_json::json!({
         "backup": backup.unwrap_or(false),
     });
-    println!("[RESET-WEB-RUST][5] POST {} body={}", url, body);
 
     let response = client
         .post(&url)
@@ -157,30 +144,18 @@ pub async fn reset_web(
         .json(&body)
         .send()
         .await
-        .map_err(|e| {
-            eprintln!("[RESET-WEB-RUST][ERROR] HTTP échoué: {}", e);
-            format!("HTTP error: {}", e)
-        })?;
+        .map_err(|e| format!("HTTP error: {}", e))?;
 
     let status = response.status();
-    println!("[RESET-WEB-RUST][6] HTTP status: {}", status);
-
     let text = response.text().await.unwrap_or_default();
-    println!("[RESET-WEB-RUST][7] Response body: {}", text);
-
-    let json: serde_json::Value = serde_json::from_str(&text)
-        .map_err(|e| {
-            eprintln!("[RESET-WEB-RUST][ERROR] JSON parse: {}", e);
-            format!("JSON error: {}", e)
-        })?;
 
     if !status.is_success() {
-        let err = json.get("error").and_then(|v| v.as_str()).unwrap_or("Unknown");
-        eprintln!("[RESET-WEB-RUST][ERROR] Status: {}, error: {}", status, err);
-        return Err(err.to_string());
+        return Err(text);
     }
 
-    println!("[RESET-WEB-RUST][8] SUCCESS");
+    let json: serde_json::Value = serde_json::from_str(&text)
+        .map_err(|e| format!("JSON error: {}", e))?;
+
     Ok(json)
 }
 
@@ -193,20 +168,8 @@ pub async fn tree_action_web(
     name: Option<String>,
     repository: Option<String>,
 ) -> Result<serde_json::Value, String> {
-    println!("[TREE-ACTION-RUST][1] Début");
-    println!("[TREE-ACTION-RUST][2] URL: {}", vercel_url);
-    println!("[TREE-ACTION-RUST][3] action={} path={} name={:?} repository={:?}", action, path, name, repository);
-
-    let token = match crate::credentials::request_inject_token(&vercel_url).await {
-        Ok(t) => {
-            println!("[TREE-ACTION-RUST][4] Token obtenu (len={})", t.len());
-            t
-        }
-        Err(e) => {
-            eprintln!("[TREE-ACTION-RUST][ERROR] Token échoué: {}", e);
-            return Err(format!("Token error: {}", e));
-        }
-    };
+    let token = crate::credentials::request_inject_token(&vercel_url).await
+        .map_err(|e| format!("Token error: {}", e))?;
 
     let client = reqwest::Client::builder()
         .timeout(std::time::Duration::from_secs(30))
@@ -231,8 +194,6 @@ pub async fn tree_action_web(
         body["repository"] = serde_json::Value::String(repository);
     }
 
-    println!("[TREE-ACTION-RUST][5] POST {} body={}", url, body);
-
     let response = client
         .post(&url)
         .header("Authorization", format!("Bearer {}", token))
@@ -240,29 +201,18 @@ pub async fn tree_action_web(
         .json(&body)
         .send()
         .await
-        .map_err(|e| {
-            eprintln!("[TREE-ACTION-RUST][ERROR] HTTP échoué: {}", e);
-            format!("HTTP error: {}", e)
-        })?;
+        .map_err(|e| format!("HTTP error: {}", e))?;
 
     let status = response.status();
-    println!("[TREE-ACTION-RUST][6] HTTP status: {}", status);
-
     let text = response.text().await.unwrap_or_default();
-    println!("[TREE-ACTION-RUST][7] Response body: {}", text);
 
     if !status.is_success() {
-        eprintln!("[TREE-ACTION-RUST][ERROR] Status: {}, body: {}", status, text);
         return Err(format!("Erreur HTTP {}: {}", status, text));
     }
 
     let json: serde_json::Value = serde_json::from_str(&text)
-        .map_err(|e| {
-            eprintln!("[TREE-ACTION-RUST][ERROR] JSON parse: {}", e);
-            format!("Erreur parsing JSON: {}", e)
-        })?;
+        .map_err(|e| format!("Erreur parsing JSON: {}", e))?;
 
-    println!("[TREE-ACTION-RUST][8] SUCCESS");
     Ok(json)
 }
 
@@ -274,21 +224,10 @@ pub async fn upload_web(
     base64_data: String,
     target_path: Option<String>,
 ) -> Result<serde_json::Value, String> {
-    eprintln!("[UPLOAD-WEB-RUST][1] Début file_name={}", file_name);
-
-    let token = match crate::credentials::request_inject_token(&vercel_url).await {
-        Ok(t) => {
-            eprintln!("[UPLOAD-WEB-RUST][2] Token OK (len={})", t.len());
-            t
-        }
-        Err(e) => {
-            eprintln!("[UPLOAD-WEB-RUST][ERROR-TOKEN] {}", e);
-            return Err(format!("Token error: {}", e));
-        }
-    };
+    let token = crate::credentials::request_inject_token(&vercel_url).await
+        .map_err(|e| format!("Token error: {}", e))?;
 
     let url = format!("{}/api/upload", vercel_url.trim_end_matches('/'));
-    eprintln!("[UPLOAD-WEB-RUST][3] POST {}", url);
 
     let body = serde_json::json!({
         "file": {
@@ -308,24 +247,18 @@ pub async fn upload_web(
         .json(&body)
         .send()
         .await
-        .map_err(|e| {
-            eprintln!("[UPLOAD-WEB-RUST][ERROR-HTTP] {}", e);
-            format!("HTTP error: {}", e)
-        })?;
+        .map_err(|e| format!("HTTP error: {}", e))?;
 
     let status = response.status();
     let text = response.text().await.unwrap_or_default();
-    eprintln!("[UPLOAD-WEB-RUST][4] HTTP status={} body={}", status, text);
 
     if !status.is_success() {
-        eprintln!("[UPLOAD-WEB-RUST][ERROR-STATUS] {}", status);
         return Err(text);
     }
 
     let json: serde_json::Value = serde_json::from_str(&text)
         .map_err(|e| format!("JSON error: {}", e))?;
 
-    eprintln!("[UPLOAD-WEB-RUST][5] SUCCESS");
     Ok(json)
 }
 

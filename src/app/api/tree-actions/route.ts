@@ -137,7 +137,7 @@ export async function POST(request: NextRequest) {
         );
     }
   } catch (err) {
-    console.error('[API /tree-actions] Erreur:', err);
+    console.error('Erreur tree-action:', err);
     return NextResponse.json(
       { success: false, error: err instanceof Error ? err.message : 'Internal error' },
       { status: 500 }
