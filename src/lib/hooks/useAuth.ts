@@ -4,17 +4,23 @@ import { useSession, signOut } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import { Role } from "@prisma/client";
 import { Permission } from "@/lib/types/rbac";
+import { isTauriEnv } from "@/lib/tauri/env";
 
 export function useAuth() {
   const { data: session, status } = useSession();
   const router = useRouter();
 
-  const user = session?.user;
-  const role = user?.role as Role | undefined;
-  const permissions = (user?.permissions as Permission[]) || [];
+  // In Tauri, NextAuth session provider is not mounted (avoids CLIENT_FETCH_ERROR).
+  // Tauri app uses JWT Bearer tokens for API calls. The local Tauri user is
+  // always treated as admin (desktop = full local access by the admin account).
+  const isTauri = isTauriEnv();
+  const isAuthenticated = isTauri ? true : status === "authenticated";
+  const isLoading = isTauri ? false : status === "loading";
 
-  const isAuthenticated = status === "authenticated";
-  const isLoading = status === "loading";
+  // In Tauri, derive role from environment (always admin for desktop users).
+  // In browser, derive from NextAuth session.
+  const role = isTauri ? ("ADMIN" as Role) : (session?.user?.role as Role | undefined);
+  const permissions = (session?.user?.permissions as Permission[]) || [];
 
   const hasRole = (requiredRole: Role | Role[]): boolean => {
     if (!role) return false;
@@ -29,12 +35,12 @@ export function useAuth() {
 
   const logout = async () => {
     await signOut({ redirect: false });
-    router.push("/auth/login");
+    router.push("/login");
     router.refresh();
   };
 
   return {
-    user,
+    user: session?.user ?? (isTauri ? { id: "tauri-local", email: "local", name: "Tauri" as string } : undefined),
     role,
     permissions,
     isAuthenticated,
