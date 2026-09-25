@@ -102,7 +102,7 @@ async function buildExactTreeFromDisk(absDir: string, relPath: string, basePath?
 
   const visibleEntries = entries.filter(name => {
     if (name === 'mirror_repertoire.json' || name === 'mirror.json') return false;
-    if (name.startsWith('.')) return false;
+    if (name.startsWith('.') && name !== '.meta.json') return false;
     return true;
   });
   const children: TreeNode[] = [];
@@ -515,7 +515,7 @@ async function buildDatabaseTree(
 
       const extraDirFilter = (name: string) => {
         if (name === 'mirror_repertoire.json' || name === 'mirror.json') return false;
-        if (name.startsWith('.')) return false;
+        if (name.startsWith('.') && name !== '.meta.json') return false;
         return true;
       };
 

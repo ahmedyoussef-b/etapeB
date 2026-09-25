@@ -435,7 +435,7 @@ fn build_tree(base: &Path, current: &Path) -> Vec<Value> {
         for entry in entries.flatten() {
             let path = entry.path();
             let name = entry.file_name().to_string_lossy().to_string();
-            if name.starts_with('.') {
+            if name.starts_with('.') && name != ".meta.json" {
                 continue;
             }
             let relative = path.strip_prefix(base).unwrap_or(&path);

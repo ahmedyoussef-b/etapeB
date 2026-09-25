@@ -16,6 +16,7 @@ import { syncFromWeb } from "@/lib/api/sync-tauri";
 import { isTauriEnv } from "@/lib/tauri/env";
 import { useAuth } from "@/lib/auth/use-auth";
 import { invoke } from "@tauri-apps/api/core";
+import { isButtonVisible, type ButtonKey, type VisibilityContext, assertButtonVisibility } from "./lib/button-visibility";
 
 const SYNC_TIMEOUT_MS = 60_000;
 
@@ -90,6 +91,31 @@ export default function StructureBDDPage() {
   const toast = useToastHelpers();
   const { push: pushToast, dismiss: dismissToast } = useToast();
   const { role } = useAuth();
+
+  const isAdmin = (role as string)?.toLowerCase() === 'admin';
+
+  const visibilityEnv = ((): VisibilityContext['env'] => {
+    if (isTauriEnv()) return 'tauri';
+    return 'web';
+  })();
+
+  const isLocalEditable = source === "local" && activeRepo !== ".data";
+
+  const visibilityCtx: VisibilityContext = {
+    env: visibilityEnv,
+    isAdmin,
+    isLocalEditable,
+  };
+
+  const checkButtonVisibility = (key: ButtonKey, expectedVisible: boolean) => {
+    if (process.env.NODE_ENV === 'development') {
+      try {
+        assertButtonVisibility(key, visibilityCtx, expectedVisible);
+      } catch (error) {
+        console.error('[structure-bdd][visibility-guard]', error);
+      }
+    }
+  };
 
   const { data: syncStatus, refetch: refetchStatus } = useSyncStatus();
 
@@ -274,9 +300,7 @@ export default function StructureBDDPage() {
     }
   };
 
-  const isLocalEditable = source === "local" && activeRepo !== ".data";
-
-  const canMutate = isLocalEditable || (source === "web" && (role as string)?.toLowerCase() === "admin");
+  const canMutate = source === "local" && activeRepo !== ".data" || (source === "web" && (role as string)?.toLowerCase() === "admin");
 
   const handleCopyPath = useCallback(async (node: TreeNode) => {
     const text = source === "local"
@@ -364,6 +388,16 @@ export default function StructureBDDPage() {
         <ImplanteWizard onBack={handleBackToSplit} />
       </div>
     );
+  }
+
+  if (process.env.NODE_ENV === 'development') {
+    checkButtonVisibility('resetLocal', isTauriEnv() && isAdmin);
+    checkButtonVisibility('resetWeb', isAdmin);
+    checkButtonVisibility('injectFromWeb', isTauriEnv() && isAdmin);
+    checkButtonVisibility('syncFromWeb', isTauriEnv() && isLocalEditable);
+    checkButtonVisibility('vectorize', isTauriEnv() && isAdmin);
+    checkButtonVisibility('purgeVectoriel', isTauriEnv() && isAdmin);
+    checkButtonVisibility('implante', isAdmin);
   }
 
   return (
