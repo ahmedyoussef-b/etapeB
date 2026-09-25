@@ -7,13 +7,13 @@ import { Permission } from "@/lib/types/rbac";
 import { isTauriEnv } from "@/lib/tauri/env";
 
 export function useAuth() {
-  const { data: session, status } = useSession();
+  const isTauri = isTauriEnv();
+  const { data: session, status } = isTauri ? { data: undefined, status: "unauthenticated" } : useSession();
   const router = useRouter();
 
   // In Tauri, NextAuth session provider is not mounted (avoids CLIENT_FETCH_ERROR).
   // Tauri app uses JWT Bearer tokens for API calls. The local Tauri user is
   // always treated as admin (desktop = full local access by the admin account).
-  const isTauri = isTauriEnv();
   const isAuthenticated = isTauri ? true : status === "authenticated";
   const isLoading = isTauri ? false : status === "loading";
 

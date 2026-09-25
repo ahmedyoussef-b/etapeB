@@ -5,9 +5,11 @@ import { useRouter } from "next/navigation";
 import { useCallback } from "react";
 import { Role, Permission, RBAC_MATRIX } from "@/lib/types/rbac";
 import type { AuthUser, AuthReturn } from "./types";
+import { isTauriEnv } from "@/lib/tauri/env";
 
 export function useWebAuth(): AuthReturn {
-  const sessionResult = useSession();
+  const isTauri = isTauriEnv();
+  const sessionResult = isTauri ? { data: undefined, status: "unauthenticated" as const } : useSession();
   const session = sessionResult?.data;
   const status = sessionResult?.status ?? "loading";
   const router = useRouter();
@@ -27,8 +29,8 @@ export function useWebAuth(): AuthReturn {
 
   const role = user?.role;
   const permissions = user?.permissions || [];
-  const isAuthenticated = status === "authenticated";
-  const isLoading = status === "loading";
+  const isAuthenticated = isTauri ? false : status === "authenticated";
+  const isLoading = isTauri ? false : status === "loading";
 
   const hasRole = useCallback(
     (requiredRole: Role | Role[]): boolean => {
