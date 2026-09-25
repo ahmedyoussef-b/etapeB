@@ -249,6 +249,13 @@ pub fn tree_action(app: AppHandle, action: String, path: String, source: String,
                 }
             }
 
+            let registry_items = repo_dir.join("registry").join("items");
+            if let Err(e) = fs::create_dir_all(&registry_items) {
+                log::warn!("[SDB-RUST-RESET] impossible de créer registry/items: {}", e);
+            } else {
+                log::info!("[SDB-RUST-RESET] registry/items garantie: {:?}", registry_items);
+            }
+
             let chroma_deleted = chroma_path.exists();
             if chroma_deleted {
                 fs::remove_dir_all(&chroma_path).map_err(|e| e.to_string())?;
@@ -333,6 +340,13 @@ pub fn reset_local_repository(app: AppHandle, repository: Option<String>) -> Res
         } else {
             log::info!("[SDB-RUST-RESET] racine garantie: {:?}", path);
         }
+    }
+
+    let registry_items = repo_dir.join("registry").join("items");
+    if let Err(e) = fs::create_dir_all(&registry_items) {
+        log::warn!("[SDB-RUST-RESET] impossible de créer registry/items: {}", e);
+    } else {
+        log::info!("[SDB-RUST-RESET] registry/items garantie: {:?}", registry_items);
     }
 
     let chroma_deleted = chroma_path.exists();

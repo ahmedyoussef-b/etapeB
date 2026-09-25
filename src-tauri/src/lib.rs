@@ -165,6 +165,13 @@ fn ensure_initial_repository(app: &tauri::AppHandle) -> Result<(), String> {
         }
     }
 
+    let registry_items = target.join("registry").join("items");
+    if let Err(e) = std::fs::create_dir_all(&registry_items) {
+        eprintln!("[init] impossible de créer registry/items: {}", e);
+    } else {
+        println!("[init] registry/items garantie: {:?}", registry_items);
+    }
+
     Ok(())
 }
 
