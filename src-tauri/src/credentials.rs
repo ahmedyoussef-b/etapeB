@@ -1,8 +1,6 @@
-use keyring::Entry;
 use serde::{Deserialize, Serialize};
-
-const SERVICE_NAME: &str = "com.nexaflow.app";
-const USERNAME: &str = "vercel";
+use std::fs;
+use std::path::PathBuf;
 
 #[derive(Serialize, Deserialize)]
 struct VercelCredentials {
@@ -10,32 +8,39 @@ struct VercelCredentials {
     password: String,
 }
 
-fn entry() -> Result<Entry, String> {
-    Entry::new(SERVICE_NAME, USERNAME).map_err(|e| e.to_string())
+fn credentials_path() -> Result<PathBuf, String> {
+    let appdata = std::env::var("APPDATA")
+        .map_err(|_| "APPDATA missing".to_string())?;
+    let dir = PathBuf::from(appdata).join("NexaFlow");
+    fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
+    Ok(dir.join("vercel-credentials.json"))
 }
 
 #[tauri::command]
 pub fn save_vercel_credentials(email: String, password: String) -> Result<(), String> {
     let creds = VercelCredentials { email, password };
     let json = serde_json::to_string(&creds).map_err(|e| e.to_string())?;
-    entry()?.set_password(&json).map_err(|e| e.to_string())
+    fs::write(credentials_path()?, json).map_err(|e| e.to_string())
 }
 
 #[tauri::command]
 pub fn clear_vercel_credentials() -> Result<(), String> {
-    entry()?.delete_credential().map_err(|e| e.to_string())
+    let path = credentials_path()?;
+    if path.exists() {
+        fs::remove_file(&path).map_err(|e| e.to_string())
+    } else {
+        Ok(())
+    }
 }
 
 #[tauri::command]
 pub fn has_vercel_credentials() -> bool {
-    entry()
-        .ok()
-        .and_then(|e| e.get_password().ok())
-        .is_some()
+    credentials_path().map(|p| p.exists()).unwrap_or(false)
 }
 
 fn get_vercel_credentials() -> Result<VercelCredentials, String> {
-    let json = entry()?.get_password().map_err(|e| e.to_string())?;
+    let path = credentials_path()?;
+    let json = fs::read_to_string(&path).map_err(|e| e.to_string())?;
     serde_json::from_str(&json).map_err(|e| e.to_string())
 }
 
