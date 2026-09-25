@@ -123,7 +123,7 @@ export async function POST(request: Request) {
       where: { email: normalizedEmail },
     });
 
-    logger.info('Tauri token auth: user lookup result', { email: normalizedEmail, found: !!user, hasPassword: !!user?.password, ip });
+    logger.info('Tauri token auth: user lookup result', { email: normalizedEmail, found: !!user, role: user?.role, ip });
 
     if (!user || !user.password) {
       await logAuditFailure(prisma, normalizedEmail, ip);
@@ -160,9 +160,12 @@ export async function POST(request: Request) {
       );
     }
 
-    if (user.role !== 'ADMIN') {
-      logger.warn('Tauri token auth: non-admin role', { email: normalizedEmail, userId: user.id, role: user.role, ip });
+    const isAdmin = user.role?.toLowerCase() === 'admin';
+    logger.info('Tauri token auth: role check', { email: normalizedEmail, userId: user.id, role: user.role, isAdmin, ip });
+
+    if (!isAdmin) {
       await logAuditFailure(prisma, normalizedEmail, ip);
+      logger.warn('Tauri token auth: non-admin role', { email: normalizedEmail, userId: user.id, role: user.role, ip });
       return NextResponse.json(
         { error: 'Invalid credentials' },
         {
