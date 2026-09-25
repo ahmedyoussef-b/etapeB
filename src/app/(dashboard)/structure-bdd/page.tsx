@@ -69,6 +69,10 @@ export default function StructureBDDPage() {
     if (typeof window !== "undefined" && process.env.NEXT_PUBLIC_VERCEL_ENV) {
       return "web";
     }
+    // En Tauri desktop, forcer 'web' par défaut (la BDD locale .data est une référence immuable)
+    if (typeof window !== "undefined" && isTauriEnv()) {
+      return "web";
+    }
     // En local, lire depuis localStorage
     if (typeof window !== "undefined") {
       const stored = localStorage.getItem("bdd-source");

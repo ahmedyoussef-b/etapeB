@@ -120,42 +120,75 @@ pub async fn reset_web(
     vercel_url: String,
     backup: Option<bool>,
 ) -> Result<serde_json::Value, String> {
-    let token = crate::credentials::request_inject_token(&vercel_url).await
-        .map_err(|e| format!("Token error: {}", e))?;
+    eprintln!("[RESET-RUST][1] Début reset_web url={} backup={:?}", vercel_url, backup);
 
-    let client = reqwest::Client::builder()
+    let token = match crate::credentials::request_inject_token(&vercel_url).await {
+        Ok(t) => {
+            eprintln!("[RESET-RUST][2] Token OK len={}", t.len());
+            t
+        }
+        Err(e) => {
+            eprintln!("[RESET-RUST][ERROR] Token failed: {}", e);
+            return Err(format!("Token error: {}", e));
+        }
+    };
+
+    let client = match reqwest::Client::builder()
         .timeout(std::time::Duration::from_secs(30))
         .build()
-        .map_err(|e| format!("Erreur construction client HTTP: {}", e))?;
+    {
+        Ok(c) => c,
+        Err(e) => {
+            eprintln!("[RESET-RUST][ERROR] Client build failed: {}", e);
+            return Err(format!("HTTP error: {}", e));
+        }
+    };
 
     let url = format!(
         "{}/api/admin/reset",
         vercel_url.trim_end_matches('/')
     );
+    eprintln!("[RESET-RUST][3] POST {}", url);
 
     let body = serde_json::json!({
         "backup": backup.unwrap_or(false),
     });
+    eprintln!("[RESET-RUST][4] Body: {}", body);
 
-    let response = client
+    let response = match client
         .post(&url)
         .header("Authorization", format!("Bearer {}", token))
         .header("Content-Type", "application/json")
         .json(&body)
         .send()
         .await
-        .map_err(|e| format!("HTTP error: {}", e))?;
+    {
+        Ok(r) => r,
+        Err(e) => {
+            eprintln!("[RESET-RUST][ERROR] HTTP send failed: {}", e);
+            return Err(format!("HTTP error: {}", e));
+        }
+    };
 
     let status = response.status();
     let text = response.text().await.unwrap_or_default();
+    eprintln!("[RESET-RUST][5] HTTP status: {}", status);
+    eprintln!("[RESET-RUST][6] Response body: {}", text);
 
     if !status.is_success() {
+        eprintln!("[RESET-RUST][ERROR] Non-success status: {}", status);
         return Err(text);
     }
 
-    let json: serde_json::Value = serde_json::from_str(&text)
-        .map_err(|e| format!("JSON error: {}", e))?;
+    let json: serde_json::Value = match serde_json::from_str(&text) {
+        Ok(j) => j,
+        Err(e) => {
+            eprintln!("[RESET-RUST][ERROR] JSON parse failed: {}", e);
+            return Err(format!("JSON error: {}", e));
+        }
+    };
 
+    eprintln!("[RESET-RUST][7] SUCCESS: {}", json);
     Ok(json)
 }
 
