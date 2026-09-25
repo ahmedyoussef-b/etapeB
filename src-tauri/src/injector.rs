@@ -22,6 +22,11 @@ fn repo_dir() -> PathBuf {
     PathBuf::from(_get_user_data_path()).join("repository")
 }
 
+fn is_placeholder(name: &str) -> bool {
+    let lower = name.to_lowercase();
+    lower.starts_with("placeholder") || lower == "thumbs.db" || lower == ".ds_store"
+}
+
 fn versioned_path(repo: &Path, rel_path: &str) -> (PathBuf, bool) {
     let target = repo.join(rel_path);
     if !target.exists() {
@@ -99,37 +104,73 @@ pub async fn inject_from_web(
     app: AppHandle,
     vercel_url: String,
 ) -> Result<InjectReport, String> {
-    let token = crate::credentials::request_inject_token(&vercel_url).await?;
+    eprintln!("[INJECT][1] Début inject_from_web url={}", vercel_url);
+    let token = match crate::credentials::request_inject_token(&vercel_url).await {
+        Ok(t) => {
+            eprintln!("[INJECT][2] Token OK len={}", t.len());
+            t
+        }
+        Err(e) => {
+            eprintln!("[INJECT][ERROR] Token failed: {}", e);
+            return Err(format!("Token error: {}", e));
+        }
+    };
 
-    let client = Client::builder()
+    let client = match Client::builder()
         .timeout(std::time::Duration::from_secs(30))
         .build()
-        .map_err(|e| format!("Erreur construction client HTTP: {}", e))?;
+    {
+        Ok(c) => c,
+        Err(e) => {
+            eprintln!("[INJECT][ERROR] Client build failed: {}", e);
+            return Err(format!("HTTP error: {}", e));
+        }
+    };
 
     let list_url = format!("{}/api/web-files", vercel_url);
-    let list_response = client
+    eprintln!("[INJECT][3] Listing URL: {}", list_url);
+    let list_response = match client
         .get(&list_url)
         .header("Authorization", format!("Bearer {}", token))
         .send()
         .await
-        .map_err(|e| format!("Erreur réseau lors du listing: {}", e))?;
+    {
+        Ok(r) => r,
+        Err(e) => {
+            eprintln!("[INJECT][ERROR] Listing HTTP failed: {}", e);
+            return Err(format!("Erreur réseau lors du listing: {}", e));
+        }
+    };
 
-    if !list_response.status().is_success() {
+    let list_status = list_response.status();
+    eprintln!("[INJECT][4] Listing HTTP status: {}", list_status);
+    if !list_status.is_success() {
+        let text = list_response.text().await.unwrap_or_default();
+        eprintln!("[INJECT][ERROR] Listing failed body: {}", text);
         return Err(format!(
             "Erreur HTTP {} lors du listing",
-            list_response.status()
+            list_status
         ));
     }
 
-    let payload: serde_json::Value = list_response
-        .json()
-        .await
-        .map_err(|e| format!("Erreur parsing JSON listing: {}", e))?;
+    let payload: serde_json::Value = match list_response.json().await {
+        Ok(p) => p,
+        Err(e) => {
+            eprintln!("[INJECT][ERROR] JSON parse failed: {}", e);
+            return Err(format!("Erreur parsing JSON listing: {}", e));
+        }
+    };
 
-    let files: Vec<WebFileInfo> = serde_json::from_value(payload["files"].clone())
-        .map_err(|e| format!("Erreur déserialisation fichiers: {}", e))?;
+    let files: Vec<WebFileInfo> = match serde_json::from_value(payload["files"].clone()) {
+        Ok(f) => f,
+        Err(e) => {
+            eprintln!("[INJECT][ERROR] Deserialization failed: {}", e);
+            return Err(format!("Erreur déserialisation fichiers: {}", e));
+        }
+    };
 
     let total = files.len();
+    eprintln!("[INJECT][5] Total files to inject: {}", total);
     if total == 0 {
         return Ok(InjectReport {
             injected: 0,
@@ -140,6 +181,7 @@ pub async fn inject_from_web(
     }
 
     let repo = repo_dir();
+    eprintln!("[INJECT][6] Repository dir: {}", repo.display());
     let mut report = InjectReport {
         injected: 0,
         conflicts: 0,
@@ -160,10 +202,19 @@ pub async fn inject_from_web(
             }),
         );
 
+        if is_placeholder(&file.path) {
+            eprintln!("[INJECT][SKIP][{}] Placeholder file: {}", current, file.path);
+            report.skipped += 1;
+            continue;
+        }
+
+        eprintln!("[INJECT][{}] Downloading: {}", current, file.path);
         match download_file(&client, &vercel_url, &token, &file.path).await {
             Ok(bytes) => {
+                eprintln!("[INJECT][{}] Downloaded {} bytes for {}", current, bytes.len(), file.path);
                 let target_rel = &file.path;
                 let target_abs = repo.join(target_rel);
+                eprintln!("[INJECT][{}] Target abs: {}", current, target_abs.display());
 
                 if let Some(parent) = target_abs.parent() {
                     if let Err(e) = fs::create_dir_all(parent) {
@@ -178,9 +229,24 @@ pub async fn inject_from_web(
                 }
 
                 let (final_path, is_conflict) = versioned_path(&repo, target_rel);
+                eprintln!("[INJECT][{}] Final path: {} (conflict: {})", current, final_path.display(), is_conflict);
 
                 if is_conflict {
                     report.conflicts += 1;
+                }
+
+                if let Some(final_parent) = final_path.parent() {
+                    if !final_parent.exists() {
+                        if let Err(e) = fs::create_dir_all(final_parent) {
+                            report.errors.push(format!(
+                                "Impossible de créer le répertoire parent {}: {}",
+                                final_parent.display(),
+                                e
+                            ));
+                            report.skipped += 1;
+                            continue;
+                        }
+                    }
                 }
 
                 if let Err(e) = fs::write(&final_path, bytes) {
