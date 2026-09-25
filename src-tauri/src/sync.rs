@@ -91,6 +91,19 @@ fn compute_file_hash(path: &Path) -> Result<String, std::io::Error> {
     Ok(hex::encode(hasher.finalize()))
 }
 
+fn create_all_dirs(src: &Path, dst: &Path) -> Result<(), String> {
+    for entry in fs::read_dir(src).map_err(|e| e.to_string())? {
+        let entry = entry.map_err(|e| e.to_string())?;
+        let dest = dst.join(entry.file_name());
+        let ft = entry.file_type().map_err(|e| e.to_string())?;
+        if ft.is_dir() {
+            fs::create_dir_all(&dest).map_err(|e| e.to_string())?;
+            create_all_dirs(&entry.path(), &dest)?;
+        }
+    }
+    Ok(())
+}
+
 #[tauri::command]
 pub async fn init_app(app: AppHandle) -> Result<InitResult, String> {
     let repo_dir = resolve_repository_dir(None);
@@ -107,6 +120,7 @@ pub async fn init_app(app: AppHandle) -> Result<InitResult, String> {
 
     if is_empty && source_data.exists() {
         println!("[sync::init_app] Initialisation repository depuis {}", source_data.display());
+        let _ = create_all_dirs(&source_data, &repo_dir);
         for entry in WalkDir::new(&source_data).min_depth(1) {
             if let Ok(entry) = entry {
                 let relative = match entry.path().strip_prefix(&source_data) {
@@ -116,12 +130,13 @@ pub async fn init_app(app: AppHandle) -> Result<InitResult, String> {
                 let dest = repo_dir.join(relative);
 
                 if entry.file_type().is_dir() {
-                    let _ = fs::create_dir_all(&dest);
+                    continue;
                 } else if entry.file_type().is_file() {
                     if let Some(parent) = dest.parent() {
                         let _ = fs::create_dir_all(parent);
                     }
                     let _ = fs::copy(entry.path(), &dest);
+                    println!("[sync::init_app] COPIE {:?} -> {:?}", entry.path(), dest);
                 }
             }
         }

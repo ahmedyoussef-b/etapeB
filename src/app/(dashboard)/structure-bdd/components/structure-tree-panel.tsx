@@ -107,6 +107,7 @@ export function StructureTreePanel({
 
       <div className="flex-1 overflow-hidden">
         <DatabaseTree
+          key={refreshKey}
           source={source}
           onSelect={onSelectNode}
           selectedPath={selectedPath}

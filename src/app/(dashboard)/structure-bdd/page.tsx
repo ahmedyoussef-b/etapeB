@@ -6,7 +6,6 @@ import { StructureTreePanel } from "./components/structure-tree-panel";
 import { useSyncStatus } from "./hooks/useSyncStatus";
 import { StructureDetailPanel } from "@/components/structure/structure-detail-panel";
 import { ImplanteWizard } from "./components/implante-wizard";
-import { ResetDatabaseDialog } from "@/components/structure/reset-database-dialog";
 import { InjectFromWebDialog } from "@/components/admin/InjectFromWebDialog";
 import type { TreeNode } from "@/components/structure/tree-utils";
 import { useToastHelpers, useToast } from "@/components/notifications/toast-provider";
@@ -63,30 +62,29 @@ function dataUrlToBlob(dataUrl: string, fallbackMimeType: string): Blob {
 type ViewMode = "split" | "implante";
 
 export default function StructureBDDPage() {
+  if (typeof window !== "undefined") {
+    console.log("[SDB-INIT] origin:", window.location.origin);
+    console.log("[SDB-INIT] isTauri:", !!(window as any).__TAURI__);
+  }
   const [viewMode, setViewMode] = useState<ViewMode>("split");
+  type ResetTarget = 'local' | 'web';
+
+  const [treeKey, setTreeKey] = useState(0);
   const [source, setSource] = useState<StructureSource>(() => {
-    // En production Vercel, forcer 'web'
-    if (typeof window !== "undefined" && process.env.NEXT_PUBLIC_VERCEL_ENV) {
-      return "web";
+    if (typeof window === "undefined") return "web";
+    const saved = localStorage.getItem("bdd-source");
+    if (saved === "local" || saved === "web" || saved === "vector") {
+      console.log("[SDB-STATE] source initiale:", saved, "(localStorage)");
+      return saved as StructureSource;
     }
-    // En Tauri desktop, forcer 'web' par défaut (la BDD locale .data est une référence immuable)
-    if (typeof window !== "undefined" && isTauriEnv()) {
-      return "web";
-    }
-    // En local, lire depuis localStorage
-    if (typeof window !== "undefined") {
-      const stored = localStorage.getItem("bdd-source");
-      if (stored === "local" || stored === "web" || stored === "vector") return stored;
-    }
-    return "local";
+    console.log("[SDB-STATE] source initiale: web (défaut)");
+    return "web";
   });
   const isVercel = !!process.env.NEXT_PUBLIC_VERCEL_ENV;
   const [selectedNode, setSelectedNode] = useState<TreeNode | null>(null);
   const [activeRepo, setActiveRepo] = useState<string>('repository');
   const [resetting, setResetting] = useState(false);
   const [syncingFiles, setSyncingFiles] = useState(false);
-  const [refreshKey, setRefreshKey] = useState(0);
-  const [isResetDialogOpen, setIsResetDialogOpen] = useState(false);
   const [isInjectDialogOpen, setIsInjectDialogOpen] = useState(false);
   const toast = useToastHelpers();
   const { push: pushToast, dismiss: dismissToast } = useToast();
@@ -95,22 +93,26 @@ export default function StructureBDDPage() {
   const { data: syncStatus, refetch: refetchStatus } = useSyncStatus();
 
   const handleSourceChange = useCallback((newSource: StructureSource) => {
+    console.log("[SDB-UI] clic changement source:", source, "→", newSource, "| stack:", new Error().stack);
     if ((newSource === "local" || newSource === "vector") && process.env.NEXT_PUBLIC_VERCEL_ENV) {
+      console.log("[SDB-STATE] changement source bloqué (Vercel)");
       return;
     }
+    console.log("[SDB-STATE] source changée:", source, "→", newSource);
     setSource(newSource);
     setSelectedNode(null);
     if (!process.env.NEXT_PUBLIC_VERCEL_ENV) {
       localStorage.setItem("bdd-source", newSource);
+      console.log("[SDB-STATE] localStorage bdd-source =", newSource);
     }
-  }, []);
+  }, [source]);
 
   const handleSelect = useCallback((node: TreeNode) => {
     setSelectedNode(node);
   }, []);
 
   const handleRefresh = useCallback(() => {
-    setRefreshKey(k => k + 1);
+    setTreeKey(k => k + 1);
     refetchStatus();
   }, [refetchStatus]);
 
@@ -123,63 +125,50 @@ export default function StructureBDDPage() {
     setViewMode("split");
   }, []);
 
-  const handleResetFromData = useCallback(async () => {
-    setIsResetDialogOpen(true);
-  }, []);
-
-  const handleResetConfirm = useCallback(async ({ backup }: { backup: boolean }) => {
-    if (source === "vector") {
-      toast.error("La source vectorielle ne peut pas être réinitialisée");
-      return;
-    }
+  const handleReset = async (target: ResetTarget) => {
+    console.log(`[SDB-UI] === RESET ${target.toUpperCase()} ===`);
+    console.log('[SDB-UI] source affichée (ignorée):', source);
+    console.log('[SDB-UI] cible FORCÉE:', target);
 
     setResetting(true);
     try {
-      if (backup && isTauriEnv()) {
-        try {
-          await invoke("create_backup", { repository: activeRepo || ".data" });
-        } catch {
-          toast.warning("Backup échoué, le reset continue");
-        }
-      }
-
-      let json: any;
+      let result: any;
       if (isTauriEnv()) {
-        if (source === "web") {
-          const result = await invoke<any>("reset_web", {
-            vercelUrl: "https://etape-b.vercel.app",
-            backup,
+        if (target === 'local') {
+          console.log('[SDB-RUST] appel reset_local_repository');
+          result = await invoke('reset_local_repository', {
+            repository: activeRepo || 'repository',
           });
-          json = result;
-        } else if (source === "local") {
-          const result = await invoke<any>("reset_local_repository", {
-            repository: activeRepo || ".data",
-          });
-          json = result;
         } else {
-          throw new Error("Source de reset non supportée : " + source);
+          console.log('[SDB-RUST] appel reset_web');
+          result = await invoke('reset_web');
         }
       } else {
-        const res = await fetch("/api/admin/reset", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ backup }),
-        });
-        json = await res.json();
+        if (target === 'local') {
+          toast.error('Reset local uniquement en Tauri');
+          return;
+        }
+        console.log('[SDB-API] appel /api/admin/reset (navigateur)');
+        const res = await fetch('/api/admin/reset', { method: 'POST' });
+        result = await res.json();
       }
 
-      if (json?.success) {
-        toast.success("Réinitialisation terminée");
-        window.location.reload();
-      } else {
-        toast.error(json?.error || "Erreur lors de la réinitialisation");
-      }
+      console.log('[SDB-UI] reset terminé:', result);
+
+      // ✅ FIX : pas de reload — forcer la cible + remonter le tree
+      setSource(target);
+      localStorage.setItem('bdd-source', target);
+      setTreeKey(prev => prev + 1);
+      refetchStatus();
+
+      toast.success(`BDD ${target === 'local' ? 'locale' : 'Web'} réinitialisée`);
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Erreur lors de la réinitialisation");
+      console.error(`[SDB-UI] erreur reset ${target}:`, err);
+      toast.error('Erreur lors de la réinitialisation');
     } finally {
       setResetting(false);
     }
-  }, [activeRepo, source, toast]);
+  };
 
   const handleSyncFiles = useCallback(async () => {
     setSyncingFiles(true);
@@ -208,7 +197,7 @@ export default function StructureBDDPage() {
         } else {
           toast.success(summary, 'Synchronisation des fichiers');
         }
-        setRefreshKey(k => k + 1);
+        setTreeKey(k => k + 1);
         refetchStatus();
       } else {
         toast.error(json?.error || 'Erreur lors de la synchronisation');
@@ -273,7 +262,7 @@ export default function StructureBDDPage() {
     const result = await treeAction("rename", node.path, source, newName.trim(), activeRepo || undefined);
     if (result.success) {
       toast.success(`Renommé : "${node.name}" → "${newName.trim()}"`);
-      setRefreshKey(k => k + 1);
+      setTreeKey(k => k + 1);
     } else {
       toast.error(result.error || "Renommage impossible");
     }
@@ -299,11 +288,11 @@ export default function StructureBDDPage() {
           dismissToast(id);
         },
         onCancel: () => {
-          setRefreshKey(k => k + 1);
+          setTreeKey(k => k + 1);
         }
       });
       setTimeout(() => dismissToast(id), 8000);
-      setRefreshKey(k => k + 1);
+      setTreeKey(k => k + 1);
     } else {
       toast.error(result.error || "Suppression impossible");
     }
@@ -386,7 +375,7 @@ export default function StructureBDDPage() {
           {(role as string) === "admin" && source !== "vector" && (
             <button
               type="button"
-              onClick={handleResetFromData}
+              onClick={() => handleReset('local')}
               disabled={resetting}
               className="inline-flex items-center gap-2 px-3 py-2 border border-gray-200 rounded-lg hover:bg-gray-50 text-sm disabled:opacity-50"
             >
@@ -395,7 +384,22 @@ export default function StructureBDDPage() {
               ) : (
                 <Database className="w-4 h-4" />
               )}
-              {source === "web" ? "Reset BDD" : "Réinitialiser depuis .data/"}
+              Réinitialiser depuis .data/
+            </button>
+          )}
+          {(role as string) === "admin" && isTauriEnv() && (
+            <button
+              type="button"
+              onClick={() => handleReset('web')}
+              disabled={resetting}
+              className="inline-flex items-center gap-2 px-3 py-2 border border-gray-200 rounded-lg hover:bg-gray-50 text-sm disabled:opacity-50"
+            >
+              {resetting ? (
+                <RefreshCw className="w-4 h-4 animate-spin" />
+              ) : (
+                <Database className="w-4 h-4" />
+              )}
+              Réinitialiser depuis Web
             </button>
           )}
           {(role as string) === "admin" && isTauriEnv() && (
@@ -422,13 +426,13 @@ export default function StructureBDDPage() {
       <div className="flex-1 grid grid-cols-1 lg:grid-cols-2 gap-4 min-h-0">
         <div className="min-h-0">
           <StructureTreePanel
-            key={refreshKey}
+            key={treeKey}
             source={source}
             onSelectNode={handleSelect}
             selectedPath={selectedNode?.path}
             onRefresh={handleRefresh}
             activeRepo={activeRepo}
-            refreshKey={refreshKey}
+            refreshKey={treeKey}
             isAdmin={(role as string) === "admin"}
             onCopyPath={handleCopyPath}
             onDownload={handleDownload}
@@ -474,18 +478,11 @@ export default function StructureBDDPage() {
         </span>
       </div>
 
-      <ResetDatabaseDialog
-        open={isResetDialogOpen}
-        onOpenChange={setIsResetDialogOpen}
-        source={source}
-        onConfirm={handleResetConfirm}
-        isLoading={resetting}
-      />
       <InjectFromWebDialog
         open={isInjectDialogOpen}
         onOpenChange={setIsInjectDialogOpen}
         onComplete={() => {
-          setRefreshKey(k => k + 1);
+          setTreeKey(k => k + 1);
           refetchStatus();
         }}
       />

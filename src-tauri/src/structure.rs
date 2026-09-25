@@ -1,3 +1,4 @@
+use log::{info, error};
 use std::fs;
 use std::io::{Read, Write};
 use std::path::{Path, PathBuf};
@@ -9,6 +10,11 @@ use zip::ZipWriter;
 
 use crate::watcher;
 use crate::auto_vectorizer;
+
+pub const MANDATORY_ROOTS: &[&str] = &[
+    "Centrale", "Groupes", "bank", "documents",
+    "indexes", "library", "registry", "system",
+];
 
 fn user_data_root() -> PathBuf {
     PathBuf::from(if cfg!(target_os = "windows") {
@@ -64,6 +70,7 @@ pub fn resolve_data_path(app: &AppHandle) -> PathBuf {
 
 #[tauri::command]
 pub fn get_structure_tree(app: AppHandle, source: String, path: Option<String>, repository: Option<String>) -> Result<Value, String> {
+    log::info!("[SDB-RUST-TREE] ENTRÉE source={:?} path={:?}", source, path);
     let base = match source.as_str() {
         "local" => {
             let resolved = resolve_repository_path(repository.as_deref());
@@ -75,14 +82,19 @@ pub fn get_structure_tree(app: AppHandle, source: String, path: Option<String>, 
         }
         _ => resolve_data_path(&app),
     };
+    log::info!("[SDB-RUST-TREE] base résolu: {:?} existe: {}", base, base.exists());
 
-    let target = if let Some(p) = path {
-        if p.is_empty() { base.clone() } else { base.join(p) }
+    let target = if let Some(p) = &path {
+        let clean = p.trim_start_matches(['/', '\\']);
+        let t = if clean.is_empty() { base.clone() } else { base.join(clean) };
+        log::info!("[SDB-RUST-TREE] target={:?} existe: {}", t, t.exists());
+        t
     } else {
         base.clone()
     };
 
     if !target.exists() {
+        log::info!("[SDB-RUST-TREE] get_structure_tree target missing -> empty tree target={}", target.display());
         return Ok(json!({
             "success": true,
             "data": [],
@@ -90,7 +102,9 @@ pub fn get_structure_tree(app: AppHandle, source: String, path: Option<String>, 
         }));
     }
 
-    let nodes = build_tree(&target, &target);
+    let nodes = build_tree(&base, &target);
+    let root_names: Vec<String> = nodes.iter().filter_map(|n| n.get("name").and_then(|v| v.as_str()).map(|s| s.to_string())).collect();
+    log::info!("[SDB-RUST-TREE] {} noeuds retournés target={} racines={:?}", nodes.len(), target.display(), root_names);
     Ok(json!({
         "success": true,
         "data": nodes,
@@ -196,6 +210,10 @@ pub fn tree_action(app: AppHandle, action: String, path: String, source: String,
             }
 
             let mut files_copied = 0usize;
+            let mut dirs_created = 0usize;
+            if source_dir.exists() {
+                let _ = create_all_dirs(&source_dir, &repo_dir, &mut dirs_created);
+            }
             if source_dir.exists() {
                 for entry in WalkDir::new(&source_dir).min_depth(1) {
                     let entry = entry.map_err(|e| e.to_string())?;
@@ -206,7 +224,7 @@ pub fn tree_action(app: AppHandle, action: String, path: String, source: String,
                     let dest = repo_dir.join(relative);
 
                     if entry.file_type().is_dir() {
-                        fs::create_dir_all(&dest).map_err(|e| e.to_string())?;
+                        continue;
                     } else if entry.file_type().is_file() {
                         if let Some(parent) = dest.parent() {
                             fs::create_dir_all(parent).map_err(|e| e.to_string())?;
@@ -214,6 +232,20 @@ pub fn tree_action(app: AppHandle, action: String, path: String, source: String,
                         fs::copy(entry.path(), &dest).map_err(|e| e.to_string())?;
                         files_copied += 1;
                     }
+                }
+            }
+            log::info!("[SDB-RUST-RESET] tree_action resetFromData fichiers copiés={} dossiers créés={}", files_copied, dirs_created);
+            if let Ok(entries) = fs::read_dir(&repo_dir) {
+                let roots: Vec<String> = entries.flatten().filter_map(|e| e.path().file_name().and_then(|n| n.to_str().map(|s| s.to_string()))).collect();
+                log::info!("[SDB-RUST-RESET] tree_action resetFromData repository racines={:?}", roots);
+            }
+
+            for root in MANDATORY_ROOTS {
+                let path = repo_dir.join(root);
+                if let Err(e) = fs::create_dir_all(&path) {
+                    log::warn!("[SDB-RUST-RESET] impossible de créer {:?}: {}", path, e);
+                } else {
+                    log::info!("[SDB-RUST-RESET] racine garantie: {:?}", path);
                 }
             }
 
@@ -242,6 +274,7 @@ pub fn reset_local_repository(app: AppHandle, repository: Option<String>) -> Res
     let repo_dir = resolve_repository_path(repository.as_deref());
     let source_dir = resolve_data_path(&app);
     let chroma_path = user_data_root().join("chroma");
+    log::info!("[SDB-RUST] reset_local_repository ENTRÉE repo={} source={}", repo_dir.display(), source_dir.display());
 
     let _ = watcher::stop_watching(&app);
 
@@ -258,8 +291,15 @@ pub fn reset_local_repository(app: AppHandle, repository: Option<String>) -> Res
             files_deleted += 1;
         }
     }
+    log::info!("[SDB-RUST] reset_local_repository fichiers supprimés={}", files_deleted);
 
     let mut files_copied = 0usize;
+    let mut dirs_created = 0usize;
+
+    if source_dir.exists() {
+        let _ = create_all_dirs(&source_dir, &repo_dir, &mut dirs_created);
+    }
+
     if source_dir.exists() {
         for entry in WalkDir::new(&source_dir).min_depth(1) {
             let entry = entry.map_err(|e| e.to_string())?;
@@ -270,7 +310,7 @@ pub fn reset_local_repository(app: AppHandle, repository: Option<String>) -> Res
             let dest = repo_dir.join(relative);
 
             if entry.file_type().is_dir() {
-                fs::create_dir_all(&dest).map_err(|e| e.to_string())?;
+                continue;
             } else if entry.file_type().is_file() {
                 if let Some(parent) = dest.parent() {
                     fs::create_dir_all(parent).map_err(|e| e.to_string())?;
@@ -278,6 +318,20 @@ pub fn reset_local_repository(app: AppHandle, repository: Option<String>) -> Res
                 fs::copy(entry.path(), &dest).map_err(|e| e.to_string())?;
                 files_copied += 1;
             }
+        }
+    }
+    log::info!("[SDB-RUST-RESET] reset_local_repository fichiers copiés={} dossiers créés={}", files_copied, dirs_created);
+    if let Ok(entries) = fs::read_dir(&repo_dir) {
+        let roots: Vec<String> = entries.flatten().filter_map(|e| e.path().file_name().and_then(|n| n.to_str().map(|s| s.to_string()))).collect();
+        log::info!("[SDB-RUST-RESET] reset_local_repository repository racines={:?}", roots);
+    }
+
+    for root in MANDATORY_ROOTS {
+        let path = repo_dir.join(root);
+        if let Err(e) = fs::create_dir_all(&path) {
+            log::warn!("[SDB-RUST-RESET] impossible de créer {:?}: {}", path, e);
+        } else {
+            log::info!("[SDB-RUST-RESET] racine garantie: {:?}", path);
         }
     }
 
@@ -289,6 +343,7 @@ pub fn reset_local_repository(app: AppHandle, repository: Option<String>) -> Res
     let _ = watcher::start_watching(app.clone(), repo_dir.clone());
     auto_vectorizer::start_auto_vectorizer(app, repo_dir.clone(), chroma_path);
 
+    log::info!("[SDB-RUST] reset_local_repository SORTIE success=true deleted={} copied={} chroma={}", files_deleted, files_copied, chroma_deleted);
     Ok(json!({
         "success": true,
         "filesDeleted": files_deleted,
@@ -349,14 +404,31 @@ pub fn create_backup(repository: Option<String>) -> Result<String, String> {
     Ok(zip_path.to_string_lossy().to_string())
 }
 
+fn create_all_dirs(src: &Path, dst: &Path, dirs_created: &mut usize) -> Result<(), String> {
+    for entry in fs::read_dir(src).map_err(|e| e.to_string())? {
+        let entry = entry.map_err(|e| e.to_string())?;
+        let dest = dst.join(entry.file_name());
+        let ft = entry.file_type().map_err(|e| e.to_string())?;
+        if ft.is_dir() {
+            fs::create_dir_all(&dest).map_err(|e| e.to_string())?;
+            *dirs_created += 1;
+            create_all_dirs(&entry.path(), &dest, dirs_created)?;
+        }
+    }
+    Ok(())
+}
+
 fn build_tree(base: &Path, current: &Path) -> Vec<Value> {
     let mut nodes = Vec::new();
     if let Ok(entries) = fs::read_dir(current) {
         for entry in entries.flatten() {
             let path = entry.path();
             let name = entry.file_name().to_string_lossy().to_string();
+            if name.starts_with('.') {
+                continue;
+            }
             let relative = path.strip_prefix(base).unwrap_or(&path);
-            let relative_str = relative.to_string_lossy().to_string();
+            let relative_str = relative.to_string_lossy().replace('\\', "/");
 
             let metadata = json!({});
             let node = if path.is_dir() {

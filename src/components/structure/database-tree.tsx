@@ -174,8 +174,10 @@ export function DatabaseTree({ source, onSelect, selectedPath, webAvailable = tr
   }, [source, webAvailable]);
 
   const loadStructure = useCallback(async (path: string = '', signal?: AbortSignal) => {
+    console.log('[SDB-API] fetchStructureTree appelé, source:', source, 'path:', path || '(root)', 'repo:', activeRepo, '| stack:', new Error().stack);
     try {
       const data = await fetchStructureTree(source, path || undefined, activeRepo || undefined);
+      console.log('[SDB-API] fetchStructureTree réponse, source:', source, 'path:', path || '(root)', 'success:', data?.success, 'count:', data?.data?.length);
 
       if (!data?.success) {
         if ((data as any)?.available === false) {
@@ -717,6 +719,7 @@ export function DatabaseTree({ source, onSelect, selectedPath, webAvailable = tr
   }, []);
 
   useEffect(() => {
+    console.log('[SDB-EFFECT] useEffect[source/loadStructure] déclenché, source:', source, 'activeRepo:', activeRepo, '| stack:', new Error().stack);
     const controller = new AbortController();
     setLoading(true);
     setError(null);
@@ -726,14 +729,17 @@ export function DatabaseTree({ source, onSelect, selectedPath, webAvailable = tr
     loadingPathsRef.current = new Set();
 
     loadStructure('', controller.signal).then(async (rootNodes) => {
+      console.log('[SDB-EFFECT] loadStructure(root) terminé, rootNodes count:', rootNodes?.length, 'source:', source);
       if (rootNodes && rootNodes.length > 0) {
         const fullyLoaded = source === 'web'
           ? rootNodes
           : dedupeTree(await loadAllChildren(rootNodes));
         const counts = countNodes(fullyLoaded);
+        console.log('[SDB-EFFECT] fullyLoaded count:', counts.total, 'dirs:', counts.directories, 'files:', counts.files, 'source:', source);
         setNodes(fullyLoaded);
         setExpanded(new Set());
       } else {
+        console.log('[SDB-EFFECT] rootNodes vide ou null, setNodes([]), source:', source);
         setNodes([]);
       }
     }).catch((err) => {

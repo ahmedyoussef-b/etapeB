@@ -155,6 +155,16 @@ fn ensure_initial_repository(app: &tauri::AppHandle) -> Result<(), String> {
     }
 
     println!("[init] {} fichiers copiés dans repository/", copied);
+
+    for root in crate::structure::MANDATORY_ROOTS {
+        let path = target.join(root);
+        if let Err(e) = std::fs::create_dir_all(&path) {
+            eprintln!("[init] impossible de créer {:?}: {}", path, e);
+        } else {
+            println!("[init] racine garantie: {:?}", path);
+        }
+    }
+
     Ok(())
 }
 
@@ -525,13 +535,11 @@ async fn trigger_local_vectorization(app: tauri::AppHandle) -> Result<Vectorizat
 pub fn run() {
     tauri::Builder::default()
         .setup(|app| {
-            if cfg!(debug_assertions) {
-                app.handle().plugin(
-                    tauri_plugin_log::Builder::default()
-                        .level(log::LevelFilter::Info)
-                        .build(),
-                )?;
-            }
+            app.handle().plugin(
+                tauri_plugin_log::Builder::default()
+                    .level(log::LevelFilter::Debug)
+                    .build(),
+            )?;
 
             let app_handle = app.handle().clone();
             let user_path = get_user_data_path();

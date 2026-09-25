@@ -3,19 +3,25 @@ import { isTauriEnv } from "@/lib/tauri/env";
 import { StructureSource } from "@/lib/database/structure-types";
 
 export async function fetchStructureTree(source: StructureSource, path?: string, repository?: string): Promise<any> {
+  console.log('[SDB-API] fetchStructureTree entrée, source:', source, 'path:', path || '(root)', 'repo:', repository || '(défaut)');
   if (source === 'web') {
     const url = new URL('https://etape-b.vercel.app/api/structure');
     url.searchParams.set('source', 'web');
     if (path) url.searchParams.set('path', path);
     if (repository) url.searchParams.set('repository', repository);
+    console.log('[SDB-API] GET (web)', url.toString());
     const response = await fetch(url.toString(), { cache: 'no-store' });
-    return response.json();
+    const json = await response.json();
+    console.log('[SDB-API] GET (web) réponse status:', response.status, 'success:', json?.success, 'count:', json?.data?.length);
+    return json;
   }
 
   if (isTauriEnv()) {
     if (source === 'vector') {
+      console.log('[SDB-RUST] invoke get_vectorization_tree, path:', path);
       return invoke('get_vectorization_tree', { path });
     }
+    console.log('[SDB-RUST] invoke get_structure_tree, source:', source, 'path:', path, 'repo:', repository);
     return invoke('get_structure_tree', { source, path, repository });
   }
 
@@ -27,8 +33,11 @@ export async function fetchStructureTree(source: StructureSource, path?: string,
   url.searchParams.set('source', source);
   if (path) url.searchParams.set('path', path);
   if (repository) url.searchParams.set('repository', repository);
+  console.log('[SDB-API] GET (local/next)', url.toString());
   const response = await fetch(url.toString(), { cache: 'no-store' });
-  return response.json();
+  const json = await response.json();
+  console.log('[SDB-API] GET (local/next) réponse status:', response.status, 'success:', json?.success, 'count:', json?.data?.length);
+  return json;
 }
 
 export async function fetchRepositoryInfo(): Promise<any> {

@@ -1,3 +1,4 @@
+use log::{info, error};
 use serde::{Deserialize, Serialize};
 use std::fs;
 use std::path::PathBuf;
@@ -120,15 +121,15 @@ pub async fn reset_web(
     vercel_url: String,
     backup: Option<bool>,
 ) -> Result<serde_json::Value, String> {
-    eprintln!("[RESET-RUST][1] Début reset_web url={} backup={:?}", vercel_url, backup);
+    log::info!("[SDB-RUST] reset_web ENTRÉE url={} backup={:?}", vercel_url, backup);
 
     let token = match crate::credentials::request_inject_token(&vercel_url).await {
         Ok(t) => {
-            eprintln!("[RESET-RUST][2] Token OK len={}", t.len());
+            log::info!("[SDB-RUST] reset_web token OK len={}", t.len());
             t
         }
         Err(e) => {
-            eprintln!("[RESET-RUST][ERROR] Token failed: {}", e);
+            log::error!("[SDB-RUST] reset_web token ERROR: {}", e);
             return Err(format!("Token error: {}", e));
         }
     };
@@ -139,7 +140,7 @@ pub async fn reset_web(
     {
         Ok(c) => c,
         Err(e) => {
-            eprintln!("[RESET-RUST][ERROR] Client build failed: {}", e);
+            log::error!("[SDB-RUST] reset_web client ERROR: {}", e);
             return Err(format!("HTTP error: {}", e));
         }
     };
@@ -148,12 +149,12 @@ pub async fn reset_web(
         "{}/api/admin/reset",
         vercel_url.trim_end_matches('/')
     );
-    eprintln!("[RESET-RUST][3] POST {}", url);
+    log::info!("[SDB-RUST] reset_web POST {}", url);
 
     let body = serde_json::json!({
         "backup": backup.unwrap_or(false),
     });
-    eprintln!("[RESET-RUST][4] Body: {}", body);
+    log::info!("[SDB-RUST] reset_web body={}", body);
 
     let response = match client
         .post(&url)
@@ -165,30 +166,30 @@ pub async fn reset_web(
     {
         Ok(r) => r,
         Err(e) => {
-            eprintln!("[RESET-RUST][ERROR] HTTP send failed: {}", e);
+            log::error!("[SDB-RUST] reset_web send ERROR: {}", e);
             return Err(format!("HTTP error: {}", e));
         }
     };
 
     let status = response.status();
     let text = response.text().await.unwrap_or_default();
-    eprintln!("[RESET-RUST][5] HTTP status: {}", status);
-    eprintln!("[RESET-RUST][6] Response body: {}", text);
+    log::info!("[SDB-RUST] reset_web HTTP status={}", status);
+    log::info!("[SDB-RUST] reset_web response={}", text);
 
     if !status.is_success() {
-        eprintln!("[RESET-RUST][ERROR] Non-success status: {}", status);
+        log::error!("[SDB-RUST] reset_web non-success status={}", status);
         return Err(text);
     }
 
     let json: serde_json::Value = match serde_json::from_str(&text) {
         Ok(j) => j,
         Err(e) => {
-            eprintln!("[RESET-RUST][ERROR] JSON parse failed: {}", e);
+            log::error!("[SDB-RUST] reset_web json ERROR: {}", e);
             return Err(format!("JSON error: {}", e));
         }
     };
 
-    eprintln!("[RESET-RUST][7] SUCCESS: {}", json);
+    log::info!("[SDB-RUST] reset_web SUCCESS={}", json);
     Ok(json)
 }
 
