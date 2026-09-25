@@ -420,7 +420,7 @@ export default function StructureBDDPage() {
 
           <div className="w-px h-6 bg-gray-300 mx-1" />
 
-          {isLocalEditable && (
+          {isTauriEnv() && isLocalEditable && (
             <button
               type="button"
               onClick={handleSyncFiles}
@@ -450,7 +450,7 @@ export default function StructureBDDPage() {
 
           <div className="w-px h-6 bg-gray-300 mx-1" />
 
-          {(role as string) === "admin" && source !== "vector" && (
+          {(role as string) === "admin" && isTauriEnv() && (
             <button
               type="button"
               onClick={() => handleReset('local')}
@@ -466,7 +466,7 @@ export default function StructureBDDPage() {
               Reset BDD Locale
             </button>
           )}
-          {(role as string) === "admin" && isTauriEnv() && (
+          {(role as string) === "admin" && (
             <button
               type="button"
               onClick={() => handleReset('web')}
@@ -516,14 +516,16 @@ export default function StructureBDDPage() {
 
           <div className="w-px h-6 bg-gray-300 mx-1" />
 
-          <button
-            type="button"
-            onClick={handleOpenImplante}
-            className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm font-medium"
-          >
-            <Rocket className="w-4 h-4" />
-            Implanter
-          </button>
+          {(role as string) === "admin" && (
+            <button
+              type="button"
+              onClick={handleOpenImplante}
+              className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm font-medium"
+            >
+              <Rocket className="w-4 h-4" />
+              Implanter
+            </button>
+          )}
         </div>
       </div>
 
