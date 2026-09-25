@@ -123,7 +123,7 @@ export function InjectFromWebDialog({ open, onOpenChange, onComplete }: InjectFr
       onComplete?.();
     } catch (err) {
       setIsInjecting(false);
-      const message = err instanceof Error ? err.message : "Erreur inconnue";
+      const message = typeof err === "string" ? err : err instanceof Error ? err.message : JSON.stringify(err);
       toast.error(`Échec de l'injection: ${message}`, "Injection Web");
     }
   };

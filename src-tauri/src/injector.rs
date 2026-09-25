@@ -183,6 +183,9 @@ pub async fn inject_from_web(
 
     let repo = repo_dir();
     log::info!("[SDB-RUST] inject_from_web repo={}", repo.display());
+    for root in crate::structure::MANDATORY_ROOTS {
+        let _ = fs::create_dir_all(repo.join(root));
+    }
     let mut report = InjectReport {
         injected: 0,
         conflicts: 0,
