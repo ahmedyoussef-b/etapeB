@@ -81,7 +81,10 @@ export async function POST(request: Request) {
     const body = await request.json().catch(() => ({}));
     const { email, password } = body as { email?: string; password?: string };
 
+    logger.info('Tauri token auth: attempt', { email: email?.trim().toLowerCase(), hasPassword: !!password, ip });
+
     if (!email || !password) {
+      logger.warn('Tauri token auth: missing email or password', { email: !!email, password: !!password, ip });
       return NextResponse.json(
         { error: 'Invalid credentials' },
         {
@@ -96,6 +99,7 @@ export async function POST(request: Request) {
     }
 
     const normalizedEmail = email.trim().toLowerCase();
+    logger.info('Tauri token auth: normalized email', { email: normalizedEmail, ip });
 
     let prisma;
     try {
@@ -119,6 +123,8 @@ export async function POST(request: Request) {
       where: { email: normalizedEmail },
     });
 
+    logger.info('Tauri token auth: user lookup result', { email: normalizedEmail, found: !!user, hasPassword: !!user?.password, ip });
+
     if (!user || !user.password) {
       await logAuditFailure(prisma, normalizedEmail, ip);
       logger.warn('Tauri token auth: user not found', { email: normalizedEmail, ip });
@@ -136,6 +142,8 @@ export async function POST(request: Request) {
     }
 
     const isPasswordValid = await compare(password, user.password);
+    logger.info('Tauri token auth: password check', { email: normalizedEmail, valid: isPasswordValid, ip });
+
     if (!isPasswordValid) {
       await logAuditFailure(prisma, normalizedEmail, ip);
       logger.warn('Tauri token auth: invalid password', { email: normalizedEmail, userId: user.id, ip });
@@ -153,8 +161,8 @@ export async function POST(request: Request) {
     }
 
     if (user.role !== 'ADMIN') {
-      await logAuditFailure(prisma, normalizedEmail, ip);
       logger.warn('Tauri token auth: non-admin role', { email: normalizedEmail, userId: user.id, role: user.role, ip });
+      await logAuditFailure(prisma, normalizedEmail, ip);
       return NextResponse.json(
         { error: 'Invalid credentials' },
         {

@@ -48,6 +48,7 @@ pub async fn request_inject_token(
     vercel_url: &str,
 ) -> Result<String, String> {
     let creds = get_vercel_credentials()?;
+    log::info!("[SDB-RUST-CRED] request_inject_token email={} url={}", creds.email, vercel_url);
 
     let client = reqwest::Client::builder()
         .timeout(std::time::Duration::from_secs(30))
