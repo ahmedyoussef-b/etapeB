@@ -10,6 +10,7 @@ export interface ChatMessage {
   content: string;
   timestamp: Date;
   source?: "groq" | "mock" | "tauri-rag";
+  images?: { path: string; metadataPath: string }[];
 }
 
 export interface UseAiChatOptions {
@@ -77,13 +78,13 @@ export function useAiChat(options?: UseAiChatOptions) {
               )
             );
           },
-          onDone: (_sources, fullAnswer) => {
+          onDone: (_sources, images, fullAnswer) => {
             if (finished) return;
             finished = true;
             setMessages((prev) =>
               prev.map((m) =>
                 m.id === assistantId
-                  ? { ...m, content: m.content || fullAnswer }
+                  ? { ...m, content: m.content || fullAnswer, images }
                   : m
               )
             );

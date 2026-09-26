@@ -5,6 +5,9 @@ export interface RagSource {
   chunk: string;
   chunkIndex: number;
   similarity: number;
+  fileType?: 'Document' | 'ImagePair' | 'QrJson' | 'Other';
+  imagePath?: string;
+  metadataPath?: string;
 }
 
 export interface Message {

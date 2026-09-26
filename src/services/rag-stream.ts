@@ -5,7 +5,7 @@ import { isTauriEnv } from '@/lib/tauri/env';
 
 export interface StreamCallbacks {
   onToken: (token: string) => void;
-  onDone: (sources: RagSource[], fullAnswer: string) => void;
+  onDone: (sources: RagSource[], images: { path: string; metadataPath: string }[], fullAnswer: string) => void;
   onError: (error: string) => void;
 }
 
@@ -17,6 +17,7 @@ interface StreamTokenPayload {
 interface StreamDonePayload {
   conversation_id: string;
   sources: RagSource[];
+  images: { path: string; metadataPath: string }[];
   full_answer: string;
 }
 
@@ -47,7 +48,7 @@ export async function askRagStream(
     'rag-stream-done',
     (event) => {
       if (event.payload.conversation_id === conversationId) {
-        callbacks.onDone(event.payload.sources, event.payload.full_answer);
+        callbacks.onDone(event.payload.sources, event.payload.images, event.payload.full_answer);
       }
     }
   );

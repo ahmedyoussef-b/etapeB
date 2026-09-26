@@ -2,7 +2,13 @@ use tauri::{AppHandle, Emitter};
 use futures_util::StreamExt;
 use serde_json::Value;
 
-use crate::vectorizer::SearchResult;
+use crate::vectorizer::{SearchResult, FileType};
+
+#[derive(serde::Serialize, serde::Deserialize, Clone, Debug)]
+pub struct ImageResult {
+    pub path: String,
+    pub metadata_path: String,
+}
 
 /// Streams a Groq chat completion with `stream = true`.
 /// Emits `rag-stream-token` events for each token (including the conversation ID),
@@ -91,12 +97,36 @@ pub async fn stream_groq_response(
         }
     }
 
+    let images: Vec<ImageResult> = sources
+        .iter()
+        .filter(|s| s.file_type == FileType::ImagePair)
+        .filter_map(|s| {
+            let metadata_path = s.directory.replace('/', "_");
+            let base = crate::_get_user_data_path();
+            let image_path = format!(
+                "file:///{}/repository/{}",
+                base.replace('\\', "/"),
+                s.path
+            );
+            let metadata_path_full = format!(
+                "file:///{}/repository/{}",
+                base.replace('\\', "/"),
+                metadata_path
+            );
+            Some(ImageResult {
+                path: image_path,
+                metadata_path: metadata_path_full,
+            })
+        })
+        .collect();
+
     // Emit final done event with sources and full answer
     let _ = app.emit(
         "rag-stream-done",
         serde_json::json!({
             "conversation_id": conversation_id,
             "sources": sources,
+            "images": images,
             "full_answer": full_answer,
         }),
     );

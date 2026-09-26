@@ -28,6 +28,7 @@ type Message = {
   content: string;
   timestamp: Date;
   source?: "groq" | "mock" | "tauri-rag";
+  images?: { path: string; metadataPath: string }[];
 };
 
 function formatTime(date: Date): string {
@@ -242,6 +243,27 @@ export default function ChatIAPage() {
                       <div className="whitespace-pre-wrap break-words">
                         {message.content}
                       </div>
+                      {!isUser && message.images && message.images.length > 0 && (
+                        <div className="mt-3 grid grid-cols-2 gap-2">
+                          {message.images.map((img, idx) => (
+                            <div key={idx} className="rounded-lg overflow-hidden border border-border/60 bg-background">
+                              <img
+                                src={img.path}
+                                alt={message.content}
+                                className="w-full h-40 object-cover"
+                              />
+                              <a
+                                href={img.metadataPath}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="block text-[10px] text-muted-foreground px-2 py-1 truncate"
+                              >
+                                Métadonnées
+                              </a>
+                            </div>
+                          ))}
+                        </div>
+                      )}
                     </Card>
 
                     <div

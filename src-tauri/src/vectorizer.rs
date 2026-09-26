@@ -28,11 +28,31 @@ pub struct VectorRecord {
     pub chunk: String,
     pub embedding: Vec<f32>,
     pub metadata: ChunkMetadata,
+    #[serde(rename = "fileType")]
+    pub file_type: FileType,
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug, Default)]
-pub struct LocalChromaStore {
-    pub records: HashMap<String, VectorRecord>,
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
+pub enum FileType {
+    Document,
+    ImagePair,
+    QrJson,
+    Other,
+}
+
+impl FileType {
+    pub fn from_path(path: &str) -> Self {
+        let lower = path.to_lowercase();
+        if lower.contains("/bank/") || lower.contains("\\bank\\") {
+            return FileType::ImagePair;
+        }
+        if lower.contains("registry/items/") || lower.contains("\\registry\\items\\") {
+            if lower.ends_with(".json") {
+                return FileType::QrJson;
+            }
+        }
+        FileType::Document
+    }
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
@@ -44,6 +64,13 @@ pub struct SearchResult {
     #[serde(rename = "chunkIndex")]
     pub chunk_index: usize,
     pub similarity: f32,
+    #[serde(rename = "fileType")]
+    pub file_type: FileType,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, Default)]
+pub struct LocalChromaStore {
+    pub records: HashMap<String, VectorRecord>,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
@@ -126,6 +153,7 @@ impl LocalChromaStore {
                     chunk: r.chunk.clone(),
                     chunk_index: r.metadata.chunk_index,
                     similarity: sim,
+                    file_type: r.file_type.clone(),
                 }
             })
             .collect();
@@ -294,6 +322,60 @@ pub async fn vectorize_file(
         .unwrap_or("")
         .to_string();
 
+    let file_type = FileType::from_path(&relative_path);
+
+    let mut records: Vec<VectorRecord> = Vec::new();
+
+    if file_type == FileType::ImagePair {
+        if let Some((content, _metadata_path)) = build_bank_image_chunk(file_path) {
+            let embedding = crate::embeddings::generate_embedding_local(&content)
+                .map_err(|e| format!("Erreur embedding image: {}", e))?;
+
+            let relative = extract_relative_path(file_path);
+            let parent_dir = file_path
+                .parent()
+                .and_then(|p| p.file_name())
+                .and_then(|n| n.to_str())
+                .unwrap_or("")
+                .to_string();
+            let filename = file_path
+                .file_name()
+                .and_then(|n| n.to_str())
+                .unwrap_or("")
+                .to_string();
+
+            let id = format!("{}_0", relative.replace('/', "_"));
+            records.push(VectorRecord {
+                id,
+                chunk: content,
+                embedding,
+                metadata: ChunkMetadata {
+                    path: relative,
+                    directory: parent_dir,
+                    filename,
+                    extension: ext.clone(),
+                    chunk_index: 0,
+                    total_chunks: 1,
+                    hash: String::new(),
+                    last_modified: String::new(),
+                    file_size: 0,
+                },
+                file_type: FileType::ImagePair,
+            });
+        }
+
+        let mut store = LocalChromaStore::load(chroma_path);
+        store.upsert_file_records(&relative_path, records.clone());
+        store.save(chroma_path)?;
+
+        return Ok(VectorizeResult {
+            path: relative_path,
+            chunks_count: records.len(),
+            success: true,
+            error: None,
+        });
+    }
+
     let hash = compute_sha256(&content);
     let file_size = content.len();
     let chunks = chunk_content(&content);
@@ -323,11 +405,13 @@ pub async fn vectorize_file(
         };
 
         let id = format!("{}_{}", relative_path.replace('/', "_"), i);
+        let file_type = FileType::from_path(&relative_path);
         vector_records.push(VectorRecord {
             id,
             chunk,
             embedding,
             metadata,
+            file_type,
         });
     }
 
@@ -380,4 +464,47 @@ pub async fn vectorize_single_file_internal(
 
     let result = vectorize_file(path, &chroma_path).await?;
     Ok(result.chunks_count)
+}
+
+pub fn build_bank_image_chunk(image_path: &Path) -> Option<(String, String)> {
+    let parent = image_path.parent()?;
+    let _file_name = image_path.file_name()?.to_str()?.to_string();
+    let stem = image_path.file_stem()?.to_str()?.to_string();
+
+    let json_name = format!("{}.json", stem);
+    let json_path = parent.join(json_name);
+    if !json_path.exists() {
+        return None;
+    }
+
+    let metadata_text = match fs::read_to_string(&json_path) {
+        Ok(text) => {
+            let trimmed = text.trim();
+            if trimmed.is_empty() {
+                String::new()
+            } else {
+                trimmed.to_string()
+            }
+        }
+        Err(_) => String::new(),
+    };
+
+    let dir_name = parent
+        .file_name()
+        .and_then(|n| n.to_str())
+        .unwrap_or("")
+        .to_string();
+
+    let clean_stem = stem.replace(['_', '-'], " ").trim().to_string();
+    let mut context = Vec::new();
+    if !dir_name.is_empty() {
+        context.push(format!("Dossier: {}", dir_name));
+    }
+    context.push(format!("Image: {}", clean_stem));
+    if !metadata_text.is_empty() {
+        context.push(format!("Metadata: {}", metadata_text));
+    }
+
+    let chunk = context.join("\n");
+    Some((chunk, json_path.to_string_lossy().to_string()))
 }

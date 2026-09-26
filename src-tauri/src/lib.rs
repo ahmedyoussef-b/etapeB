@@ -406,10 +406,10 @@ async fn ask_local_rag(question: String) -> Result<RagAnswer, String> {
 
     let prompt = format!(
         "Tu es l'assistant technique de terrain NexaFlow (Centrale thermique / Cycle combiné).\n\
-         Réponds à la question suivante en te basant STRICTEMENT et UNIQUEMENT sur les sources locales fournies.\n\
-         Les dossiers et noms de fichiers reflètent la structure des équipements et sous-systèmes.\n\
-         Si les sources ne contiennent pas l'information, dis clairement que l'information n'est pas présente dans la base locale.\n\n\
-         SOURCES LOCALES :\n{}\n\n\
+         Réponds en français, de façon précise et technique, en t'appuyant sur les éléments de contexte fournis.\n\
+         Si le contexte ne contient pas l'information, dis-le clairement.\n\
+         Ne cite pas les sources sous forme '[Source X]'.\n\n\
+         CONTEXTE :\n{}\n\n\
          QUESTION :\n{}\n\n\
          RÉPONSE :",
         context, question
@@ -464,19 +464,37 @@ async fn ask_local_rag_stream(
         .join("\n---\n");
 
     let prompt = format!(
-        "Tu es un assistant technique. Réponds en français, en te basant UNIQUEMENT sur les sources.\n\n\
-        Les dossiers et noms de fichiers reflètent le contexte.\n\n\
-        Si les sources ne contiennent pas l'information, indique-le.\n\n\
-        SOURCES LOCALES :\n{}\n\nQUESTION :\n{}\n\nRÉPONSE :",
+        "Tu es l'assistant technique de terrain NexaFlow.\n\
+         Réponds en français, en t'appuyant sur le contexte fourni.\n\
+         Si le contexte ne contient pas l'information, indique-le clairement.\n\
+         Ne cite pas les sources sous forme '[Source X]'.\n\n\
+         CONTEXTE :\n{}\n\n\
+         QUESTION :\n{}\n\n\
+         RÉPONSE :",
         context,
         question,
     );
 
     // Call streaming helper
-    groq_stream::stream_groq_response(app, prompt, conversation_id, sources).await
+    if let Err(e) = crate::groq_stream::stream_groq_response(
+        app.clone(),
+        prompt,
+        conversation_id.clone(),
+        sources.clone(),
+    )
+    .await
+    {
+        let _ = app.emit(
+            "rag-stream-error",
+            serde_json::json!({
+                "conversation_id": conversation_id,
+                "error": e,
+            }),
+        );
+    }
+
+    Ok(())
 }
-
-
 
 #[tauri::command]
 async fn get_vectorization_stats() -> Result<VectorizationStats, String> {
