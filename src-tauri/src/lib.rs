@@ -585,28 +585,22 @@ async fn vectorize_now(app: tauri::AppHandle, repository: Option<String>) -> Res
 fn purge_vectoriel() -> Result<Value, String> {
     let user_path = crate::get_user_data_path();
     let chroma_path = PathBuf::from(user_path).join("chroma");
-    let meta_file = chroma_path.join("meta.json");
 
     let chroma_existed = chroma_path.exists();
-    let meta_existed = meta_file.exists();
 
     if chroma_existed {
         std::fs::remove_dir_all(&chroma_path).map_err(|e: std::io::Error| e.to_string())?;
     }
-    if meta_existed {
-        std::fs::remove_file(&meta_file).map_err(|e: std::io::Error| e.to_string())?;
-    }
 
     log::info!(
-        "[SDB-RUST-VEC] purge_vectoriel terminé: chroma={} meta={}",
+        "[SDB-RUST-VEC] purge_vectoriel terminé: chroma={}",
         chroma_existed,
-        meta_existed
     );
 
     Ok(json!({
         "success": true,
         "chromaPurged": chroma_existed,
-        "metaPurged": meta_existed,
+        "metaPurged": chroma_existed,
         "message": "Base vectorielle purgée",
     }))
 }

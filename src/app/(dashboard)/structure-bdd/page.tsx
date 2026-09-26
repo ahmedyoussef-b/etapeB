@@ -63,10 +63,6 @@ function dataUrlToBlob(dataUrl: string, fallbackMimeType: string): Blob {
 type ViewMode = "split" | "implante";
 
 export default function StructureBDDPage() {
-  if (typeof window !== "undefined") {
-    console.log("[SDB-INIT] origin:", window.location.origin);
-    console.log("[SDB-INIT] isTauri:", !!(window as any).__TAURI__);
-  }
   const [viewMode, setViewMode] = useState<ViewMode>("split");
   type ResetTarget = 'local' | 'web';
 
@@ -75,10 +71,8 @@ export default function StructureBDDPage() {
     if (typeof window === "undefined") return "web";
     const saved = localStorage.getItem("bdd-source");
     if (saved === "local" || saved === "web" || saved === "vector") {
-      console.log("[SDB-STATE] source initiale:", saved, "(localStorage)");
       return saved as StructureSource;
     }
-    console.log("[SDB-STATE] source initiale: web (défaut)");
     return "web";
   });
   const isVercel = !!process.env.NEXT_PUBLIC_VERCEL_ENV;
@@ -120,17 +114,13 @@ export default function StructureBDDPage() {
   const { data: syncStatus, refetch: refetchStatus } = useSyncStatus();
 
   const handleSourceChange = useCallback((newSource: StructureSource) => {
-    console.log("[SDB-UI] clic changement source:", source, "→", newSource, "| stack:", new Error().stack);
     if ((newSource === "local" || newSource === "vector") && process.env.NEXT_PUBLIC_VERCEL_ENV) {
-      console.log("[SDB-STATE] changement source bloqué (Vercel)");
       return;
     }
-    console.log("[SDB-STATE] source changée:", source, "→", newSource);
     setSource(newSource);
     setSelectedNode(null);
     if (!process.env.NEXT_PUBLIC_VERCEL_ENV) {
       localStorage.setItem("bdd-source", newSource);
-      console.log("[SDB-STATE] localStorage bdd-source =", newSource);
     }
   }, [source]);
 
@@ -153,21 +143,15 @@ export default function StructureBDDPage() {
   }, []);
 
   const handleReset = async (target: ResetTarget) => {
-    console.log(`[SDB-UI] === RESET ${target.toUpperCase()} ===`);
-    console.log('[SDB-UI] source affichée (ignorée):', source);
-    console.log('[SDB-UI] cible FORCÉE:', target);
-
     setResetting('local');
     try {
       let result: any;
       if (isTauriEnv()) {
         if (target === 'local') {
-          console.log('[SDB-RUST] appel reset_local_repository');
           result = await invoke('reset_local_repository', {
             repository: activeRepo || 'repository',
           });
         } else {
-          console.log('[SDB-RUST] appel reset_web');
           result = await invoke('reset_web');
         }
       } else {
@@ -176,14 +160,10 @@ export default function StructureBDDPage() {
           setResetting(null);
           return;
         }
-        console.log('[SDB-API] appel /api/admin/reset (navigateur)');
         const res = await fetch('/api/admin/reset', { method: 'POST' });
         result = await res.json();
       }
 
-      console.log('[SDB-UI] reset terminé:', result);
-
-      // ✅ FIX : pas de reload — forcer la cible + remonter le tree
       setSource(target);
       localStorage.setItem('bdd-source', target);
       setTreeKey(prev => prev + 1);
@@ -214,12 +194,9 @@ export default function StructureBDDPage() {
         });
         json = await res.json();
       }
-      console.log('[SyncFiles] result', json);
-
       if (json?.success) {
         const r = json.result;
         const summary = `Sync fichiers: ${r.copied} copié(s), ${r.deduplicated} dédupliqué(s), ${r.errors} erreur(s) sur ${r.total} fichier(s)`;
-        console.log('[SyncFiles]', summary, r);
         if (r.total === 0) {
           toast.info('Aucun fichier à synchroniser depuis le web.', 'Synchronisation des fichiers');
         } else {
@@ -236,14 +213,12 @@ export default function StructureBDDPage() {
       } else {
         toast.error('Erreur lors de la synchronisation');
       }
-      console.error('[SyncFiles] error', err);
     } finally {
       setSyncingFiles(false);
     }
   }, [activeRepo, toast, refetchStatus]);
 
   const handleVectorize = async () => {
-    console.log('[SDB-UI] === VECTORIZE ===');
     setVectorizing(true);
     try {
       let result: any;
@@ -255,8 +230,6 @@ export default function StructureBDDPage() {
         toast.error('Vectorisation uniquement en Tauri');
         return;
       }
-
-      console.log('[SDB-UI] vectorize terminé:', result);
 
       if (result?.success) {
         toast.success(`Vectorisation: ${result.vectorizedFiles}/${result.totalFiles} fichiers (${result.totalChunks} chunks)`);
@@ -284,8 +257,6 @@ export default function StructureBDDPage() {
         toast.error('Purge vectorielle uniquement en Tauri');
         return;
       }
-
-      console.log('[SDB-UI] purge vectoriel terminé:', result);
 
       if (result?.success) {
         toast.success(result.message || 'Base vectorielle purgée');

@@ -42,14 +42,13 @@ pub enum FileType {
 
 impl FileType {
     pub fn from_path(path: &str) -> Self {
-        let lower = path.to_lowercase();
-        if lower.contains("/bank/") || lower.contains("\\bank\\") {
+        let normalized = path.replace('\\', "/");
+        let lower = normalized.to_lowercase();
+        if lower.contains("/bank/") {
             return FileType::ImagePair;
         }
-        if lower.contains("registry/items/") || lower.contains("\\registry\\items\\") {
-            if lower.ends_with(".json") {
-                return FileType::QrJson;
-            }
+        if lower.contains("registry/items/") && lower.ends_with(".json") {
+            return FileType::QrJson;
         }
         FileType::Document
     }
