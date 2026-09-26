@@ -15,6 +15,7 @@ export interface MediaItem {
   thumbnailDataUrl?: string;
   createdAt: string;
   updatedAt: string;
+  path?: string;
 }
 
 function getExtension(mimeType: string, filename: string): string {
@@ -136,6 +137,7 @@ function fromPrismaDocument(row: PrismaDocument): MediaItem {
     thumbnailDataUrl: (metadata.thumbnailDataUrl as string) || (dataUrl && dataUrl.length < 200000 ? dataUrl : undefined),
     createdAt: row.createdAt.toISOString(),
     updatedAt: row.updatedAt.toISOString(),
+    path: row.path || undefined,
   };
 }
 
@@ -145,6 +147,7 @@ export async function getAllMedia(): Promise<MediaItem[]> {
     where: {
       OR: [
         { path: { startsWith: 'images/' } },
+        { path: { startsWith: 'bank/' } },
         { mimeType: { startsWith: 'image/' } },
         { mimeType: { startsWith: 'video/' } },
         { metadata: { path: ['kind'], string_contains: 'image' } },

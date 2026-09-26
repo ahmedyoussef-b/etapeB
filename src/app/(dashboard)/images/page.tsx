@@ -101,6 +101,17 @@ export default function ImagesPage() {
   const [isRecording, setIsRecording] = useState(false);
   const [dragActive, setDragActive] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [selectedItem, setSelectedItem] = useState<MediaItem | null>(null);
+  const [panelOpen, setPanelOpen] = useState(false);
+  const [editedMetadata, setEditedMetadata] = useState({
+    display_name: "",
+    description: "",
+    tags: [] as string[],
+    category: "Non classé",
+  });
+  const [loadingMetadata, setLoadingMetadata] = useState(false);
+  const [savingMetadata, setSavingMetadata] = useState(false);
 
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -195,6 +206,7 @@ export default function ImagesPage() {
     setSourceMode("upload");
     setIsRecording(false);
     setDragActive(false);
+    setSelectedFile(null);
   };
 
   const openEditDialog = async (item: MediaItem) => {
@@ -243,6 +255,7 @@ export default function ImagesPage() {
     const dataUrl = await readFileAsDataUrl(file);
     const buffer = await readFileAsArrayBuffer(file);
 
+    setSelectedFile(file);
     setFormData((prev) => ({
       ...prev,
       kind,
@@ -382,7 +395,7 @@ export default function ImagesPage() {
       toast.error("La catégorie est requise");
       return;
     }
-    if (!formData.dataUrl) {
+    if (!formData.dataUrl && !selectedFile) {
       toast.error("Veuillez fournir un média (upload ou capture)");
       return;
     }
@@ -407,6 +420,18 @@ export default function ImagesPage() {
           size: formData.size,
         });
         toast.success("Média mis à jour avec succès");
+      } else if (selectedFile) {
+        const item = await imageService.createFromFile(selectedFile, {
+          title: formData.title.trim(),
+          category: formData.category,
+          description: formData.description.trim(),
+          tags,
+          kind: formData.kind,
+          mimeType: formData.mimeType,
+          size: formData.size,
+        });
+        toast.success("Média ajouté avec succès");
+        setItems((prev) => [item, ...prev]);
       } else {
         await imageService.create({
           title: formData.title.trim(),
@@ -440,6 +465,97 @@ export default function ImagesPage() {
       await loadData();
     } else {
       toast.error("Erreur lors de la suppression");
+    }
+  };
+
+  const openMetadataPanel = async (item: MediaItem) => {
+    setSelectedItem(item);
+    setPanelOpen(true);
+    setLoadingMetadata(true);
+    setEditedMetadata({
+      display_name: item.title,
+      description: item.description,
+      tags: item.tags,
+      category: item.category,
+    });
+
+    try {
+      let metaPath = item.path;
+      if (metaPath && !metaPath.endsWith('.json')) {
+        const lastSlash = metaPath.lastIndexOf('/');
+        const stem = lastSlash >= 0 ? metaPath.slice(lastSlash + 1) : metaPath;
+        const dot = stem.lastIndexOf('.');
+        const base = dot >= 0 ? stem.slice(0, dot) : stem;
+        const parent = metaPath.slice(0, lastSlash >= 0 ? lastSlash : 0);
+        metaPath = parent ? `${parent}/${base}.json` : `${base}.json`;
+      }
+
+      if (metaPath && metaPath.startsWith('bank/') && metaPath.endsWith('.json')) {
+        const res = await fetch(`/api/image-metadata?path=${encodeURIComponent(metaPath)}`);
+        if (res.ok) {
+          const data = await res.json();
+          if (data.success && data.metadata) {
+            setEditedMetadata({
+              display_name: data.metadata.display_name || item.title,
+              description: data.metadata.description || "",
+              tags: data.metadata.tags || item.tags,
+              category: data.metadata.category || item.category,
+            });
+          }
+        }
+      }
+    } catch {
+      // ignore metadata load error
+    } finally {
+      setLoadingMetadata(false);
+    }
+  };
+
+  const closeMetadataPanel = () => {
+    setPanelOpen(false);
+    setSelectedItem(null);
+    setEditedMetadata({
+      display_name: "",
+      description: "",
+      tags: [],
+      category: "Non classé",
+    });
+  };
+
+  const saveMetadata = async () => {
+    if (!selectedItem?.path) return;
+    setSavingMetadata(true);
+    try {
+      let metaPath = selectedItem.path;
+      if (!metaPath.endsWith('.json')) {
+        const lastSlash = metaPath.lastIndexOf('/');
+        const stem = lastSlash >= 0 ? metaPath.substring(lastSlash + 1) : metaPath;
+        const dot = stem.lastIndexOf('.');
+        const base = dot >= 0 ? stem.substring(0, dot) : stem;
+        const parent = lastSlash >= 0 ? metaPath.substring(0, lastSlash) : '';
+        metaPath = parent ? `${parent}/${base}.json` : `${base}.json`;
+      }
+
+      const res = await fetch('/api/image-metadata', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          path: metaPath,
+          metadata: editedMetadata,
+        }),
+      });
+
+      if (res.ok) {
+        toast.success('Métadonnées enregistrées');
+        await loadData();
+        closeMetadataPanel();
+      } else {
+        toast.error("Erreur lors de l'enregistrement des métadonnées");
+      }
+    } catch {
+      toast.error("Erreur lors de l'enregistrement des métadonnées");
+    } finally {
+      setSavingMetadata(false);
     }
   };
 
@@ -575,7 +691,7 @@ export default function ImagesPage() {
               >
                 <div
                   className="aspect-square bg-gradient-to-br from-muted/30 to-muted/10 flex items-center justify-center cursor-pointer overflow-hidden"
-                  onClick={() => openEditDialog(item)}
+                  onClick={() => openMetadataPanel(item)}
                 >
                   {item.dataUrl || item.thumbnailDataUrl ? (
                     item.kind === "image" ? (
@@ -1003,6 +1119,141 @@ export default function ImagesPage() {
           </DialogContent>
         </Dialog>
       </div>
+
+      {panelOpen && selectedItem && (
+        <div
+          className={`fixed inset-y-0 right-0 z-50 w-full max-w-md transform border-l border-border bg-background shadow-2xl transition-transform duration-300 ${
+            panelOpen ? "translate-x-0" : "translate-x-full"
+          }`}
+        >
+          <div className="flex h-full flex-col">
+            <div className="flex items-center justify-between border-b border-border px-6 py-4">
+              <div className="flex items-center gap-2">
+                <Edit3 className="h-4 w-4 text-primary" />
+                <h2 className="text-lg font-semibold">Métadonnées</h2>
+              </div>
+              <Button variant="ghost" size="icon" onClick={closeMetadataPanel}>
+                <X className="h-4 w-4" />
+              </Button>
+            </div>
+
+            <div className="flex-1 overflow-y-auto p-6">
+              {selectedItem.dataUrl && (
+                <div className="mb-6 overflow-hidden rounded-xl border border-border/60 bg-muted/20">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={selectedItem.dataUrl}
+                    alt={selectedItem.title}
+                    className="h-48 w-full object-cover"
+                  />
+                </div>
+              )}
+
+              {loadingMetadata ? (
+                <div className="space-y-4">
+                  <Skeleton className="h-10 w-full" />
+                  <Skeleton className="h-24 w-full" />
+                  <Skeleton className="h-10 w-full" />
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  <div>
+                    <Label>Nom affiché</Label>
+                    <Input
+                      value={editedMetadata.display_name}
+                      onChange={(e) =>
+                        setEditedMetadata({ ...editedMetadata, display_name: e.target.value })
+                      }
+                      className="mt-1.5 bg-background/60"
+                    />
+                  </div>
+
+                  <div>
+                    <Label>Description</Label>
+                    <Textarea
+                      value={editedMetadata.description}
+                      onChange={(e) =>
+                        setEditedMetadata({ ...editedMetadata, description: e.target.value })
+                      }
+                      rows={4}
+                      className="mt-1.5 bg-background/60"
+                    />
+                  </div>
+
+                  <div>
+                    <Label>Tags</Label>
+                    <Input
+                      value={editedMetadata.tags.join(", ")}
+                      onChange={(e) =>
+                        setEditedMetadata({
+                          ...editedMetadata,
+                          tags: e.target.value.split(",").map((t) => t.trim()),
+                        })
+                      }
+                      placeholder="tag1, tag2, tag3"
+                      className="mt-1.5 bg-background/60"
+                    />
+                    <p className="mt-1 text-[10px] text-muted-foreground">
+                      Séparez les tags par des virgules
+                    </p>
+                  </div>
+
+                  <div>
+                    <Label>Catégorie</Label>
+                    <Select
+                      value={editedMetadata.category}
+                      onValueChange={(value) =>
+                        setEditedMetadata({ ...editedMetadata, category: value as string })
+                      }
+                    >
+                      <SelectTrigger className="mt-1.5 bg-background/60">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="Non classé">Non classé</SelectItem>
+                        <SelectItem value="Procédures">Procédures</SelectItem>
+                        <SelectItem value="Schémas">Schémas</SelectItem>
+                        <SelectItem value="Équipements">Équipements</SelectItem>
+                        <SelectItem value="Maintenance">Maintenance</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            <div className="border-t border-border px-6 py-4">
+              <div className="flex justify-end gap-2">
+                <Button variant="outline" onClick={closeMetadataPanel} disabled={savingMetadata}>
+                  Annuler
+                </Button>
+                <Button onClick={saveMetadata} disabled={savingMetadata || !selectedItem?.path?.startsWith('bank/')} className="gap-2">
+                  {savingMetadata ? (
+                    <>
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      Enregistrement...
+                    </>
+                  ) : (
+                    <>
+                      <CheckCircle2 className="h-4 w-4" />
+                      Enregistrer
+                    </>
+                  )}
+                </Button>
+              </div>
+              {!selectedItem?.path?.startsWith('bank/') && (
+                <p className="mt-2 text-xs text-muted-foreground">
+                  L'édition des métadonnées structurées n'est disponible que pour les images de la banque.
+                </p>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {panelOpen && (
+        <div className="fixed inset-0 z-40 bg-black/50" onClick={closeMetadataPanel} />
+      )}
     </section>
   );
 }

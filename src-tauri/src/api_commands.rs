@@ -1,7 +1,7 @@
 use log::{info, error};
 use serde::{Deserialize, Serialize};
 use std::fs;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use tauri::AppHandle;
 
 #[allow(dead_code)]
@@ -112,6 +112,106 @@ pub async fn upload_file(
         success: true,
         message: "Fichier enregistré avec succès".to_string(),
         file_path: file_path.to_string_lossy().to_string(),
+    })
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct UploadBankImageResult {
+    pub success: bool,
+    pub slug: String,
+    pub folder: String,
+    pub image_path: String,
+    pub json_path: String,
+    pub message: String,
+}
+
+#[tauri::command]
+pub async fn upload_bank_image(
+    app: AppHandle,
+    file_name: String,
+    base64_data: String,
+    mime_type: String,
+) -> Result<UploadBankImageResult, String> {
+    use base64::Engine;
+
+    let bytes = base64::engine::general_purpose::STANDARD
+        .decode(&base64_data)
+        .map_err(|e| format!("Erreur décodage base64: {}", e))?;
+
+    let base_name = Path::new(&file_name)
+        .file_stem()
+        .and_then(|s| s.to_str())
+        .unwrap_or("image");
+
+    let ext = Path::new(&file_name)
+        .extension()
+        .and_then(|s| s.to_str())
+        .unwrap_or("jpg");
+
+    let slug = base_name
+        .to_lowercase()
+        .chars()
+        .map(|c| if c.is_alphanumeric() { c } else { '_' })
+        .collect::<String>()
+        .trim_matches('_')
+        .to_string();
+
+    if slug.is_empty() {
+        return Err("Nom de fichier invalide".to_string());
+    }
+
+    let data_dir = crate::structure::resolve_data_path(&app);
+    let bank_root = data_dir.join("bank");
+
+    let mut final_slug = slug.clone();
+    let mut counter = 1;
+    let mut final_folder = bank_root.join(&final_slug);
+    while final_folder.join(format!("{}.json", final_slug)).exists()
+        || final_folder.join(format!("{}.{}", final_slug, ext)).exists()
+    {
+        final_slug = format!("{}_{}", slug, counter);
+        final_folder = bank_root.join(&final_slug);
+        counter += 1;
+    }
+
+    fs::create_dir_all(&final_folder)
+        .map_err(|e| format!("Impossible de créer le dossier: {}", e))?;
+
+    let image_path = final_folder.join(format!("{}.{}", final_slug, ext));
+    fs::write(&image_path, &bytes)
+        .map_err(|e| format!("Impossible d'écrire l'image: {}", e))?;
+
+    let metadata = serde_json::json!({
+        "name": final_slug,
+        "display_name": base_name,
+        "description": "",
+        "tags": [final_slug.replace('_', " ")],
+        "category": "Non classé",
+        "created_at": chrono::Utc::now().to_rfc3339(),
+        "updated_at": chrono::Utc::now().to_rfc3339(),
+        "metadata": {
+            "source": "upload",
+            "original_filename": file_name,
+            "size": bytes.len(),
+            "mime": mime_type,
+        }
+    });
+
+    let json_path = final_folder.join(format!("{}.json", final_slug));
+    fs::write(
+        &json_path,
+        serde_json::to_string_pretty(&metadata).map_err(|e| e.to_string())?,
+    )
+    .map_err(|e| format!("Impossible d'écrire le JSON: {}", e))?;
+
+    Ok(UploadBankImageResult {
+        success: true,
+        slug: final_slug,
+        folder: final_folder.to_string_lossy().to_string(),
+        image_path: image_path.to_string_lossy().to_string(),
+        json_path: json_path.to_string_lossy().to_string(),
+        message: "Image enregistrée avec succès".to_string(),
     })
 }
 

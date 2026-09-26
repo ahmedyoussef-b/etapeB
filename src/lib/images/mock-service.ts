@@ -13,7 +13,11 @@ export interface MediaItem {
   thumbnailDataUrl?: string;
   createdAt: string;
   updatedAt: string;
+  path?: string;
 }
+
+import { invoke } from "@tauri-apps/api/core";
+import { isTauriEnv } from "@/lib/tauri/env";
 
 const API_BASE = "/api/images";
 
@@ -55,6 +59,71 @@ export const imageService = {
       method: "POST",
       body: JSON.stringify(item),
     });
+  },
+
+  async createFromFile(file: File, overrides?: Partial<MediaItem>): Promise<MediaItem> {
+    await delay();
+
+    if (isTauriEnv()) {
+      const arrayBuffer = await file.arrayBuffer();
+      const bytes = new Uint8Array(arrayBuffer);
+      let binary = "";
+      const len = bytes.byteLength;
+      for (let i = 0; i < len; i++) {
+        binary += String.fromCharCode(bytes[i]);
+      }
+      const base64Data = window.btoa(binary);
+
+      const result = await invoke<{
+        success: boolean;
+        slug: string;
+        folder: string;
+        image_path: string;
+        json_path: string;
+        message?: string;
+      }>("upload_bank_image", {
+        fileName: file.name,
+        base64Data,
+        mimeType: file.type,
+      });
+
+      if (!result.success) {
+        throw new Error(result.message || "Upload Tauri échoué");
+      }
+
+      const dataUrl = `data:${file.type};base64,${base64Data}`;
+
+      return {
+        id: result.slug,
+        title: overrides?.title || file.name.replace(/\.[^/.]+$/, ""),
+        category: overrides?.category || "Non classé",
+        description: overrides?.description || "",
+        tags: overrides?.tags || [result.slug.replace(/_/g, " ")],
+        kind: file.type.startsWith("video/") ? "video" : "image",
+        mimeType: file.type,
+        size: bytes.byteLength,
+        dataUrl,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+        path: result.json_path,
+      };
+    }
+
+    const formData = new FormData();
+    formData.append("file", file);
+
+    const res = await fetch(API_BASE, {
+      method: "POST",
+      body: formData,
+    });
+
+    if (!res.ok) {
+      const error = await res.json().catch(() => ({ error: "Upload failed" }));
+      throw new Error(error.error || "Upload failed");
+    }
+
+    const data = await res.json();
+    return data.item as MediaItem;
   },
 
   async update(id: string, updates: Partial<Omit<MediaItem, "id" | "createdAt">>): Promise<MediaItem | undefined> {
