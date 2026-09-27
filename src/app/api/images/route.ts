@@ -79,12 +79,17 @@ export const POST = withAuth(async (request: NextRequest) => {
       const buffer = Buffer.from(arrayBuffer);
       const description = ((formData.get("description") as string | null) || "").trim();
       const displayName = ((formData.get("title") as string | null) || baseName).trim();
+      const tagsParam = (formData.get("tags") as string | null) || "";
+      const tags = tagsParam
+        .split(",")
+        .map((t) => t.trim())
+        .filter((t) => t.length > 0);
 
       const metadata = {
         name: finalSlug,
         display_name: displayName,
         description,
-        tags: [finalSlug.replace(/_/g, " ")],
+        tags,
         category: cleanDest,
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),

@@ -134,6 +134,7 @@ pub async fn upload_bank_image(
     mime_type: String,
     destination: Option<String>,
     description: Option<String>,
+    tags: Option<Vec<String>>,
 ) -> Result<UploadBankImageResult, String> {
     use base64::Engine;
 
