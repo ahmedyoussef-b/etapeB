@@ -78,19 +78,27 @@ export async function PUT(request: NextRequest) {
     const existingBuffer = readFile(path);
     const existing = JSON.parse(existingBuffer.toString("utf-8"));
     const merged = { ...existing, ...cleanMetadata };
+    if (Array.isArray(cleanMetadata.tags)) {
+      merged.tags = cleanMetadata.tags;
+    }
     const mergedJson = Buffer.from(JSON.stringify(merged, null, 2));
     storeFile(path, mergedJson, "application/json");
-  } catch {
-    // local file may not exist in prod, continue with prisma update
+  } catch (error) {
+    console.error("[image-metadata] local file update failed:", error);
   }
 
   const prisma = getPrismaClient();
+  const prismaData: Record<string, unknown> = {
+    updatedAt: new Date(),
+  };
+  if (cleanMetadata.display_name !== undefined) prismaData.metadata = { ...prismaData.metadata as Record<string, unknown>, display_name: cleanMetadata.display_name };
+  if (cleanMetadata.description !== undefined) prismaData.metadata = { ...prismaData.metadata as Record<string, unknown>, description: cleanMetadata.description };
+  if (cleanMetadata.tags !== undefined) prismaData.metadata = { ...prismaData.metadata as Record<string, unknown>, tags: cleanMetadata.tags };
+  if (cleanMetadata.category !== undefined) prismaData.metadata = { ...prismaData.metadata as Record<string, unknown>, category: cleanMetadata.category };
+
   await prisma.document.updateMany({
     where: { path },
-    data: {
-      metadata: { ...cleanMetadata } as any,
-      updatedAt: new Date(),
-    },
+    data: prismaData,
   });
 
   return NextResponse.json({ success: true, metadata: cleanMetadata });
