@@ -7,7 +7,7 @@ use crate::vectorizer::{SearchResult, FileType};
 #[derive(serde::Serialize, serde::Deserialize, Clone, Debug)]
 pub struct ImageResult {
     pub path: String,
-    pub metadata_path: String,
+    pub metadata_path: Option<String>,
 }
 
 /// Streams a Groq chat completion with `stream = true`.
@@ -101,21 +101,34 @@ pub async fn stream_groq_response(
         .iter()
         .filter(|s| s.file_type == FileType::ImagePair)
         .filter_map(|s| {
-            let metadata_path = s.directory.replace('/', "_");
             let base = crate::_get_user_data_path();
             let image_path = format!(
                 "file:///{}/repository/{}",
                 base.replace('\\', "/"),
-                s.path
+                s.path.replace('\\', "/")
             );
-            let metadata_path_full = format!(
-                "file:///{}/repository/{}",
-                base.replace('\\', "/"),
-                metadata_path
-            );
+
+            let json_rel_path = std::path::Path::new(&s.path).with_extension("json");
+            let json_abs_path = std::path::Path::new(&base)
+                .join("repository")
+                .join(&json_rel_path);
+
+            let metadata_path = if json_abs_path.exists() {
+                Some(
+                    format!(
+                        "file:///{}/repository/{}",
+                        base.replace('\\', "/"),
+                        json_rel_path.to_string_lossy().replace('\\', "/")
+                    )
+                    .to_string(),
+                )
+            } else {
+                None
+            };
+
             Some(ImageResult {
                 path: image_path,
-                metadata_path: metadata_path_full,
+                metadata_path,
             })
         })
         .collect();

@@ -5,7 +5,7 @@ import { isTauriEnv } from '@/lib/tauri/env';
 
 export interface StreamCallbacks {
   onToken: (token: string) => void;
-  onDone: (sources: RagSource[], images: { path: string; metadataPath: string }[], fullAnswer: string) => void;
+  onDone: (sources: RagSource[], images: { path: string; metadataPath?: string }[], fullAnswer: string) => void;
   onError: (error: string) => void;
 }
 
@@ -17,7 +17,7 @@ interface StreamTokenPayload {
 interface StreamDonePayload {
   conversation_id: string;
   sources: RagSource[];
-  images: { path: string; metadataPath: string }[];
+  images: { path: string; metadataPath?: string }[];
   full_answer: string;
 }
 

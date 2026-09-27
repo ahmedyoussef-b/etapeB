@@ -10,7 +10,7 @@ export interface ChatMessage {
   content: string;
   timestamp: Date;
   source?: "groq" | "mock" | "tauri-rag";
-  images?: { path: string; metadataPath: string }[];
+  images?: { path: string; metadataPath?: string }[];
 }
 
 export interface UseAiChatOptions {
