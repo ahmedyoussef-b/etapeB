@@ -53,33 +53,39 @@ export const POST = withAuth(async (request: NextRequest) => {
         return NextResponse.json({ error: "Nom de fichier invalide" }, { status: 400 });
       }
 
-      const category = ((formData.get("category") as string | null) || "Non classé").trim();
+      const destination = ((formData.get("category") as string | null) || "").trim();
+      if (!destination) {
+        return NextResponse.json({ error: "La destination est requise" }, { status: 400 });
+      }
+      const cleanDest = destination.replace(/\/+$/, "").replace(/^\/+/, "");
       const prisma = getPrismaClient();
 
       let finalSlug = slug;
       let counter = 1;
       while (
         await prisma.document.findFirst({
-          where: { path: { startsWith: `bank/${category}/${finalSlug}/` } },
+          where: { path: { startsWith: `${cleanDest}/${finalSlug}/` } },
         })
       ) {
         finalSlug = `${slug}_${counter}`;
         counter += 1;
       }
 
-      const folderPath = `bank/${category}/${finalSlug}`;
+      const folderPath = `${cleanDest}/${finalSlug}`;
       const imagePath = `${folderPath}/${finalSlug}.${ext}`;
       const jsonPath = `${folderPath}/${finalSlug}.json`;
 
       const arrayBuffer = await file.arrayBuffer();
       const buffer = Buffer.from(arrayBuffer);
+      const description = ((formData.get("description") as string | null) || "").trim();
+      const displayName = ((formData.get("title") as string | null) || baseName).trim();
 
       const metadata = {
         name: finalSlug,
-        display_name: baseName,
-        description: "",
+        display_name: displayName,
+        description,
         tags: [finalSlug.replace(/_/g, " ")],
-        category,
+        category: cleanDest,
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
         metadata: {
@@ -135,9 +141,9 @@ export const POST = withAuth(async (request: NextRequest) => {
 
       const createdItem = {
         id: imageDoc?.id || finalSlug,
-        title: (imageDoc?.metadata as any)?.display_name || baseName,
-        category: (imageDoc?.metadata as any)?.category || "Non classé",
-        description: (imageDoc?.metadata as any)?.description || "",
+        title: (imageDoc?.metadata as any)?.display_name || displayName,
+        category: (imageDoc?.metadata as any)?.category || cleanDest,
+        description: (imageDoc?.metadata as any)?.description || description,
         tags: (imageDoc?.metadata as any)?.tags || [finalSlug.replace(/_/g, " ")],
         kind: "image" as const,
         mimeType: imageDoc?.mimeType || file.type,

@@ -85,7 +85,8 @@ export const imageService = {
         fileName: file.name,
         base64Data,
         mimeType: file.type,
-        category: overrides?.category || "Non classé",
+        destination: overrides?.category || "bank",
+        description: overrides?.description || "",
       });
 
       if (!result.success) {
@@ -97,7 +98,7 @@ export const imageService = {
       return {
         id: result.slug,
         title: overrides?.title || file.name.replace(/\.[^/.]+$/, ""),
-        category: overrides?.category || "Non classé",
+        category: overrides?.category || "bank",
         description: overrides?.description || "",
         tags: overrides?.tags || [result.slug.replace(/_/g, " ")],
         kind: file.type.startsWith("video/") ? "video" : "image",
@@ -112,6 +113,12 @@ export const imageService = {
 
     const formData = new FormData();
     formData.append("file", file);
+    if (overrides?.title) formData.append("title", overrides.title);
+    if (overrides?.category) formData.append("category", overrides.category);
+    if (overrides?.description) formData.append("description", overrides.description);
+    if (overrides?.tags && overrides.tags.length > 0) formData.append("tags", overrides.tags.join(","));
+    if (overrides?.kind) formData.append("kind", overrides.kind);
+    if (overrides?.mimeType) formData.append("mimeType", overrides.mimeType);
 
     const res = await fetch(API_BASE, {
       method: "POST",

@@ -132,7 +132,8 @@ pub async fn upload_bank_image(
     file_name: String,
     base64_data: String,
     mime_type: String,
-    category: Option<String>,
+    destination: Option<String>,
+    description: Option<String>,
 ) -> Result<UploadBankImageResult, String> {
     use base64::Engine;
 
@@ -163,17 +164,18 @@ pub async fn upload_bank_image(
     }
 
     let repo_dir = crate::structure::resolve_repository_path(None);
-    let category_dir = category.unwrap_or_else(|| "Non classé".to_string());
-    let bank_root = repo_dir.join("bank").join(&category_dir);
+    let destination = destination.unwrap_or_else(|| "bank".to_string());
+    let clean_dest = destination.trim_start_matches('/').trim_end_matches('/');
+    let folder = repo_dir.join(clean_dest).join(&slug);
 
     let mut final_slug = slug.clone();
     let mut counter = 1;
-    let mut final_folder = bank_root.join(&final_slug);
+    let mut final_folder = folder;
     while final_folder.join(format!("{}.json", final_slug)).exists()
         || final_folder.join(format!("{}.{}", final_slug, ext)).exists()
     {
         final_slug = format!("{}_{}", slug, counter);
-        final_folder = bank_root.join(&final_slug);
+        final_folder = repo_dir.join(clean_dest).join(&final_slug);
         counter += 1;
     }
 
@@ -187,9 +189,9 @@ pub async fn upload_bank_image(
     let metadata = serde_json::json!({
         "name": final_slug,
         "display_name": base_name,
-        "description": "",
+        "description": description.unwrap_or_default(),
         "tags": [final_slug.replace('_', " ")],
-        "category": "Non classé",
+        "category": clean_dest,
         "created_at": chrono::Utc::now().to_rfc3339(),
         "updated_at": chrono::Utc::now().to_rfc3339(),
         "metadata": {
