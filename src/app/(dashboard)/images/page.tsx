@@ -50,6 +50,7 @@ import {
   Clock,
 } from "lucide-react";
 import { MediaItem, MediaKind, imageService } from "@/lib/images/mock-service";
+import { groupMediaByFolder, type MediaFolder } from "@/lib/services/images.service";
 import type { ChangeEvent } from "react";
 
 type FormData = {
@@ -185,20 +186,29 @@ export default function ImagesPage() {
     return list;
   }, [categoryTree, items]);
 
-  const filtered = items.filter((item) => {
-    const matchesCategory =
-      filterCategory === "Tous" ||
-      item.category === filterCategory ||
-      item.category.startsWith(`${filterCategory}/`) ||
-      item.category.includes(filterCategory);
-    const q = search.toLowerCase().trim();
-    const matchesSearch =
-      !q ||
-      item.title.toLowerCase().includes(q) ||
-      item.description.toLowerCase().includes(q) ||
-      item.tags.some((tag) => tag.toLowerCase().includes(q));
-    return matchesCategory && matchesSearch;
-  });
+  const folders = useMemo(() => groupMediaByFolder(items), [items]);
+
+  const filteredFolders = useMemo(() => {
+    return folders.filter((folder) => {
+      const item = folder.item;
+      const matchesCategory =
+        filterCategory === "Tous" ||
+        item.category === filterCategory ||
+        item.category.startsWith(`${filterCategory}/`) ||
+        item.category.includes(filterCategory);
+      const q = search.toLowerCase().trim();
+      const matchesSearch =
+        !q ||
+        item.title.toLowerCase().includes(q) ||
+        item.description.toLowerCase().includes(q) ||
+        item.tags.some((tag) => tag.toLowerCase().includes(q));
+      return matchesCategory && matchesSearch;
+    });
+  }, [folders, filterCategory, search]);
+
+  const sortedFilteredFolders = useMemo(() => {
+    return [...filteredFolders].sort((a, b) => a.slug.localeCompare(b.slug));
+  }, [filteredFolders]);
 
   const resetForm = () => {
     setFormData(emptyForm);
@@ -642,15 +652,15 @@ export default function ImagesPage() {
     toast.success("Téléchargement lancé");
   };
 
-  const totalSize = items.reduce((acc, item) => acc + item.size, 0);
+  const totalSize = folders.reduce((acc, folder) => acc + (folder.mainImage?.size || 0), 0);
   const formatSize = (bytes: number) => {
     if (bytes < 1024) return `${bytes} B`;
     if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
     return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
   };
 
-  const imageCount = items.filter((i) => i.kind === "image").length;
-  const videoCount = items.filter((i) => i.kind === "video").length;
+  const imageCount = folders.filter((f) => f.mainImage?.mime.startsWith("image/")).length;
+  const videoCount = folders.filter((f) => f.mainImage?.mime.startsWith("video/")).length;
 
   return (
     <section className="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
@@ -737,13 +747,13 @@ export default function ImagesPage() {
               </Card>
             ))}
           </div>
-        ) : filtered.length === 0 ? (
+        ) : sortedFilteredFolders.length === 0 ? (
           <div className="mt-16 flex flex-col items-center justify-center text-center py-16">
             <div className="flex h-20 w-20 items-center justify-center rounded-2xl bg-muted/50">
               <FolderOpen className="h-10 w-10 text-muted-foreground/50" />
             </div>
             <p className="mt-4 text-sm font-medium text-foreground">
-              Aucun média trouvé
+              Aucun dossier trouvé
             </p>
             <p className="mt-1 text-sm text-muted-foreground">
               {search || filterCategory !== "Tous"
@@ -753,45 +763,34 @@ export default function ImagesPage() {
           </div>
         ) : (
           <div className="mt-6 grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
-            {filtered.map((item) => (
+            {sortedFilteredFolders.map((folder) => (
               <Card
-                key={item.id}
-                className="group relative overflow-hidden rounded-xl border border-border/60 bg-card/80 backdrop-blur transition-all duration-200 hover:shadow-lg hover:shadow-primary/5 hover:-translate-y-0.5"
+                key={folder.folderPath}
+                className="group relative overflow-hidden rounded-xl border border-border/60 bg-card/80 backdrop-blur transition-all duration-200 hover:shadow-lg hover:shadow-primary/5 hover:-translate-y-0.5 cursor-pointer"
+                onClick={() => openMetadataPanel(folder.item)}
               >
-                <div
-                  className="aspect-square bg-gradient-to-br from-muted/30 to-muted/10 flex items-center justify-center cursor-pointer overflow-hidden"
-                  onClick={() => openMetadataPanel(item)}
-                >
-                  {item.dataUrl || item.thumbnailDataUrl ? (
-                    item.kind === "image" ? (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img
-                        src={item.dataUrl || item.thumbnailDataUrl}
-                        alt={item.title}
-                        className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
-                        loading="lazy"
+                <div className="aspect-square bg-gradient-to-br from-muted/30 to-muted/10 flex items-center justify-center overflow-hidden">
+                  {folder.mainImage?.mime.startsWith("video/") ? (
+                    <div className="relative h-full w-full">
+                      <video
+                        src={folder.item.dataUrl || folder.item.thumbnailDataUrl}
+                        className="h-full w-full object-cover"
+                        muted
                       />
-                    ) : (
-                      <div className="relative h-full w-full">
-                        <video
-                          src={item.dataUrl || item.thumbnailDataUrl}
-                          className="h-full w-full object-cover"
-                          muted
-                        />
-                        <div className="absolute inset-0 flex items-center justify-center bg-black/20 group-hover:bg-black/40 transition-colors">
-                          <div className="rounded-full bg-white/90 p-2.5 shadow-lg">
-                            <Play className="h-5 w-5 text-foreground" />
-                          </div>
+                      <div className="absolute inset-0 flex items-center justify-center bg-black/20 group-hover:bg-black/40 transition-colors">
+                        <div className="rounded-full bg-white/90 p-2.5 shadow-lg">
+                          <Play className="h-5 w-5 text-foreground" />
                         </div>
                       </div>
-                    )
-                  ) : item.kind === "video" ? (
-                    <div className="flex flex-col items-center gap-2 text-muted-foreground/40">
-                      <Film className="h-8 w-8" />
-                      <span className="text-[10px] uppercase tracking-wider">
-                        Vidéo
-                      </span>
                     </div>
+                  ) : folder.item.dataUrl || folder.item.thumbnailDataUrl ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={folder.item.dataUrl || folder.item.thumbnailDataUrl}
+                      alt={folder.slug}
+                      className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
+                      loading="lazy"
+                    />
                   ) : (
                     <div className="flex flex-col items-center gap-2 text-muted-foreground/40">
                       <ImageIcon className="h-8 w-8" />
@@ -804,57 +803,27 @@ export default function ImagesPage() {
 
                 <div className="p-3">
                   <p className="truncate text-sm font-medium text-foreground">
-                    {item.title}
+                    {folder.slug}
                   </p>
                   <div className="mt-1.5 flex items-center justify-between">
                     <Badge
                       variant="outline"
                       className={`text-[10px] border ${
-                        CATEGORY_COLORS[item.category] ||
+                        CATEGORY_COLORS[folder.category] ||
                         "bg-muted text-muted-foreground border-muted"
                       }`}
                     >
-                      {item.category}
+                      {folder.category}
                     </Badge>
                     <span className="text-[10px] text-muted-foreground">
-                      {formatSize(item.size)}
+                      {formatSize(folder.mainImage?.size || 0)}
                     </span>
                   </div>
-                </div>
-
-                <div className="absolute inset-0 flex items-center justify-center gap-2 bg-black/60 opacity-0 transition-opacity duration-200 group-hover:opacity-100">
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-9 w-9 rounded-full bg-white/15 text-white hover:bg-white/25 backdrop-blur"
-                    onClick={() => handleDownload(item)}
-                    title="Télécharger"
-                  >
-                    <Download className="h-4 w-4" />
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-9 w-9 rounded-full bg-white/15 text-white hover:bg-white/25 backdrop-blur"
-                    onClick={() => openEditDialog(item)}
-                    title="Modifier"
-                  >
-                    <Edit3 className="h-4 w-4" />
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-9 w-9 rounded-full bg-red-500/20 text-white hover:bg-red-500/30 backdrop-blur"
-                    onClick={() => handleDelete(item.id)}
-                    disabled={deletingId === item.id}
-                    title="Supprimer"
-                  >
-                    {deletingId === item.id ? (
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                    ) : (
-                      <Trash2 className="h-4 w-4" />
-                    )}
-                  </Button>
+                  {folder.metadata && (
+                    <div className="mt-1.5 text-xs text-green-600">
+                      📄 Métadonnées disponibles
+                    </div>
+                  )}
                 </div>
               </Card>
             ))}
