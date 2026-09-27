@@ -17,6 +17,7 @@ export interface UseAiChatOptions {
   initialMessages?: ChatMessage[];
   context?: ChatContext;
   onFallback?: (reason: string) => void;
+  pathFilter?: string | null;
 }
 
 function generateConversationId(): string {
@@ -40,7 +41,7 @@ function buildRagQuestion(question: string, context?: ChatContext): string {
 }
 
 export function useAiChat(options?: UseAiChatOptions) {
-  const { initialMessages = [], context, onFallback } = options || {};
+  const { initialMessages = [], context, onFallback, pathFilter } = options || {};
   const [messages, setMessages] = useState<ChatMessage[]>(initialMessages);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -112,11 +113,12 @@ export function useAiChat(options?: UseAiChatOptions) {
             setIsLoading(false);
             stopTauriRef.current = null;
           },
-        }
+        },
+        pathFilter
       );
       stopTauriRef.current = unlisten;
     },
-    [context]
+    [context, pathFilter]
   );
 
   const sendMessage = useCallback(

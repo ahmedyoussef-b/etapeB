@@ -29,7 +29,8 @@ interface StreamErrorPayload {
 export async function askRagStream(
   question: string,
   conversationId: string,
-  callbacks: StreamCallbacks
+  callbacks: StreamCallbacks,
+  pathFilter?: string | null
 ): Promise<() => void> {
   if (!isTauriEnv()) {
     throw Error('Le streaming RAG est disponible uniquement dans l\'application bureau (Tauri)');
@@ -63,9 +64,11 @@ export async function askRagStream(
   );
 
   try {
+    console.log('[RAG-FILTER] askRagStream pathFilter=', pathFilter);
     await invoke('ask_local_rag_stream', {
       question,
       conversationId,
+      pathFilter: pathFilter || null,
     });
   } catch (error) {
     callbacks.onError((error as Error).message || String(error));

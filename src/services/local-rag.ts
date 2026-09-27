@@ -28,13 +28,18 @@ export async function askLocalRag(question: string): Promise<RagAnswer> {
 
 export async function askLocalRagStream(
   question: string,
-  conversationId: string
+  conversationId: string,
+  pathFilter?: string | null
 ): Promise<void> {
   if (!isTauriEnv()) {
     throw new Error("Le RAG local est disponible uniquement dans l'application bureau Tauri.");
   }
   try {
-    return await invoke<void>('ask_local_rag_stream', { question, conversationId });
+    return await invoke<void>('ask_local_rag_stream', {
+      question,
+      conversationId,
+      pathFilter: pathFilter || null,
+    });
   } catch (err) {
     console.error("[local-rag] ask_local_rag_stream failed:", err);
     throw err;

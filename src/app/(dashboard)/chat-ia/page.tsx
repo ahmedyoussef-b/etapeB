@@ -6,6 +6,7 @@ import { Card } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Separator } from "@/components/ui/separator";
+import { Input } from "@/components/ui/input";
 import { NexaFlowLogo } from "@/components/brand/nexaflow-logo";
 import { useSpeech } from "@/lib/speech/use-speech";
 import { useAiChat } from "@/lib/ai/use-ai-chat";
@@ -21,6 +22,7 @@ import {
   Server,
   Cpu,
 } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 type Message = {
   id: string;
@@ -46,6 +48,8 @@ export default function ChatIAPage() {
   const [showScrollBtn, setShowScrollBtn] = useState(false);
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [voiceMode, setVoiceMode] = useState(false);
+  const [pathFilter, setPathFilter] = useState<string | null>(null);
+  const [customPath, setCustomPath] = useState("");
   const scrollAreaRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -62,6 +66,7 @@ export default function ChatIAPage() {
   const { messages, sendMessage, isLoading, source, clearHistory } = useAiChat({
     initialMessages: [],
     onFallback: (reason) => console.warn("Chat IA fallback:", reason),
+    pathFilter,
   });
 
   // Load session messages safely after mount (avoids SSR crash)
@@ -208,6 +213,91 @@ export default function ChatIAPage() {
       </header>
 
       <div className="mx-auto flex w-full max-w-4xl flex-1 flex-col overflow-hidden relative">
+        <div className="px-4 py-2 sm:px-6 border-b border-border/60 bg-background/60">
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="text-xs text-muted-foreground">Filtrer :</span>
+            <button
+              onClick={() => {
+                setPathFilter(null);
+                setCustomPath("");
+              }}
+              className={cn(
+                "px-3 py-1 text-xs rounded-full border border-border transition-colors",
+                pathFilter === null
+                  ? "bg-primary text-primary-foreground border-primary"
+                  : "bg-background hover:bg-muted"
+              )}
+            >
+              🌐 Tout
+            </button>
+            <button
+              onClick={() => {
+                setPathFilter("bank/");
+                setCustomPath("bank/");
+              }}
+              className={cn(
+                "px-3 py-1 text-xs rounded-full border border-border transition-colors",
+                pathFilter === "bank/"
+                  ? "bg-primary text-primary-foreground border-primary"
+                  : "bg-background hover:bg-muted"
+              )}
+            >
+              🖼️ Images
+            </button>
+            <button
+              onClick={() => {
+                setPathFilter("registry/items/");
+                setCustomPath("registry/items/");
+              }}
+              className={cn(
+                "px-3 py-1 text-xs rounded-full border border-border transition-colors",
+                pathFilter === "registry/items/"
+                  ? "bg-primary text-primary-foreground border-primary"
+                  : "bg-background hover:bg-muted"
+              )}
+            >
+              ❓ Q/R
+            </button>
+            <button
+              onClick={() => {
+                setPathFilter("Centrale/");
+                setCustomPath("Centrale/");
+              }}
+              className={cn(
+                "px-3 py-1 text-xs rounded-full border border-border transition-colors",
+                pathFilter === "Centrale/"
+                  ? "bg-primary text-primary-foreground border-primary"
+                  : "bg-background hover:bg-muted"
+              )}
+            >
+              🏭 Centrale
+            </button>
+            <Input
+              type="text"
+              placeholder="Chemin personnalisé (ex: Centrale/B1/)"
+              value={customPath}
+              onChange={(e) => setCustomPath(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  setPathFilter(customPath || null);
+                }
+              }}
+              className="h-8 text-xs w-48"
+            />
+            {pathFilter && (
+              <button
+                onClick={() => {
+                  setPathFilter(null);
+                  setCustomPath("");
+                }}
+                className="text-[10px] text-destructive hover:text-destructive/80"
+              >
+                ✕ Réinitialiser
+              </button>
+            )}
+          </div>
+        </div>
+
         <ScrollArea className="flex-1 px-4 py-6 sm:px-6" ref={scrollAreaRef}>
           <div className="space-y-6 pb-4">
 

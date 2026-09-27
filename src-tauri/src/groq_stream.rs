@@ -57,29 +57,28 @@ pub async fn stream_groq_response(
 
     let mut stream = response.bytes_stream();
     let mut full_answer = String::new();
+    let mut buffer = String::new();
     while let Some(item) = stream.next().await {
         let chunk = item.map_err(|e| format!("Erreur lors du streaming Groq : {}", e))?;
-        let text = String::from_utf8_lossy(&chunk);
-        for line in text.lines() {
+        buffer.push_str(&String::from_utf8_lossy(&chunk));
+
+        while let Some(newline_pos) = buffer.find('\n') {
+            let line = buffer[..newline_pos].to_string();
+            buffer = buffer[newline_pos + 1..].to_string();
+
             let trimmed = line.trim();
-            if trimmed.is_empty() { continue; }
+            if trimmed.is_empty() {
+                continue;
+            }
             if trimmed.starts_with("data: ") {
                 let data = &trimmed[6..];
                 if data == "[DONE]" {
-                    // End of stream
                     break;
                 }
                 let v: Value = match serde_json::from_str(data) {
                     Ok(val) => val,
                     Err(e) => {
-                        // Emit parsing error but continue
-                        let _ = app.emit(
-                            "rag-stream-error",
-                            serde_json::json!({
-                                "conversation_id": conversation_id,
-                                "error": format!("Erreur parsing JSON Groq stream: {}", e)
-                            }),
-                        );
+                        log::warn!("[SDB-RAG] parse skip: {} | line={}", e, line);
                         continue;
                     }
                 };

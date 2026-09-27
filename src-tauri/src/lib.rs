@@ -352,26 +352,157 @@ async fn vectorize_single_file(app: AppHandle, path: String) -> Result<Value, St
         .map(|count| json!({"success": true, "chunks": count}))
 }
 
+fn extract_path_from_query(query: &str) -> Option<String> {
+    if query.starts_with('/') {
+        if let Some(end) = query[1..].find(char::is_whitespace) {
+            return Some(query[1..end + 1].to_string());
+        }
+    }
+    None
+}
+
+fn clean_query_for_embedding(query: &str) -> String {
+    let prefixes_to_strip = [
+        "qui est ", "qui sont ", "qui a ",
+        "qu'est-ce que ", "qu'est ce que ", "qu'est-ce qu'",
+        "quelle est ", "quel est ", "quels sont ", "quelles sont ",
+        "c'est quoi ", "c'est qui ",
+        "où est ", "où sont ", "quand est ", "quand a ",
+        "comment est ", "pourquoi est ",
+        "explique-moi ", "explique ", "expliquer ",
+        "montre-moi ", "montre ", "affiche-moi ", "affiche ",
+        "dis-moi ", "dis ", "donne-moi ", "donne ",
+        "décris ", "décrire ", "détaille ",
+        "who is ", "what is ", "where is ", "when is ",
+        "how is ", "why is ", "show me ", "tell me ",
+    ];
+
+    let mut cleaned = query.trim().to_string();
+    let original = cleaned.clone();
+
+    loop {
+        let lower = cleaned.to_lowercase();
+        let mut matched = false;
+        for prefix in prefixes_to_strip {
+            if lower.starts_with(prefix) {
+                cleaned = cleaned[prefix.len()..].trim().to_string();
+                matched = true;
+                break;
+            }
+        }
+        if !matched {
+            break;
+        }
+    }
+
+    let leading_articles = ["le ", "la ", "les ", "l'", "un ", "une ", "des "];
+    loop {
+        let lower = cleaned.to_lowercase();
+        let mut matched = false;
+        for article in leading_articles {
+            if lower.starts_with(article) {
+                cleaned = cleaned[article.len()..].trim().to_string();
+                matched = true;
+                break;
+            }
+        }
+        if !matched {
+            break;
+        }
+    }
+
+    if cleaned.is_empty() {
+        log::warn!(
+            "[SDB-RAG-CLEAN] cleaning a tout retiré, garde original: {:?}",
+            original
+        );
+        return original;
+    }
+
+    log::info!("[SDB-RAG-CLEAN] query={:?} → cleaned={:?}", original, cleaned);
+    cleaned
+}
+
 #[tauri::command]
 async fn search_local_rag(
     query: String,
     top_k: Option<usize>,
     directory_filter: Option<String>,
 ) -> Result<Vec<SearchResult>, String> {
+    log::info!("[SDB-RAG] === search_local_rag ENTRÉE ===");
+    log::info!("[SDB-RAG] query_original={:?}", query);
+    log::info!("[SDB-RAG] directory_filter={:?}", directory_filter);
+    log::info!("[SDB-RAG] top_k={:?}", top_k);
+
+    let clean_query = clean_query_for_embedding(&query);
+    log::info!("[SDB-RAG] query_for_embedding={:?}", clean_query);
+
     let user_path = get_user_data_path();
     let chroma_path = PathBuf::from(user_path).join("chroma");
     let store = LocalChromaStore::load(&chroma_path);
 
+    log::info!("[SDB-RAG] store_loaded total_records={}", store.records.len());
+
     if store.records.is_empty() {
+        log::info!("[SDB-RAG] === search_local_rag SORTIE vide (store empty) ===");
         return Ok(vec![]);
     }
 
-    // 1. Générer l'embedding local de la question (ONNX all-MiniLM-L6-v2, 100% offline)
-    let query_embedding = embeddings::generate_embedding_local(&query)?;
+    let query_embedding = embeddings::generate_embedding_local(&clean_query)?;
+    log::info!("[SDB-RAG] query_embedding_dim={}", query_embedding.len());
+    if !query_embedding.is_empty() {
+        log::info!(
+            "[SDB-RAG] query_embedding_first_5={:?}",
+            &query_embedding[..5.min(query_embedding.len())]
+        );
+    }
 
-    // 2. Chercher dans la base locale
     let top_k = top_k.unwrap_or(5);
-    let results = store.query(&query_embedding, top_k, directory_filter.as_deref());
+
+    let explicit_path = extract_path_from_query(&query);
+    let effective_filter = directory_filter
+        .as_ref()
+        .or(explicit_path.as_ref())
+        .cloned();
+
+    log::info!(
+        "[SDB-RAG] search_local_rag query={:?} directory_filter={:?} explicit_path={:?} effective_filter={:?}",
+        query,
+        directory_filter,
+        explicit_path,
+        effective_filter
+    );
+
+    let no_filter_at_all = effective_filter.as_deref() == Some("*");
+
+    let mut results = if no_filter_at_all {
+        store.query(&query_embedding, store.records.len(), None)
+    } else if let Some(filter) = &effective_filter {
+        store.query(&query_embedding, top_k, Some(filter))
+    } else {
+        store.query(&query_embedding, top_k, None)
+    };
+
+    log::info!("[SDB-RAG] results_before_filter={}", results.len());
+    for (i, r) in results.iter().take(10).enumerate() {
+        log::info!(
+            "[SDB-RAG] top[{}] path={:?} score={:.6}",
+            i,
+            r.path,
+            r.similarity
+        );
+    }
+
+    if no_filter_at_all {
+        results.truncate(top_k);
+    } else if let Some(filter) = &effective_filter {
+        results.retain(|r| r.path.starts_with(filter) || r.directory.starts_with(filter));
+        log::info!("[SDB-RAG] filtre {} -> {} resultats", filter, results.len());
+        results.truncate(top_k);
+    }
+
+    log::info!("[SDB-RAG] results_after_filter={}", results.len());
+    log::info!("[SDB-RAG] === search_local_rag SORTIE ===");
 
     Ok(results)
 }
@@ -387,7 +518,6 @@ async fn ask_local_rag(question: String) -> Result<RagAnswer, String> {
         });
     }
 
-    // Construire le contexte avec les chemins et fichiers
     let context = results
         .iter()
         .enumerate()
@@ -428,26 +558,30 @@ async fn ask_local_rag_stream(
     app: tauri::AppHandle,
     question: String,
     conversation_id: String,
+    path_filter: Option<String>,
 ) -> Result<(), String> {
-    // Adaptive top_k based on question length
+    log::info!("[SDB-RAG-STREAM] === ENTRÉE ===");
+    log::info!("[SDB-RAG-STREAM] question={:?}", question);
+    log::info!("[SDB-RAG-STREAM] path_filter={:?}", path_filter);
+
     let top_k = if question.len() < 50 { 5 } else { 3 };
-    // Reuse search_local_rag logic (already async)
-    let sources = search_local_rag(question.clone(), Some(top_k), None).await?;
+    let sources = search_local_rag(question.clone(), Some(top_k), path_filter.clone()).await?;
+
+    log::info!("[SDB-RAG-STREAM] results={}", sources.len());
 
     if sources.is_empty() {
-        // Emit done with default message
         let _ = app.emit(
             "rag-stream-done",
             serde_json::json!({
                 "conversation_id": conversation_id,
                 "sources": [],
+                "images": [],
                 "full_answer": "Aucun document pertinent trouvé dans la base locale."
             })
         );
         return Ok(());
     }
 
-    // Build context string from sources
     let context = sources
         .iter()
         .enumerate()
@@ -463,6 +597,11 @@ async fn ask_local_rag_stream(
         .collect::<Vec<_>>()
         .join("\n---\n");
 
+    log::info!("[SDB-RAG-STREAM] context_len={}", context.len());
+    if !context.is_empty() {
+        log::info!("[SDB-RAG-STREAM] context_preview={}", &context[..200.min(context.len())]);
+    }
+
     let prompt = format!(
         "Tu es l'assistant technique de terrain NexaFlow.\n\
          Réponds en français, en t'appuyant sur le contexte fourni.\n\
@@ -475,7 +614,8 @@ async fn ask_local_rag_stream(
         question,
     );
 
-    // Call streaming helper
+    log::info!("[SDB-RAG-STREAM] prompt_len={}", prompt.len());
+
     if let Err(e) = crate::groq_stream::stream_groq_response(
         app.clone(),
         prompt,
@@ -493,6 +633,7 @@ async fn ask_local_rag_stream(
         );
     }
 
+    log::info!("[SDB-RAG-STREAM] === SORTIE ===");
     Ok(())
 }
 
