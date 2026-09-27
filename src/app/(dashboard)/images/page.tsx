@@ -56,6 +56,7 @@ import type { ChangeEvent } from "react";
 type FormData = {
   title: string;
   category: string;
+  destination: string;
   description: string;
   tags: string;
   kind: MediaKind;
@@ -68,6 +69,7 @@ type FormData = {
 const emptyForm: FormData = {
   title: "",
   category: "",
+  destination: "bank",
   description: "",
   tags: "",
   kind: "image",
@@ -226,6 +228,7 @@ export default function ImagesPage() {
     setFormData({
       title: item.title,
       category: item.category,
+      destination: item.destination || (item.path ? item.path.split('/').slice(0, -1).join('/') : 'bank'),
       description: item.description,
       tags: item.tags.join(", "),
       kind: item.kind,
@@ -480,7 +483,7 @@ export default function ImagesPage() {
     }
   };
 
-  const openMetadataPanel = async (item: MediaItem) => {
+  const openMetadataPanel = async (item: MediaItem, metadataPath?: string) => {
     setSelectedItem(item);
     setPanelOpen(true);
     setLoadingMetadata(true);
@@ -494,7 +497,7 @@ export default function ImagesPage() {
     setRawJsonContent("");
 
     try {
-      let metaPath = item.path;
+      let metaPath = metadataPath || item.metadataPath || item.path || "";
       if (metaPath && !metaPath.endsWith('.json')) {
         const lastSlash = metaPath.lastIndexOf('/');
         const stem = lastSlash >= 0 ? metaPath.slice(lastSlash + 1) : metaPath;
@@ -551,15 +554,15 @@ export default function ImagesPage() {
   };
 
   const saveMetadata = async () => {
-    if (!selectedItem?.path) return;
+    if (!selectedItem?.path && !selectedItem?.metadataPath) return;
     setSavingMetadata(true);
     try {
-      let metaPath = selectedItem.path;
+      let metaPath = selectedItem.metadataPath || selectedItem.path || "";
       if (!metaPath.endsWith('.json')) {
         const lastSlash = metaPath.lastIndexOf('/');
-        const stem = lastSlash >= 0 ? metaPath.substring(lastSlash + 1) : metaPath;
+        const stem = lastSlash >= 0 ? metaPath.slice(lastSlash + 1) : metaPath;
         const dot = stem.lastIndexOf('.');
-        const base = dot >= 0 ? stem.substring(0, dot) : stem;
+        const base = dot >= 0 ? stem.slice(0, dot) : stem;
         const parent = lastSlash >= 0 ? metaPath.substring(0, lastSlash) : '';
         metaPath = parent ? `${parent}/${base}.json` : `${base}.json`;
       }
@@ -588,15 +591,15 @@ export default function ImagesPage() {
   };
 
   const saveRawJson = async () => {
-    if (!selectedItem?.path) return;
+    if (!selectedItem?.path && !selectedItem?.metadataPath) return;
     setSavingMetadata(true);
     try {
-      let metaPath = selectedItem.path;
+      let metaPath = selectedItem.metadataPath || selectedItem.path || "";
       if (!metaPath.endsWith('.json')) {
         const lastSlash = metaPath.lastIndexOf('/');
         const stem = lastSlash >= 0 ? metaPath.substring(lastSlash + 1) : metaPath;
         const dot = stem.lastIndexOf('.');
-        const base = dot >= 0 ? stem.substring(0, dot) : stem;
+        const base = dot >= 0 ? stem.slice(0, dot) : stem;
         const parent = lastSlash >= 0 ? metaPath.substring(0, lastSlash) : '';
         metaPath = parent ? `${parent}/${base}.json` : `${base}.json`;
       }
@@ -767,7 +770,7 @@ export default function ImagesPage() {
               <Card
                 key={folder.folderPath}
                 className="group relative overflow-hidden rounded-xl border border-border/60 bg-card/80 backdrop-blur transition-all duration-200 hover:shadow-lg hover:shadow-primary/5 hover:-translate-y-0.5 cursor-pointer"
-                onClick={() => openMetadataPanel(folder.item)}
+                onClick={() => openMetadataPanel(folder.item, folder.metadata?.path)}
               >
                 <div className="aspect-square bg-gradient-to-br from-muted/30 to-muted/10 flex items-center justify-center overflow-hidden">
                   {folder.mainImage?.mime.startsWith("video/") ? (
@@ -1032,6 +1035,19 @@ export default function ImagesPage() {
                       placeholder="Sélectionner un répertoire / équipement"
                       searchPlaceholder="Rechercher (ex: 0DRA, Groupe 1...)"
                       emptyLabel="Aucun répertoire trouvé"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="destination">Destination *</Label>
+                    <CategoryTreeCombobox
+                      value={formData.destination}
+                      onChange={(value) =>
+                        setFormData((prev) => ({ ...prev, destination: value }))
+                      }
+                      tree={categoryTree}
+                      placeholder="Sélectionner un dossier de destination"
+                      searchPlaceholder="Rechercher dans bank/..."
+                      emptyLabel="Aucun dossier trouvé"
                     />
                   </div>
                 </div>

@@ -167,6 +167,9 @@ pub async fn upload_bank_image(
     let repo_dir = crate::structure::resolve_repository_path(None);
     let destination = destination.unwrap_or_else(|| "bank".to_string());
     let clean_dest = destination.trim_start_matches('/').trim_end_matches('/');
+    if !clean_dest.starts_with("bank") {
+        return Err("Destination doit être dans bank/".to_string());
+    }
     let folder = repo_dir.join(clean_dest).join(&slug);
 
     let mut final_slug = slug.clone();

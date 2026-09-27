@@ -53,11 +53,14 @@ export const POST = withAuth(async (request: NextRequest) => {
         return NextResponse.json({ error: "Nom de fichier invalide" }, { status: 400 });
       }
 
-      const destination = ((formData.get("category") as string | null) || "").trim();
+      const destination = ((formData.get("destination") as string | null) || "").trim();
       if (!destination) {
         return NextResponse.json({ error: "La destination est requise" }, { status: 400 });
       }
       const cleanDest = destination.replace(/\/+$/, "").replace(/^\/+/, "");
+      if (!cleanDest.startsWith("bank")) {
+        return NextResponse.json({ error: "Destination doit être dans bank/" }, { status: 400 });
+      }
       const prisma = getPrismaClient();
 
       let finalSlug = slug;

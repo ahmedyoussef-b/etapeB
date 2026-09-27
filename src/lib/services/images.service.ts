@@ -16,6 +16,8 @@ export interface MediaItem {
   createdAt: string;
   updatedAt: string;
   path?: string;
+  metadataPath?: string;
+  destination?: string;
 }
 
 function getExtension(mimeType: string, filename: string): string {

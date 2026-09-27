@@ -14,6 +14,8 @@ export interface MediaItem {
   createdAt: string;
   updatedAt: string;
   path?: string;
+  metadataPath?: string;
+  destination?: string;
 }
 
 import { invoke } from "@tauri-apps/api/core";
@@ -85,7 +87,7 @@ export const imageService = {
         fileName: file.name,
         base64Data,
         mimeType: file.type,
-        destination: overrides?.category || "bank",
+        destination: overrides?.destination || overrides?.category || "bank",
         description: overrides?.description || "",
       });
 
@@ -115,6 +117,7 @@ export const imageService = {
     formData.append("file", file);
     if (overrides?.title) formData.append("title", overrides.title);
     if (overrides?.category) formData.append("category", overrides.category);
+    if (overrides?.destination) formData.append("destination", overrides.destination);
     if (overrides?.description) formData.append("description", overrides.description);
     if (overrides?.tags && overrides.tags.length > 0) formData.append("tags", overrides.tags.join(","));
     if (overrides?.kind) formData.append("kind", overrides.kind);

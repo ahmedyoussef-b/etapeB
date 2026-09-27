@@ -42,6 +42,9 @@ export interface MediaItem {
   thumbnailDataUrl?: string;
   createdAt: string;
   updatedAt: string;
+  path?: string;
+  metadataPath?: string;
+  destination?: string;
 }
 
 export function generateId(): string {
