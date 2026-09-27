@@ -50,7 +50,7 @@ import {
   Clock,
 } from "lucide-react";
 import { MediaItem, MediaKind, imageService } from "@/lib/images/mock-service";
-import { groupMediaByFolder, type MediaFolder } from "@/lib/services/images.service";
+import { groupMediaByFolder, type MediaFolder } from "@/lib/images/folder-grouping";
 import type { ChangeEvent } from "react";
 
 type FormData = {
