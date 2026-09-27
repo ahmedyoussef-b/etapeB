@@ -2,6 +2,7 @@ export const runtime = 'nodejs';
 import { NextRequest, NextResponse } from 'next/server';
 import { LocalDatabaseAdapter } from '@/lib/database/local-adapter';
 import { WebDatabaseAdapter } from '@/lib/database/web-adapter';
+import { StorageError } from '@/lib/database/storage-adapter';
 import { getAuthenticatedUser, hasPermission, unauthorizedResponse, unauthenticatedResponse } from '@/lib/api/auth-guard';
 import { getPrismaClient } from '@/lib/services/db';
 import { WORKING_REPOSITORY_NAME } from '@/lib/config/repository';
@@ -202,6 +203,82 @@ async function loadQrContent(requestPath: string): Promise<string | null> {
   return null;
 }
 
+export async function PUT(request: NextRequest) {
+  if (request.headers.get('content-type')?.includes('multipart/form-data')) {
+    return NextResponse.json({ success: false, error: 'Format non supporté' }, { status: 415 });
+  }
+
+  let body: { path?: string; content?: string; source?: string; repository?: string };
+  try {
+    body = await request.json();
+  } catch {
+    return NextResponse.json({ success: false, error: 'Corps de requête JSON invalide' }, { status: 400 });
+  }
+
+  const path = body.path;
+  const content = body.content;
+  const source = body.source || 'local';
+
+  if (!path || typeof path !== 'string' || path.trim() === '') {
+    return NextResponse.json({ success: false, error: 'Chemin requis' }, { status: 400 });
+  }
+
+  if (typeof content !== 'string') {
+    return NextResponse.json({ success: false, error: 'Contenu requis (texte)' }, { status: 400 });
+  }
+
+  if (source === 'web') {
+    const sanitized = path.replace(/^(\.\.(\/)?)+/, '');
+    if (sanitized !== path || path.startsWith('/')) {
+      return NextResponse.json({ success: false, error: 'Chemin invalide' }, { status: 400 });
+    }
+  }
+
+  const ext = getExtension(path);
+  if (!isText(path)) {
+    return NextResponse.json({ success: false, error: 'Seuls les fichiers texte sont modifiables via cet endpoint' }, { status: 415 });
+  }
+
+  if (source !== 'web') {
+    let user;
+    try {
+      user = await getAuthenticatedUser(request);
+    } catch {
+      return unauthenticatedResponse();
+    }
+    if (!user) return unauthenticatedResponse();
+    if (!hasPermission(user.role, 'settings:*')) return unauthorizedResponse();
+  }
+
+  const repository = request.nextUrl.searchParams.get('repository') || body.repository;
+
+  try {
+    if (source === 'web') {
+      const webUrl = process.env.WEB_API_URL;
+      const apiKey = process.env.WEB_API_KEY;
+      const databaseUrl = process.env.DATABASE_URL;
+      if (!webUrl && !databaseUrl) {
+        return NextResponse.json({ success: false, error: 'BDD Web non configurée (DATABASE_URL ou WEB_API_URL requis)' }, { status: 503 });
+      }
+
+      const webAdapter = new WebDatabaseAdapter(webUrl || '', apiKey || '', true, databaseUrl);
+      await webAdapter.writeText(path, content);
+      return NextResponse.json({ success: true, sourceUsed: 'web' });
+    }
+
+    const activeRepo = repository || WORKING_REPOSITORY_NAME;
+    const adapterPath = source === 'db' ? mapWebPathToAdapter(path) : path;
+    const adapter = new LocalDatabaseAdapter(activeRepo);
+    await adapter.writeText(adapterPath, content);
+
+    return NextResponse.json({ success: true, sourceUsed: 'local' });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    const status = message === 'READONLY' ? 403 : message === 'NOT_FOUND' ? 404 : 500;
+    return NextResponse.json({ success: false, error: message }, { status });
+  }
+}
+
 export async function GET(request: NextRequest) {
   const url = new URL(request.url);
   const source = url.searchParams.get('source') || 'local';
@@ -237,12 +314,11 @@ export async function GET(request: NextRequest) {
     if (source === 'web') {
       const webUrl = process.env.WEB_API_URL;
       const apiKey = process.env.WEB_API_KEY;
-      const databaseUrl = process.env.DATABASE_URL;
+      const databaseUrl = process.env.DATABASE_URL || process.env.DATABASE_URL_NEON || '';
       if (!webUrl && !databaseUrl) {
-        return NextResponse.json({ success: false, error: 'BDD Web non configurée (DATABASE_URL ou WEB_API_URL requis)' }, { status: 503 });
+        return NextResponse.json({ success: false, error: 'BDD Web non configurée' }, { status: 503 });
       }
-
-      const webAdapter = new WebDatabaseAdapter(webUrl || '', apiKey || '', true, databaseUrl);
+      const webAdapter = new WebDatabaseAdapter(webUrl || '', apiKey || '', !webUrl, databaseUrl);
       let buffer: Buffer | null = null;
       let readSource: string | null = null;
 
@@ -294,9 +370,9 @@ export async function GET(request: NextRequest) {
     const buffer = await adapter.read(adapterPath);
     return buildFileResponse(buffer, adapterPath, 'local', false);
   } catch (error) {
-    return NextResponse.json({
-      success: false,
-      error: error instanceof Error ? error.message : String(error)
-    }, { status: 500 });
+    const message = error instanceof Error ? error.message : String(error);
+    const code = (error as StorageError & { code?: string })?.code;
+    const status = code === 'NOT_FOUND' ? 404 : code === 'READONLY' || code === 'PERMISSION_DENIED' ? 403 : 500;
+    return NextResponse.json({ success: false, error: message }, { status });
   }
 }

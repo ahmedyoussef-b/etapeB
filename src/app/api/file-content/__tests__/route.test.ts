@@ -3,11 +3,20 @@ import { createNextRequest } from '../../__tests__/next-request-helper';
 
 const mockExists = vi.fn();
 const mockRead = vi.fn();
+const mockWriteText = vi.fn();
+const mockGetAuthenticatedUser = vi.fn().mockResolvedValue({
+  id: 'test-user',
+  email: 'test@example.com',
+  role: 'admin',
+  name: 'Test User',
+});
+const mockHasPermission = vi.fn().mockReturnValue(true);
 
 vi.mock('@/lib/database/local-adapter', () => ({
   LocalDatabaseAdapter: class {
     exists = mockExists;
     read = mockRead;
+    writeText = mockWriteText;
   }
 }));
 
@@ -15,13 +24,31 @@ vi.mock('@/lib/database/web-adapter', () => ({
   WebDatabaseAdapter: class {
     exists = mockExists;
     read = mockRead;
+    writeText = mockWriteText;
   }
+}));
+
+vi.mock('@/lib/api/auth-guard', () => ({
+  getAuthenticatedUser: mockGetAuthenticatedUser,
+  hasPermission: mockHasPermission,
+  unauthorizedResponse: () => new Response('Non autorisé', { status: 403 }),
+  unauthenticatedResponse: () => new Response('Non authentifié', { status: 401 }),
 }));
 
 describe('API /api/file-content', () => {
   beforeEach(() => {
     mockExists.mockReset();
     mockRead.mockReset();
+    mockWriteText.mockReset();
+    mockGetAuthenticatedUser.mockReset();
+    mockHasPermission.mockReset();
+    mockHasPermission.mockReturnValue(true);
+    mockGetAuthenticatedUser.mockResolvedValue({
+      id: 'test-user',
+      email: 'test@example.com',
+      role: 'admin',
+      name: 'Test User',
+    });
   });
 
   it('rejette si chemin manquant', async () => {
@@ -32,7 +59,8 @@ describe('API /api/file-content', () => {
   });
 
   it('retourne 404 si le fichier n\'existe pas', async () => {
-    mockExists.mockResolvedValue(false);
+    const { StorageError } = await import('@/lib/database/storage-adapter');
+    mockRead.mockRejectedValue(new StorageError('NOT_FOUND', 'Fichier non trouvé: missing.txt', 'missing.txt'));
     const { GET } = await import('@/app/api/file-content/route');
     const req = createNextRequest('http://x/api/file-content?path=missing.txt');
     const res = await GET(req);
@@ -90,5 +118,51 @@ describe('API /api/file-content', () => {
     expect(res.status).toBe(503);
 
     if (prevUrl) process.env.WEB_API_URL = prevUrl;
+  });
+
+  it('PUT écrit un fichier texte en local', async () => {
+    mockExists.mockResolvedValue(true);
+    mockWriteText.mockResolvedValue(undefined);
+    const { PUT } = await import('@/app/api/file-content/route');
+    const req = createNextRequest('http://x/api/file-content?path=foo.json&source=local', {
+      method: 'PUT',
+      body: JSON.stringify({ path: 'foo.json', content: '{"a":1}', source: 'local' })
+    });
+    const res = await PUT(req);
+    const data = await res.json();
+
+    expect(res.status).toBe(200);
+    expect(data.success).toBe(true);
+    expect(mockWriteText).toHaveBeenCalledWith('foo.json', '{"a":1}');
+  });
+
+  it('PUT refuse un chemin invalide', async () => {
+    const { PUT } = await import('@/app/api/file-content/route');
+    const req = createNextRequest('http://x/api/file-content', {
+      method: 'PUT',
+      body: JSON.stringify({ path: '../etc/passwd', content: 'bad' })
+    });
+    const res = await PUT(req);
+    expect(res.status).toBe(415);
+  });
+
+  it('PUT refuse un fichier non-texte', async () => {
+    const { PUT } = await import('@/app/api/file-content/route');
+    const req = createNextRequest('http://x/api/file-content?path=foo.png', {
+      method: 'PUT',
+      body: JSON.stringify({ path: 'foo.png', content: 'not-text' })
+    });
+    const res = await PUT(req);
+    expect(res.status).toBe(415);
+  });
+
+  it('PUT refuse un chemin web avec traversal', async () => {
+    const { PUT } = await import('@/app/api/file-content/route');
+    const req = createNextRequest('http://x/api/file-content?path=foo.txt&source=web', {
+      method: 'PUT',
+      body: JSON.stringify({ path: '../etc/passwd', content: 'bad', source: 'web' })
+    });
+    const res = await PUT(req);
+    expect(res.status).toBe(400);
   });
 });

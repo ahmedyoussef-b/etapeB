@@ -90,6 +90,36 @@ export async function treeAction(action: string, path: string, source: string, n
   return response.json();
 }
 
+export async function writeFileContent(path: string, content: string, source: string, repository?: string): Promise<any> {
+  if (source === 'web') {
+    const url = new URL('https://etape-b.vercel.app/api/file-content');
+    url.searchParams.set('path', path);
+    url.searchParams.set('source', 'web');
+    if (repository) url.searchParams.set('repository', repository);
+    const response = await fetch(url.toString(), {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ path, content, source: 'web', repository })
+    });
+    return response.json();
+  }
+
+  if (isTauriEnv()) {
+    return invoke('write_file_content', { path, content });
+  }
+
+  const url = new URL('/api/file-content', window.location.origin);
+  url.searchParams.set('path', path);
+  url.searchParams.set('source', source);
+  if (repository) url.searchParams.set('repository', repository);
+  const response = await fetch(url.toString(), {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ path, content, source, repository })
+  });
+  return response.json();
+}
+
 export async function fetchFileContent(path: string, source: string, repository?: string): Promise<any> {
   if (source === 'web') {
     const url = new URL('https://etape-b.vercel.app/api/file-content');

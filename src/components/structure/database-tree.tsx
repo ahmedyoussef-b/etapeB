@@ -6,7 +6,7 @@ import { ChevronRight, ChevronDown, ChevronLeft, ChevronsUpDown, Search, Folder,
 import { FileUploadButton } from '@/components/upload/file-upload-button';
 import { dedupeTree, type TreeNode } from '@/components/structure/tree-utils';
 import { WORKING_REPOSITORY_NAME, WORKING_REPOSITORY_PATH } from '@/lib/config/repository';
-import { fetchStructureTree, treeAction as invokeTreeAction } from '@/lib/api/local-first';
+import { fetchStructureTree, treeAction as invokeTreeAction, fetchFileContent, writeFileContent } from '@/lib/api/local-first';
 import { isTauriEnv } from '@/lib/tauri/env';
 import { StructureSource } from '@/lib/database/structure-types';
 import { useToastHelpers, useToast } from '@/components/notifications/toast-provider';
@@ -164,6 +164,9 @@ export function DatabaseTree({ source, onSelect, selectedPath, webAvailable = tr
   const [sortField, setSortField] = useState<'name' | 'date' | 'size' | 'type'>('name');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
   const [searchQuery, setSearchQuery] = useState('');
+  const [editingFilePath, setEditingFilePath] = useState<string | null>(null);
+  const [editFileContent, setEditFileContent] = useState('');
+  const [isSavingFile, setIsSavingFile] = useState(false);
 
   const isLocalEditable = source === 'local' && activeRepo !== null && activeRepo !== undefined && activeRepo !== '.data' && !activeRepo.endsWith('/.data') && (activeRepo === WORKING_REPOSITORY_NAME || activeRepo.startsWith('repositories/'));
   const mutationsEnabled = isLocalEditable || (source === 'web' && webAvailable && isAdmin);
@@ -364,6 +367,52 @@ export function DatabaseTree({ source, onSelect, selectedPath, webAvailable = tr
 
     await reloadTreeSilent();
   }, [reloadTreeSilent]);
+
+  const handleStartFileEdit = useCallback(async (node: TreeNode) => {
+    if (!mutationsEnabled) {
+      toast.error('Édition impossible : la BDD locale (.data) est une référence immuable.');
+      return;
+    }
+    if (!node.name.toLowerCase().endsWith('.json')) {
+      return;
+    }
+    try {
+      const data = await fetchFileContent(node.path, source, activeRepo || undefined);
+      if (data?.success && data.kind === 'text') {
+        setEditFileContent(data.content);
+        setEditingFilePath(node.path);
+      } else {
+        toast.error(data?.error || 'Impossible de lire le fichier');
+      }
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Impossible de lire le fichier');
+    }
+  }, [source, activeRepo, mutationsEnabled, toast]);
+
+  const handleSaveFileContent = useCallback(async () => {
+    if (!editingFilePath) return;
+    setIsSavingFile(true);
+    try {
+      const result = await writeFileContent(editingFilePath, editFileContent, source, activeRepo || undefined);
+      if (result.success) {
+        toast.success('Fichier enregistré');
+        setEditingFilePath(null);
+        setEditFileContent('');
+        await reloadTreeSilent();
+      } else {
+        toast.error(result.error || 'Enregistrement impossible');
+      }
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Enregistrement impossible');
+    } finally {
+      setIsSavingFile(false);
+    }
+  }, [editingFilePath, editFileContent, source, activeRepo, toast, reloadTreeSilent]);
+
+  const handleCancelFileEdit = useCallback(() => {
+    setEditingFilePath(null);
+    setEditFileContent('');
+  }, []);
 
   const handleExpandParent = useCallback((path: string) => {
     setExpanded(prev => {
@@ -977,6 +1026,13 @@ export function DatabaseTree({ source, onSelect, selectedPath, webAvailable = tr
               formatDate={formatDate}
               onNodeRestored={onNodeRestored || restoreNodeInTree}
               onPendingDeleteChange={(pending) => { hasPendingDeleteRef.current = pending; }}
+              editingFilePath={editingFilePath}
+              editFileContent={editFileContent}
+              isSavingFile={isSavingFile}
+              onStartFileEdit={handleStartFileEdit}
+              onSaveFileContent={handleSaveFileContent}
+              onCancelFileEdit={handleCancelFileEdit}
+              onEditFileContentChange={setEditFileContent}
             />
           ))
         )}
@@ -1039,6 +1095,13 @@ interface TreeNodeItemProps {
   formatDate: (dateString?: string) => string;
   onNodeRestored?: (node: TreeNode) => void;
   onPendingDeleteChange?: (pending: boolean) => void;
+  editingFilePath?: string | null;
+  editFileContent?: string;
+  isSavingFile?: boolean;
+  onStartFileEdit?: (node: TreeNode) => void;
+  onSaveFileContent?: () => void;
+  onCancelFileEdit?: () => void;
+  onEditFileContentChange?: (value: string) => void;
 }
 
 const TreeNodeItem = memo(function TreeNodeItem({
@@ -1065,7 +1128,14 @@ const TreeNodeItem = memo(function TreeNodeItem({
   formatSize,
   formatDate,
   onNodeRestored,
-  onPendingDeleteChange
+  onPendingDeleteChange,
+  editingFilePath,
+  editFileContent,
+  isSavingFile,
+  onStartFileEdit,
+  onSaveFileContent,
+  onCancelFileEdit,
+  onEditFileContentChange
 }: TreeNodeItemProps) {
   const isExpanded = expanded.has(node.path);
   const isSelected = selectedPath === node.path;
@@ -1080,6 +1150,14 @@ const TreeNodeItem = memo(function TreeNodeItem({
   const pendingDeleteTimerRef = useRef<number | null>(null);
   const pendingDeleteNodeRef = useRef<TreeNode | null>(null);
   const { push: pushToast, dismiss: dismissToast } = useToast();
+  const fileEditRef = useRef<HTMLTextAreaElement>(null);
+
+  useEffect(() => {
+    if (editingFilePath === node.path && fileEditRef.current) {
+      fileEditRef.current.focus();
+      fileEditRef.current.select();
+    }
+  }, [editingFilePath, node.path]);
 
   const paddingLeft = `${depth * 16 + 8}px`;
 
@@ -1232,10 +1310,16 @@ const TreeNodeItem = memo(function TreeNodeItem({
   };
 
   const handleRowClick = () => {
-    if (isEditing || isAdding) return;
+    if (isEditing || isAdding || editingFilePath) return;
     onSelect(node);
     if (node.type === 'directory') {
       onToggle(node);
+    }
+  };
+
+  const handleRowDoubleClick = () => {
+    if (node.type === 'file' && node.name.toLowerCase().endsWith('.json') && mutationsEnabled) {
+      onStartFileEdit?.(node);
     }
   };
 
@@ -1267,6 +1351,7 @@ const TreeNodeItem = memo(function TreeNodeItem({
           ${isSelected ? 'bg-blue-50 border border-blue-200' : ''}`}
         style={{ paddingLeft }}
         onClick={handleRowClick}
+        onDoubleClick={handleRowDoubleClick}
         onContextMenu={(e) => {
           e.preventDefault();
           onContextMenu?.(node, e);
@@ -1341,6 +1426,17 @@ const TreeNodeItem = memo(function TreeNodeItem({
               />
             )}
             <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity" onClick={stopRowClick} onMouseDown={stopRowClick}>
+              {node.type === 'file' && node.name.toLowerCase().endsWith('.json') && mutationsEnabled && editingFilePath !== node.path && (
+                <button
+                  type="button"
+                  disabled={!mutationsEnabled}
+                  onClick={(e) => { stopRowClick(e); onStartFileEdit?.(node); }}
+                  className="p-1 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded transition-colors disabled:cursor-not-allowed disabled:opacity-40"
+                  title="Éditer le contenu JSON"
+                >
+                  <Pencil className="w-3 h-3" />
+                </button>
+              )}
               <button
                 type="button"
                 disabled={!mutationsEnabled}
@@ -1403,6 +1499,47 @@ const TreeNodeItem = memo(function TreeNodeItem({
           isLoading={isDeleting}
         />
       </div>
+      {editingFilePath === node.path && node.type === 'file' && (
+        <div className="flex items-start gap-1 py-1 px-2" style={{ paddingLeft: `${(depth + 1) * 16 + 8}px` }}>
+          <File className="w-4 h-4 text-gray-500 flex-shrink-0 mt-1" />
+          <div className="flex-1 min-w-0 flex flex-col gap-1">
+            <textarea
+              ref={fileEditRef}
+              value={editFileContent}
+              onChange={(e) => onEditFileContentChange?.(e.target.value)}
+              className="w-full min-h-[120px] px-2 py-1 text-xs font-mono border border-blue-400 rounded focus:outline-none focus:ring-1 focus:ring-blue-500 bg-white"
+              onKeyDown={(e) => {
+                if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
+                  e.preventDefault();
+                  onSaveFileContent?.();
+                }
+                if (e.key === 'Escape') {
+                  e.preventDefault();
+                  onCancelFileEdit?.();
+                }
+              }}
+            />
+            <div className="flex items-center gap-1">
+              <button
+                type="button"
+                disabled={isSavingFile}
+                onClick={(e) => { e.stopPropagation(); onSaveFileContent?.(); }}
+                className="px-2 py-0.5 text-xs text-green-600 hover:text-green-700 hover:bg-green-50 rounded border border-green-200 disabled:opacity-40"
+              >
+                {isSavingFile ? 'Enregistrement...' : 'Enregistrer (Ctrl+Enter)'}
+              </button>
+              <button
+                type="button"
+                disabled={isSavingFile}
+                onClick={(e) => { e.stopPropagation(); onCancelFileEdit?.(); }}
+                className="px-2 py-0.5 text-xs text-gray-500 hover:text-gray-700 hover:bg-gray-50 rounded border border-gray-200 disabled:opacity-40"
+              >
+                Annuler (Escape)
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
       {isAdding && (
         <div className="flex items-center gap-1 py-1 px-2" style={{ paddingLeft: `${(depth + 1) * 16 + 8}px` }} onClick={stopRowClick} onMouseDown={stopRowClick}>
           <Folder className="w-4 h-4 text-blue-500 flex-shrink-0" />
