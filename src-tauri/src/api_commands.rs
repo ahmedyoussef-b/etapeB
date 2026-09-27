@@ -128,7 +128,7 @@ pub struct UploadBankImageResult {
 
 #[tauri::command]
 pub async fn upload_bank_image(
-    app: AppHandle,
+    _app: AppHandle,
     file_name: String,
     base64_data: String,
     mime_type: String,
@@ -161,8 +161,8 @@ pub async fn upload_bank_image(
         return Err("Nom de fichier invalide".to_string());
     }
 
-    let data_dir = crate::structure::resolve_data_path(&app);
-    let bank_root = data_dir.join("bank");
+    let repo_dir = crate::structure::resolve_repository_path(None);
+    let bank_root = repo_dir.join("bank");
 
     let mut final_slug = slug.clone();
     let mut counter = 1;
