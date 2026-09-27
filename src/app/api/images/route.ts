@@ -48,7 +48,7 @@ export const POST = withAuth(async (request: NextRequest) => {
       }
 
       const baseName = fileName.replace(/\.[^.]+$/, "");
-      let slug = slugify(baseName);
+      const slug = slugify(baseName);
 
       if (!slug) {
         return NextResponse.json({ error: "Nom de fichier invalide" }, { status: 400 });
