@@ -110,6 +110,8 @@ export default function ImagesPage() {
     tags: [] as string[],
     category: "Non classé",
   });
+  const [rawJsonContent, setRawJsonContent] = useState<string>("");
+  const [editingRawJson, setEditingRawJson] = useState(false);
   const [loadingMetadata, setLoadingMetadata] = useState(false);
   const [savingMetadata, setSavingMetadata] = useState(false);
 
@@ -478,6 +480,8 @@ export default function ImagesPage() {
       tags: item.tags,
       category: item.category,
     });
+    setEditingRawJson(false);
+    setRawJsonContent("");
 
     try {
       let metaPath = item.path;
@@ -503,6 +507,18 @@ export default function ImagesPage() {
             });
           }
         }
+
+        try {
+          const fileRes = await fetch(`/api/file-content?path=${encodeURIComponent(metaPath)}&source=web`);
+          if (fileRes.ok) {
+            const fileData = await fileRes.json();
+            if (fileData.success && typeof fileData.content === 'string') {
+              setRawJsonContent(fileData.content);
+            }
+          }
+        } catch {
+          // ignore raw json load error
+        }
       }
     } catch {
       // ignore metadata load error
@@ -520,6 +536,8 @@ export default function ImagesPage() {
       tags: [],
       category: "Non classé",
     });
+    setRawJsonContent("");
+    setEditingRawJson(false);
   };
 
   const saveMetadata = async () => {
@@ -554,6 +572,57 @@ export default function ImagesPage() {
       }
     } catch {
       toast.error("Erreur lors de l'enregistrement des métadonnées");
+    } finally {
+      setSavingMetadata(false);
+    }
+  };
+
+  const saveRawJson = async () => {
+    if (!selectedItem?.path) return;
+    setSavingMetadata(true);
+    try {
+      let metaPath = selectedItem.path;
+      if (!metaPath.endsWith('.json')) {
+        const lastSlash = metaPath.lastIndexOf('/');
+        const stem = lastSlash >= 0 ? metaPath.substring(lastSlash + 1) : metaPath;
+        const dot = stem.lastIndexOf('.');
+        const base = dot >= 0 ? stem.substring(0, dot) : stem;
+        const parent = lastSlash >= 0 ? metaPath.substring(0, lastSlash) : '';
+        metaPath = parent ? `${parent}/${base}.json` : `${base}.json`;
+      }
+
+      let parsed: Record<string, unknown> = {};
+      try {
+        parsed = JSON.parse(rawJsonContent);
+      } catch {
+        toast.error("JSON invalide");
+        return;
+      }
+
+      const metadata: Record<string, unknown> = {};
+      if (typeof parsed.display_name === 'string') metadata.display_name = parsed.display_name;
+      if (typeof parsed.description === 'string') metadata.description = parsed.description;
+      if (Array.isArray(parsed.tags)) metadata.tags = parsed.tags;
+      if (typeof parsed.category === 'string') metadata.category = parsed.category;
+
+      const res = await fetch('/api/image-metadata', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          path: metaPath,
+          metadata,
+        }),
+      });
+
+      if (res.ok) {
+        toast.success('JSON enregistré');
+        await loadData();
+        closeMetadataPanel();
+      } else {
+        toast.error("Erreur lors de l'enregistrement du JSON");
+      }
+    } catch {
+      toast.error("Erreur lors de l'enregistrement du JSON");
     } finally {
       setSavingMetadata(false);
     }
@@ -1132,9 +1201,19 @@ export default function ImagesPage() {
                 <Edit3 className="h-4 w-4 text-primary" />
                 <h2 className="text-lg font-semibold">Métadonnées</h2>
               </div>
-              <Button variant="ghost" size="icon" onClick={closeMetadataPanel}>
-                <X className="h-4 w-4" />
-              </Button>
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setEditingRawJson((prev) => !prev)}
+                  className="text-xs"
+                >
+                  {editingRawJson ? "Édition formulaire" : "Éditer le JSON"}
+                </Button>
+                <Button variant="ghost" size="icon" onClick={closeMetadataPanel}>
+                  <X className="h-4 w-4" />
+                </Button>
+              </div>
             </div>
 
             <div className="flex-1 overflow-y-auto p-6">
@@ -1154,6 +1233,19 @@ export default function ImagesPage() {
                   <Skeleton className="h-10 w-full" />
                   <Skeleton className="h-24 w-full" />
                   <Skeleton className="h-10 w-full" />
+                </div>
+              ) : editingRawJson ? (
+                <div className="space-y-2">
+                  <Label>Contenu JSON</Label>
+                  <Textarea
+                    value={rawJsonContent}
+                    onChange={(e) => setRawJsonContent(e.target.value)}
+                    rows={16}
+                    className="font-mono text-xs bg-background/60"
+                  />
+                  <p className="text-[10px] text-muted-foreground">
+                    Modifiez le JSON avec précaution. Seuls les champs autorisés seront appliqués.
+                  </p>
                 </div>
               ) : (
                 <div className="space-y-4">
@@ -1227,7 +1319,7 @@ export default function ImagesPage() {
                 <Button variant="outline" onClick={closeMetadataPanel} disabled={savingMetadata}>
                   Annuler
                 </Button>
-                <Button onClick={saveMetadata} disabled={savingMetadata || !selectedItem?.path?.startsWith('bank/')} className="gap-2">
+                <Button onClick={editingRawJson ? saveRawJson : saveMetadata} disabled={savingMetadata || !selectedItem?.path?.startsWith('bank/')} className="gap-2">
                   {savingMetadata ? (
                     <>
                       <Loader2 className="h-4 w-4 animate-spin" />
@@ -1236,7 +1328,7 @@ export default function ImagesPage() {
                   ) : (
                     <>
                       <CheckCircle2 className="h-4 w-4" />
-                      Enregistrer
+                      {editingRawJson ? "Appliquer le JSON" : "Enregistrer"}
                     </>
                   )}
                 </Button>
