@@ -85,6 +85,7 @@ export const imageService = {
         fileName: file.name,
         base64Data,
         mimeType: file.type,
+        category: overrides?.category || "Non classé",
       });
 
       if (!result.success) {

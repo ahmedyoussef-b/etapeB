@@ -132,6 +132,7 @@ pub async fn upload_bank_image(
     file_name: String,
     base64_data: String,
     mime_type: String,
+    category: Option<String>,
 ) -> Result<UploadBankImageResult, String> {
     use base64::Engine;
 
@@ -162,7 +163,8 @@ pub async fn upload_bank_image(
     }
 
     let repo_dir = crate::structure::resolve_repository_path(None);
-    let bank_root = repo_dir.join("bank");
+    let category_dir = category.unwrap_or_else(|| "Non classé".to_string());
+    let bank_root = repo_dir.join("bank").join(&category_dir);
 
     let mut final_slug = slug.clone();
     let mut counter = 1;

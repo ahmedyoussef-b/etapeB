@@ -3,7 +3,6 @@ import { NextRequest, NextResponse } from "next/server";
 import { safeGetAllMedia, safeCreateMedia, safeGetCategories } from "@/lib/services/images.fallback";
 import { withAuth } from "@/lib/api/auth-guard";
 import { getPrismaClient } from "@/lib/services/db";
-import { storeFile } from "@/lib/storage";
 
 function slugify(name: string): string {
   return name
@@ -54,20 +53,21 @@ export const POST = withAuth(async (request: NextRequest) => {
         return NextResponse.json({ error: "Nom de fichier invalide" }, { status: 400 });
       }
 
+      const category = ((formData.get("category") as string | null) || "Non classé").trim();
       const prisma = getPrismaClient();
 
       let finalSlug = slug;
       let counter = 1;
       while (
         await prisma.document.findFirst({
-          where: { path: { startsWith: `bank/${finalSlug}/` } },
+          where: { path: { startsWith: `bank/${category}/${finalSlug}/` } },
         })
       ) {
         finalSlug = `${slug}_${counter}`;
         counter += 1;
       }
 
-      const folderPath = `bank/${finalSlug}`;
+      const folderPath = `bank/${category}/${finalSlug}`;
       const imagePath = `${folderPath}/${finalSlug}.${ext}`;
       const jsonPath = `${folderPath}/${finalSlug}.json`;
 
@@ -79,7 +79,7 @@ export const POST = withAuth(async (request: NextRequest) => {
         display_name: baseName,
         description: "",
         tags: [finalSlug.replace(/_/g, " ")],
-        category: "Non classé",
+        category,
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
         metadata: {
@@ -92,9 +92,6 @@ export const POST = withAuth(async (request: NextRequest) => {
       };
 
       const metadataJson = Buffer.from(JSON.stringify(metadata, null, 2));
-
-      storeFile(imagePath, buffer, file.type);
-      storeFile(jsonPath, metadataJson, "application/json");
 
       await prisma.document.createMany({
         data: [
