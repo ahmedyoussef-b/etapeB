@@ -148,7 +148,7 @@ export const POST = withAuth(async (request: NextRequest) => {
         kind: "image" as const,
         mimeType: imageDoc?.mimeType || file.type,
         size: imageDoc?.size || buffer.length,
-        dataUrl,
+        dataUrl: "",
         createdAt: imageDoc?.createdAt?.toISOString() || new Date().toISOString(),
         updatedAt: imageDoc?.updatedAt?.toISOString() || new Date().toISOString(),
       };
