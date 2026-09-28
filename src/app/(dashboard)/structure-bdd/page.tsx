@@ -221,21 +221,7 @@ export default function StructureBDDPage() {
   const handleVectorize = async () => {
     setVectorizing(true);
     try {
-      let result: any;
-      if (isTauriEnv()) {
-        result = await invoke('vectorize_now', {
-          repository: activeRepo || 'repository',
-        });
-      } else {
-        toast.error('Vectorisation uniquement en Tauri');
-        return;
-      }
-
-      if (result?.success) {
-        toast.success(`Vectorisation: ${result.vectorizedFiles}/${result.totalFiles} fichiers (${result.totalChunks} chunks)`);
-      } else {
-        toast.error(result?.error || 'Erreur de vectorisation');
-      }
+      toast.error('Vectorisation automatique désactivée');
     } catch (err) {
       console.error('[SDB-UI] erreur vectorize:', err);
       toast.error('Erreur de vectorisation');

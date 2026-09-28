@@ -6,6 +6,7 @@ import { Card } from "@/components/ui/card";
 import { RefreshCw, ShieldCheck } from "lucide-react";
 import { useAuth } from "@/lib/auth/use-auth";
 import { useRouter } from "next/navigation";
+import { fetchWithAuth } from "@/lib/tauri/fetch-with-auth";
 
 interface Metric {
   name: string;
@@ -36,7 +37,7 @@ export default function MonitoringPage() {
   const fetchMetrics = async () => {
     setLoading(true);
     try {
-      const res = await fetch("/api/monitoring");
+      const res = await fetchWithAuth("/api/monitoring");
       if (res.ok) {
         const data = await res.json();
         setMetrics(data.metrics);

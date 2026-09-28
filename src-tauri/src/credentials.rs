@@ -44,6 +44,11 @@ fn get_vercel_credentials() -> Result<VercelCredentials, String> {
     serde_json::from_str(&json).map_err(|e| e.to_string())
 }
 
+#[tauri::command]
+pub async fn get_inject_token(vercel_url: String) -> Result<String, String> {
+    request_inject_token(&vercel_url).await
+}
+
 pub async fn request_inject_token(
     vercel_url: &str,
 ) -> Result<String, String> {

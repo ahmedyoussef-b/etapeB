@@ -1,4 +1,3 @@
-mod auto_vectorizer;
 mod embeddings;
 mod vectorizer;
 mod vectorizer_tree;
@@ -15,9 +14,9 @@ pub use config::{read_config, write_config, delete_config};
 pub use auth::{login, logout, get_session};
 pub use credentials::{
     save_vercel_credentials, clear_vercel_credentials, has_vercel_credentials,
+    get_inject_token,
 };
 
-use auto_vectorizer::{VectorizationConsistencyReport, VectorizationStats};
 use crate::structure::{resolve_repository_path, resolve_data_path};
 use std::cmp::Ordering;
 use std::path::{Path, PathBuf};
@@ -431,7 +430,7 @@ fn clean_query_for_embedding(query: &str) -> String {
     let after_preps = after_preps.split_whitespace().collect::<Vec<_>>().join(" ");
 
     let final_cleaned = if after_preps.is_empty() {
-        cleaned
+        cleaned.clone()
     } else {
         after_preps
     };
@@ -715,91 +714,6 @@ async fn ask_local_rag_stream(
 }
 
 #[tauri::command]
-async fn get_vectorization_stats() -> Result<VectorizationStats, String> {
-    let user_path = get_user_data_path();
-    let repo_path = PathBuf::from(&user_path).join("repository");
-    let chroma_path = PathBuf::from(&user_path).join("chroma");
-    let meta_file = chroma_path.join("meta.json");
-
-    let current_files = auto_vectorizer::scan_repository(&repo_path);
-    let meta_state = auto_vectorizer::read_meta_state(&meta_file);
-    let store = LocalChromaStore::load(&chroma_path);
-    let vectorized_files = current_files
-        .iter()
-        .filter(|(path, file)| file.hash.is_some() && meta_state.contains_key(*path))
-        .count();
-    let total_chunks = store
-        .records
-        .values()
-        .filter(|record| current_files.contains_key(&record.metadata.path))
-        .count();
-    let last_update = meta_file
-        .metadata()
-        .and_then(|metadata| metadata.modified())
-        .map(|modified| chrono::DateTime::<chrono::Utc>::from(modified).to_rfc3339())
-        .ok()
-        .or_else(|| {
-            store
-                .records
-                .values()
-                .map(|record| record.metadata.last_modified.clone())
-                .max()
-        })
-        .unwrap_or_else(|| chrono::Utc::now().to_rfc3339());
-
-    Ok(VectorizationStats {
-        total_files: current_files.len(),
-        vectorized_files,
-        total_chunks,
-        last_update,
-    })
-}
-
-#[tauri::command]
-async fn check_vectorization_consistency() -> Result<VectorizationConsistencyReport, String> {
-    let user_path = get_user_data_path();
-    let repo_path = PathBuf::from(&user_path).join("repository");
-    let meta_file = PathBuf::from(&user_path).join("chroma").join("meta.json");
-
-    Ok(auto_vectorizer::check_consistency(&repo_path, &meta_file))
-}
-
-#[tauri::command]
-async fn trigger_local_vectorization(app: tauri::AppHandle) -> Result<VectorizationStats, String> {
-    let user_path = get_user_data_path();
-    let repo_path = PathBuf::from(&user_path).join("repository");
-    let chroma_path = PathBuf::from(&user_path).join("chroma");
-
-    let stats = auto_vectorizer::scan_and_vectorize(&repo_path, &chroma_path, Some(&app)).await;
-    Ok(stats)
-}
-
-#[tauri::command]
-async fn vectorize_now(app: tauri::AppHandle, repository: Option<String>) -> Result<Value, String> {
-    let repo_dir = crate::structure::resolve_repository_path(repository.as_deref());
-    let user_path = crate::get_user_data_path();
-    let chroma_path = PathBuf::from(user_path).join("chroma");
-
-    log::info!("[SDB-RUST-VEC] vectorize_now ENTRÉE repo={}", repo_dir.display());
-
-    let stats = auto_vectorizer::scan_and_vectorize(&repo_dir, &chroma_path, Some(&app)).await;
-
-    log::info!(
-        "[SDB-RUST-VEC] vectorize_now terminé: {}/{} fichiers ({} chunks)",
-        stats.vectorized_files, stats.total_files, stats.total_chunks
-    );
-
-    Ok(json!({
-        "success": true,
-        "totalFiles": stats.total_files,
-        "vectorizedFiles": stats.vectorized_files,
-        "totalChunks": stats.total_chunks,
-        "lastUpdate": stats.last_update,
-        "message": format!("{} fichiers vectorisés", stats.vectorized_files),
-    }))
-}
-
-#[tauri::command]
 fn purge_vectoriel() -> Result<Value, String> {
     let user_path = crate::get_user_data_path();
     let chroma_path = PathBuf::from(user_path).join("chroma");
@@ -883,10 +797,7 @@ pub fn run() {
             write_file_content,
             search_local_rag,
             ask_local_rag,
-            get_vectorization_stats,
             vectorizer_tree::get_vectorization_tree,
-            check_vectorization_consistency,
-            trigger_local_vectorization,
             ask_local_rag_stream,
             read_config,
             write_config,
@@ -914,11 +825,11 @@ pub fn run() {
             api_commands::purge_sync_cache,
             delete_from_chroma,
             vectorize_single_file,
-            vectorize_now,
             purge_vectoriel,
             save_vercel_credentials,
             clear_vercel_credentials,
             has_vercel_credentials,
+            get_inject_token,
             injector::inject_from_web,
         ])
         .run(tauri::generate_context!())

@@ -77,65 +77,28 @@ export interface VectorizationConsistencyReport {
 }
 
 export async function checkVectorizationConsistency(): Promise<VectorizationConsistencyReport> {
-  if (!isTauriEnv()) {
-    return {
-      totalFiles: 0,
-      vectorizedFiles: 0,
-      consistentFiles: [],
-      missingFiles: [],
-      modifiedFiles: [],
-      orphanedFiles: [],
-      isConsistent: false,
-    };
-  }
-  try {
-    return await invoke<VectorizationConsistencyReport>('check_vectorization_consistency');
-  } catch (err) {
-    console.error("[local-rag] check_vectorization_consistency failed:", err);
-    return {
-      totalFiles: 0,
-      vectorizedFiles: 0,
-      consistentFiles: [],
-      missingFiles: [],
-      modifiedFiles: [],
-      orphanedFiles: [],
-      isConsistent: false,
-    };
-  }
+  return {
+    totalFiles: 0,
+    vectorizedFiles: 0,
+    consistentFiles: [],
+    missingFiles: [],
+    modifiedFiles: [],
+    orphanedFiles: [],
+    isConsistent: false,
+  };
 }
 
 export async function getVectorizationStats(): Promise<VectorizationStats> {
-  if (!isTauriEnv()) {
-    return {
-      totalFiles: 0,
-      vectorizedFiles: 0,
-      totalChunks: 0,
-      lastUpdate: new Date().toISOString(),
-    };
-  }
-  try {
-    return await invoke<VectorizationStats>('get_vectorization_stats');
-  } catch (err) {
-    console.error("[local-rag] get_vectorization_stats failed:", err);
-    return {
-      totalFiles: 0,
-      vectorizedFiles: 0,
-      totalChunks: 0,
-      lastUpdate: new Date().toISOString(),
-    };
-  }
+  return {
+    totalFiles: 0,
+    vectorizedFiles: 0,
+    totalChunks: 0,
+    lastUpdate: new Date().toISOString(),
+  };
 }
 
 export async function triggerLocalVectorization(): Promise<VectorizationStats> {
-  if (!isTauriEnv()) {
-    throw new Error("Disponible uniquement sous Tauri.");
-  }
-  try {
-    return await invoke<VectorizationStats>('trigger_local_vectorization');
-  } catch (err) {
-    console.error("[local-rag] trigger_local_vectorization failed:", err);
-    throw err;
-  }
+  throw new Error("Vectorisation automatique désactivée");
 }
 
 export { isTauriEnv } from '@/lib/tauri/env';
