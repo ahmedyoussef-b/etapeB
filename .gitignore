@@ -31,11 +31,11 @@ dist/
 .test-*/
 .test-data-unified/
 .test-sync-data/
-
 # === Config locale repository ===
 # Répertoire runtime local (créé par resetFromData — ne pas committer)
 repository/
 repository-config.json
+ docs\src
 
 # === Base vectorielle ChromaDB ===
 data/chromadb/
