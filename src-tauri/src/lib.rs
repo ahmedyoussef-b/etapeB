@@ -19,6 +19,7 @@ pub use credentials::{
 
 use auto_vectorizer::{VectorizationConsistencyReport, VectorizationStats};
 use crate::structure::{resolve_repository_path, resolve_data_path};
+use std::cmp::Ordering;
 use std::path::{Path, PathBuf};
 use tauri::Emitter;
 use walkdir::WalkDir;
@@ -419,8 +420,32 @@ fn clean_query_for_embedding(query: &str) -> String {
         return original;
     }
 
-    log::info!("[SDB-RAG-CLEAN] query={:?} → cleaned={:?}", original, cleaned);
-    cleaned
+    let prepositional_phrases = [
+        "de l'", "de la ", "du ", "des ", "de ", "d'",
+        "à l'", "à la ", "au ", "aux ", "à ",
+    ];
+    let mut after_preps = cleaned.clone();
+    for prep in &prepositional_phrases {
+        after_preps = after_preps.replace(prep, " ");
+    }
+    let after_preps = after_preps.split_whitespace().collect::<Vec<_>>().join(" ");
+
+    let final_cleaned = if after_preps.is_empty() {
+        cleaned
+    } else {
+        after_preps
+    };
+
+    if final_cleaned != cleaned {
+        log::info!(
+            "[SDB-RAG-CLEAN] after_prep_strip {:?} → {:?}",
+            cleaned,
+            final_cleaned
+        );
+    }
+
+    log::info!("[SDB-RAG-CLEAN] query={:?} → cleaned={:?}", original, final_cleaned);
+    final_cleaned
 }
 
 #[tauri::command]
@@ -457,7 +482,7 @@ async fn search_local_rag(
         );
     }
 
-    let top_k = top_k.unwrap_or(5);
+    let top_k = top_k.unwrap_or(10);
 
     let explicit_path = extract_path_from_query(&query);
     let effective_filter = directory_filter
@@ -502,6 +527,58 @@ async fn search_local_rag(
     }
 
     log::info!("[SDB-RAG] results_after_filter={}", results.len());
+
+    let query_words: Vec<String> = query
+        .to_lowercase()
+        .split_whitespace()
+        .filter(|w| w.len() > 2)
+        .map(|s| s.to_string())
+        .collect::<Vec<_>>();
+
+    if !query_words.is_empty() {
+        for r in results.iter_mut() {
+            let path_lower = r.path.to_lowercase();
+            let chunk_lower = r.chunk.to_lowercase();
+            let mut boost = 1.0f32;
+
+            for word in &query_words {
+                if path_lower.contains(word) {
+                    boost *= 1.5;
+                }
+                if chunk_lower.contains(word) {
+                    boost *= 1.1;
+                }
+            }
+
+            if boost > 1.0 {
+                let original = r.similarity;
+                r.similarity *= boost;
+                log::info!(
+                    "[SDB-RAG-BOOST] path={:?} base={:.6} boost={:.2} final={:.6}",
+                    r.path,
+                    original,
+                    boost,
+                    r.similarity
+                );
+            }
+        }
+
+        results.sort_by(|a, b| {
+            b.similarity
+                .partial_cmp(&a.similarity)
+                .unwrap_or(Ordering::Equal)
+        });
+
+        for (i, r) in results.iter().take(10).enumerate() {
+            log::info!(
+                "[SDB-RAG] post_boost top[{}] path={:?} score={:.6}",
+                i,
+                r.path,
+                r.similarity
+            );
+        }
+    }
+
     log::info!("[SDB-RAG] === search_local_rag SORTIE ===");
 
     Ok(results)
@@ -509,7 +586,7 @@ async fn search_local_rag(
 
 #[tauri::command]
 async fn ask_local_rag(question: String) -> Result<RagAnswer, String> {
-    let results = search_local_rag(question.clone(), Some(5), None).await?;
+    let results = search_local_rag(question.clone(), Some(10), None).await?;
 
     if results.is_empty() {
         return Ok(RagAnswer {
@@ -564,7 +641,7 @@ async fn ask_local_rag_stream(
     log::info!("[SDB-RAG-STREAM] question={:?}", question);
     log::info!("[SDB-RAG-STREAM] path_filter={:?}", path_filter);
 
-    let top_k = if question.len() < 50 { 5 } else { 3 };
+    let top_k = if question.len() < 50 { 10 } else { 5 };
     let sources = search_local_rag(question.clone(), Some(top_k), path_filter.clone()).await?;
 
     log::info!("[SDB-RAG-STREAM] results={}", sources.len());

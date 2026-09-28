@@ -272,6 +272,21 @@ pub async fn vectorize_file(
     file_path: &Path,
     chroma_path: &Path,
 ) -> Result<VectorizeResult, String> {
+    let file_name = file_path
+        .file_name()
+        .and_then(|n| n.to_str())
+        .map(|s| s.to_lowercase())
+        .unwrap_or_default();
+
+    if file_name == ".gitkeep" || file_name == ".gitignore" {
+        return Ok(VectorizeResult {
+            path: file_path.to_string_lossy().to_string(),
+            chunks_count: 0,
+            success: true,
+            error: None,
+        });
+    }
+
     let ext = file_path
         .extension()
         .and_then(|e| e.to_str())

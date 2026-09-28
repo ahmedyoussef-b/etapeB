@@ -66,6 +66,16 @@ pub fn write_meta_state(meta_file: &Path, state: &HashMap<String, String>) -> Re
 }
 
 fn is_indexable_file(path: &Path) -> bool {
+    let file_name = path
+        .file_name()
+        .and_then(|n| n.to_str())
+        .map(|s| s.to_lowercase())
+        .unwrap_or_default();
+
+    if file_name == ".gitkeep" || file_name == ".gitignore" {
+        return false;
+    }
+
     let ext = path
         .extension()
         .and_then(|e| e.to_str())
