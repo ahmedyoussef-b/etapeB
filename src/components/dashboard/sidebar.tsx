@@ -48,6 +48,7 @@ const NAV_ITEMS: NavItem[] = [
   { href: "/logs", label: "Logs", icon: Activity, permissions: ["logs:view"] },
   { href: "/chat-ia", label: "Chat IA", icon: MessageSquare, permissions: ["chat-ia:*"] },
   { href: "/admin", label: "Supervision", icon: Activity, permissions: ["users:manage"] },
+  { href: "/monitoring", label: "Monitoring", icon: Activity, permissions: ["users:manage"] },
   { href: "/admin/users", label: "Utilisateurs", icon: UserPlus, permissions: ["users:manage"] },
   { href: "/download", label: "Télécharger", icon: Download, permissions: ["dashboard:view"] },
   { href: "/profile", label: "Profil", icon: User, permissions: ["dashboard:view"] },

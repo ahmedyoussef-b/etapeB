@@ -5,6 +5,7 @@ import { callGroq, getGroqApiKey } from '@/lib/ai/groq-client';
 import { buildMessages } from '@/lib/ai/prompts';
 import { generateAssistantAdvice } from '@/lib/procedures/assistants/mock-assistant';
 import { ChatRequest, ChatResponse } from '@/lib/ai/types';
+import { trackGroqRequest } from '@/lib/metrics';
 import logger from '@/lib/logger';
 
 async function handleChat(req: NextRequest, { user }: { user: { id: string; email: string; role: string; name?: string | null } }): Promise<NextResponse> {
@@ -37,6 +38,8 @@ async function handleChat(req: NextRequest, { user }: { user: { id: string; emai
         source: 'groq',
         model: result.model,
       };
+
+      await trackGroqRequest().catch(() => {});
 
       return NextResponse.json(response);
     } catch (error) {
