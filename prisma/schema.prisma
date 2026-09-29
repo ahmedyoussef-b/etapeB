@@ -377,16 +377,16 @@ model Report {
 }
 
 model Document {
-  id          String    @id @default(cuid())
-  filename    String
-  mimeType    String?
-  size        Int?
-  data        Bytes?
-  metadata    Json?
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
-  path        String?   @unique
-  injectedAt  DateTime?
+  id         String    @id @default(cuid())
+  filename   String
+  mimeType   String?
+  size       Int?
+  data       Bytes?
+  metadata   Json?
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+  path       String?   @unique
+  injectedAt DateTime?
 
   @@index([filename])
   @@index([injectedAt])
@@ -445,4 +445,17 @@ model SystemVersion {
   @@index([publishedAt])
 }
 
+model DocumentChunk {
+  id         String                      @id @default(cuid())
+  content    String
+  embedding  Unsupported("vector(384)")?
+  metadata   Json?
+  chunkIndex Int
+  source     String
+  createdAt  DateTime                    @default(now())
+  updatedAt  DateTime                    @updatedAt
 
+  @@unique([source, chunkIndex])
+  @@index([source])
+  @@map("document_chunks")
+}
