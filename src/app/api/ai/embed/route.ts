@@ -1,12 +1,8 @@
 export const runtime = 'nodejs';
 import { NextRequest, NextResponse } from 'next/server';
 import { withAuth } from '@/lib/api/auth-guard';
+import { embedTexts, getCloudflareEmbeddingModel, getCloudflareEmbeddingDimensions } from '@/lib/ai/cloudflare-embeddings';
 import logger from '@/lib/logger';
-
-const CLOUDFLARE_ACCOUNT_ID = process.env.CLOUDFLARE_ACCOUNT_ID;
-const CLOUDFLARE_API_TOKEN = process.env.CLOUDFLARE_API_TOKEN;
-const CLOUDFLARE_EMBEDDING_MODEL = process.env.CLOUDFLARE_EMBEDDING_MODEL || '@cf/baai/bge-small-en-v1.5';
-const CLOUDFLARE_EMBEDDING_DIMENSIONS = Number(process.env.CLOUDFLARE_EMBEDDING_DIMENSIONS || '384');
 
 async function handleEmbed(req: NextRequest): Promise<NextResponse> {
   let payload: { texts?: string[]; text?: string };
@@ -29,48 +25,35 @@ async function handleEmbed(req: NextRequest): Promise<NextResponse> {
     );
   }
 
-  if (!CLOUDFLARE_ACCOUNT_ID || !CLOUDFLARE_API_TOKEN) {
-    logger.error('Cloudflare credentials missing for embed route');
-    return NextResponse.json(
-      { error: 'Configuration Cloudflare manquante' },
-      { status: 500 }
-    );
-  }
-
-  const url = `https://api.cloudflare.com/client/v4/accounts/${CLOUDFLARE_ACCOUNT_ID}/ai/run/${encodeURIComponent(CLOUDFLARE_EMBEDDING_MODEL)}`;
-
   try {
-    const response = await fetch(url, {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${CLOUDFLARE_API_TOKEN}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({ text: texts }),
-    });
+    const embeddings = await embedTexts(texts);
 
-    if (!response.ok) {
-      const text = await response.text();
-      logger.error('Cloudflare embed API error', { status: response.status, body: text });
+    return NextResponse.json({
+      embeddings,
+      model: getCloudflareEmbeddingModel(),
+      dimensions: getCloudflareEmbeddingDimensions(),
+    });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+
+    if (message === 'Configuration Cloudflare manquante') {
+      logger.error('Cloudflare credentials missing for embed route');
+      return NextResponse.json(
+        { error: 'Configuration Cloudflare manquante' },
+        { status: 500 }
+      );
+    }
+
+    if (message.startsWith('Cloudflare API error')) {
+      logger.error('Cloudflare embed API error', { message });
       return NextResponse.json(
         { error: 'Erreur lors de la génération des embeddings' },
         { status: 502 }
       );
     }
 
-    const result = await response.json();
-    const embeddings: number[][] = Array.isArray(result?.result?.data)
-      ? result.result.data
-      : [];
-
-    return NextResponse.json({
-      embeddings,
-      model: CLOUDFLARE_EMBEDDING_MODEL,
-      dimensions: CLOUDFLARE_EMBEDDING_DIMENSIONS,
-    });
-  } catch (error) {
     logger.error('Embed route failed', {
-      error: error instanceof Error ? error.message : String(error),
+      error: message,
     });
     return NextResponse.json(
       { error: 'Erreur interne lors de la génération des embeddings' },
