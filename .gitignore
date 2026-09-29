@@ -98,3 +98,6 @@ docs/app/
 
 # Snapshots locaux
 backups/
+
+# Local utility scripts
+scripts/get-admin-user.ts
