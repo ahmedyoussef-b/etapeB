@@ -82,7 +82,7 @@ export const DashboardSidebar = React.memo(function DashboardSidebar({ collapsed
   const isActive = (href: string) => !!pathname && (pathname === href || pathname.startsWith(href + "/"));
 
   return (
-    <aside className={`flex h-screen w-64 shrink-0 flex-col border-r border-border bg-white transition-opacity duration-300 ${collapsed ? "opacity-0" : "opacity-100"}`}>
+    <aside className={`flex h-screen w-64 shrink-0 flex-col border-r border-border bg-background transition-opacity duration-300 ${collapsed ? "opacity-0" : "opacity-100"}`}>
       <div className="flex h-16 items-center gap-3 border-b border-border px-5">
         <NexaFlowLogo className="h-9 w-9" />
         <span className="text-lg font-semibold tracking-tight text-slate-900">NexaFlow</span>
