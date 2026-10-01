@@ -35,7 +35,7 @@ dist/
 # Répertoire runtime local (créé par resetFromData — ne pas committer)
 repository/
 repository-config.json
- docs\src
+docs/src
 
 # === Base vectorielle ChromaDB ===
 data/chromadb/
