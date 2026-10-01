@@ -409,4 +409,94 @@ détecté, sans conséquence BDD, et régularisé par constat.
 - Warning SSL `pg-connection-string`
 - `verifyInjectToken` sans vérification BDD du `sub`
 
+# Session 14 — 2026-10-01 (suite)
+
+## Priorité 1 — Rappel RAG Groupes/SYSTEM (CLOSE)
+
+### Diagnostic
+
+Le chunking était trivial : un nœud = un chunk, sans contexte parent, sans dédup.
+- Chunks B0SY11/21/31/32 : ~100 chars, `B0SY11\nB0SY11\nPlan circuits...\npath: ...` (redondant)
+- Chunks KCZ001/010/030 : ~65 chars, `AA01-1 SYSTEM FUNCTION\nAA01-1 SYSTEM FUNCTION\npath: ...` (redondant, sans sémantique)
+
+### Correction
+
+Enrichissement structurel de `buildRepertoireChunks()` dans `scripts/vectorize-repertoire.ts` :
+- Ajout `Type:` (EQUIPMENT / FUNCTION / GROUP / ROOT)
+- Ajout `Code:`
+- Dédup `Label:` (fr prioritaire, en seulement si différent)
+- Dédup `Description:` (vs label, puis entre fr/en)
+- Ajout `Contexte:` (chaîne d'ascendance : `Groupes Fonctionnels > ORDINATEUR DE SUPERVISION - TCI`)
+- Conservation `Path:`
+
+### Bugs collatéraux corrigés
+
+1. **Chargement `.env.local`** dans les scripts standalone (`vectorize-repertoire.ts`, `check-chunks-session14.ts`).
+   - Cause : `import 'dotenv/config'` ne charge que `.env`.
+   - Symptôme : `DATABASE_URL` non chargé → `PrismaPg` retombait sur `PGUSER=pc` (nom machine Windows).
+   - Correction : `config({ path: '.env.local' })` puis `config({ path: '.env' })`.
+
+2. **`cloudflare-embeddings.ts` — hoisting ES modules**.
+   - Cause : variables `CLOUDFLARE_*` lues au top-level, avant que `config()` ne s'exécute.
+   - Symptôme : `Configuration Cloudflare manquante` malgré variables présentes dans `.env.local`.
+   - Correction : extraction `getCloudflareConfig()`, lecture à l'appel (dans `embedTexts`, `getCloudflareEmbeddingModel`, `getCloudflareEmbeddingDimensions`).
+
+### Test fonctionnel (Q1/Q2/Q3 via `/api/ai/rag`)
+
+| Question | Attendu | Obtenu | Verdict |
+|---|---|---|---|
+| Q1 (Groupes) | B0SY11/21/31/32 | Top-7 (sim 0.727-0.733) | ✅ Succès |
+| Q2 (SYSTEM) | KCZ001/010/030 + KIT1/KIT11 | KIT1/KIT11 top-4, KCZ001/010/030 absents du top-20 | ⚠️ Partiel |
+| Q3 (Centrale CFI) | FILTRATION EAU DE REFRIGERATION | Bonne réponse, chunks top-2 | ✅ Succès |
+
+**Conclusion** : priorité 1 close. Les équipements Groupes (absents du top-20 en session 13) sont maintenant en top-7. La non-régression Centrale est confirmée.
+
+**Limite identifiée** : KCZ001/010/030 restent absents du top-20. Cause : libellés `AA01-1 SYSTEM FUNCTION` sans sémantique différenciante. Pistes session 15+ : (b) query expansion, (c) reranking, (d) hybrid search.
+
+## Dettes purgées
+
+- `app/tmp/test-rag.ts` — supprimé. Contenait un forge JWT via `NEXTAUTH_SECRET` (problème de sécurité). Utilisait `Authorization: Bearer` sur `/api/ai/rag` — mécanisme de contournement NextAuth.
+- `scripts/check-chunks-session14.ts` — supprimé (untracked).
+
+## Dettes identifiées session 14 (à traiter session 15+)
+
+- **`verifyInjectToken`** : ne vérifie pas l'existence du `sub` en BDD. **Prioritaire** suite à l'incident `app/tmp/test-rag.ts` (forge JWT).
+- **`KCZ001/010/030`** : rappel RAG insuffisant. Libellés opaques. Pistes (b)(c)(d).
+- **`/api/ai/chat`** : endpoint de chat général sans RAG. L'interface `chat-ia` l'utilise — constaté en session 14 lors du test Q3 (réponse hallucinée `CFI = Control Function Interface`, au lieu de `FILTRATION EAU DE REFRIGERATION` attendu). À investiguer : faut-il brancher `chat-ia` sur `/api/ai/rag` ?
+- **Warning SSL `pg-connection-string`** : non bloquant, à corriger (`sslmode=verify-full`).
+- **`docs/src/`** : orphelin, ignoré par Git. Contient une app de référence pour RAG Phase 2. À décider : committer ou supprimer.
+- **Import `logger` mort** dans `cloudflare-embeddings.ts` (conservé hors périmètre session 14).
+- **`SESSION_STATE_2026-10-01.md`** : newline final manquant.
+
+## Incident sécurité session 14
+
+- **Incident sécurité session 14** : un secret (`OWNER_PASSWORD`) a été collé en clair dans le chat de supervision. Mot de passe OWNER **changé** (confirmé). Incident **clos**.
+
+## Commits session 14
+
+- `751a4f5` — `feat(scripts): enrich repertoire chunking with parent context and dedup`
+- `77cb6c5` — `fix(ai): lazy-load cloudflare env vars to fix standalone execution`
+- (à venir) `docs(session): add session 14 to SESSION_STATE_2026-10-01`
+
+## État BDD post-session 14
+
+- `document_chunks` : 252 lignes (contenus enrichis)
+- `documents` : 7 lignes
+- `_prisma_migrations` : 15
+- `audit_logs` : 0
+- `sync_logs` : 0
+
+## Reprise session 15
+
+- Priorité 1 : **close**.
+- Priorités session 15 suggérées :
+  1. **Durcissement `verifyInjectToken`** (prioritaire — dette sécurité).
+  2. KCZ001/010/030 : query expansion / reranking / hybrid search.
+  3. Warning SSL.
+  4. Snapshot T1.
+  5. RAG Phase 2.
+  6. Quick wins restants (traduction page d'accueil, comptes test).
+  7. `docs/src/` : sort.
+  8. Optimisation `vectorize-repertoire.ts`.
+
 ---
