@@ -34,7 +34,7 @@ export function DashboardTopNav({
         <WebStatusBadge />
         <Button variant="ghost" size="icon" className="rounded-xl hover:bg-muted" onClick={() => setTheme(theme === "light" ? "dark" : "light")}>
           {theme === "light" ? <Moon className="h-5 w-5 text-foreground/70" /> : <Sun className="h-5 w-5 text-foreground/70" />}
-          <span className="sr-only">Toggle theme</span>
+          <span className="sr-only">Basculer le thème</span>
         </Button>
 
         <Button variant="ghost" size="icon" className="relative rounded-xl hover:bg-muted">
@@ -47,7 +47,7 @@ export function DashboardTopNav({
 
         <Button variant="ghost" size="icon" className="rounded-xl hover:bg-muted" onClick={() => router.push("/profile")}>
           <User className="h-5 w-5 text-foreground/70" />
-          <span className="sr-only">Profile</span>
+          <span className="sr-only">Profil</span>
         </Button>
 
         <Button variant="ghost" size="icon" className="rounded-xl hover:bg-muted" onClick={() => router.push("/login")}>
