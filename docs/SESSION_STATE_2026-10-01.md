@@ -217,3 +217,113 @@ vérification de l'absence de migrations en attente.
 4. Quick wins b/c/d (priorité 6, reportée depuis session 8)
 5. Snapshot T1 (dans 1-2 semaines)
 6. Traiter le warning SSL `pg-connection-string`
+
+---
+
+# Session 12 — 2026-10-01 (suite)
+
+## Résumé
+
+Session productive et disciplinée. Deux priorités fermées sans incident BDD.
+Priorité 3 (dette traînante depuis session 8) soldée en 2 commits ciblés.
+Priorité 1 reformulée après inspection : le corpus riche était déjà à 98 % vectorisé ;
+l'enrichissement réel consistait à étendre la couverture à `Groupes` et `SYSTEM`.
+Script existant corrigé (2 lignes), exécuté avec succès : 252 chunks, 0 erreur.
+Protocole renforcé respecté de bout en bout.
+
+## Commits session 12
+
+| Hash | Message |
+|---|---|
+| 275d448 | chore(tsconfig): exclude docs/src |
+| 3eaa690 | fix(gitignore): correct docs/src path separator |
+| 7f76e9a | fix(scripts): extend repertoire walk to Groupes + SYSTEM |
+
+## Acquis
+
+- ✅ Priorité 3 fermée : `tsconfig.json` exclut désormais `docs/src`
+- ✅ Priorité 3 fermée : `.gitignore` corrigé (`docs/src` au lieu de ` docs\src`)
+- ✅ `docs/src/` n'apparaît plus comme untracked dans `git status`
+- ✅ Priorité 1 réalisée : corpus RAG étendu à `Groupes` et `SYSTEM`
+- ✅ Script `vectorize-repertoire.ts` corrigé (2 lignes : typage + appels `walk()`)
+- ✅ Exécution réussie : 252 chunks, 79 insérés, 173 mis à jour, 0 erreur
+- ✅ `document_chunks` passe de 173 à 252 chunks (+79, +46 %)
+- ✅ Couverture complète de `docs/data-repertoire.json` (sauf `SHARE`, sans `children`)
+- ✅ Protocole renforcé respecté : snapshot BDD début/fin, commit Git avant Neon
+- ✅ Aucun incident BDD, aucune dérogation
+
+## Reporté en session 13
+
+### Priorité 1 — Test fonctionnel `/api/ai/rag` (non exécuté)
+- Blocage : endpoint protégé par NextAuth, pas de cookie de session valide
+- Tests prévus :
+  - Question sur `Groupes` (ORDINATEUR DE SUPERVISION - TCI)
+  - Question sur `SYSTEM` (fonctions système)
+  - Question sur `Centrale` (non-régression)
+- Requiert : compte de test dédié + cookie `next-auth.session-token`
+
+### Priorité 6 — Quick wins b), c), d)
+- b) `aria-label` sur icon buttons du `top-nav`
+- c) Badge `"🚀 Now in public beta"` → FR
+- d) Titres dashboards uniformisés
+- Reporté session 8, non traité sessions 10, 11, 12
+
+### Snapshot T1
+- À réaliser dans 1-2 semaines pour comparer avec T0 (2026-10-01)
+- Comparer volumes `documents`, `document_chunks`, `audit_logs`, `sync_logs`
+
+### Warning SSL `pg-connection-string`
+- Non bloquant, mais à traiter : `sslmode=verify-full` explicite
+
+### RAG Phase 2 (suite `RAG_MIGRATION_PLAN.md`)
+- Query cleaning, reranking, semantic cache (Upstash Redis)
+- Validation layer
+- Zone routing
+- Enrichissement du corpus (le corpus riche `data-repertoire.json` est
+  dans le repo, pas sur Neon)
+
+## Incident BDD 2026-10-01 — Régularisation (rappel)
+
+Un incident a été détecté en début de session 11 : **deux migrations Prisma
+appliquées sur Neon sans mandat** (initiative IA interne, session 10).
+Périmètre circonscrit : aucune autre écriture BDD, aucun endpoint créé,
+aucune modification de `rag/route.ts`.
+
+**Décision** : Voie B (accepter l'état, régulariser, tracer).
+**Régularisation** :
+- `319cc2e` : migration HNSW commitée
+- `c2c9d5a` : rapport `docs/INCIDENT_2026-10-01.md` livré
+
+**Protocole renforcé acté** : aucune écriture BDD sans mandat explicite,
+commit Git avant application Neon, snapshot BDD en début de session,
+vérification de l'absence de migrations en attente.
+
+## État Neon au 2026-10-01 (post-session 12)
+
+- Snapshot T0 documenté : `docs/DB_STATE_2026-10-01.md`
+- **23 tables + `document_chunks`** (table issue de l'incident session 11)
+- `document_chunks` : **252 lignes**, 0 NULL, ~80 kB
+- `documents` : 7 lignes, 4848 kB (stable vs T0)
+- `_prisma_migrations` : 15 (stable vs session 11)
+- `docs/data-repertoire.json` : 249 chunks (170 `Centrale` + ~36 `Groupes` + 5 `SYSTEM`)
+- Aucune autre dérive détectée
+
+## Points de vigilance
+
+- `docs/src/` reste untracked (orphelin connu, ignoré par `.gitignore`, à traiter session 13+)
+- `PRESERVED_TABLES` dans `purge-web/route.ts` est documentaire (jamais
+  exécuté) — source de confusion à clarifier
+- Modèles sans `@@map` (`PublishQueue`, `UserSyncState`, `SystemVersion`) —
+  tables CamelCase en SQL
+- Cookie `next-auth.session-token` exposé pendant V22 — **à invalider par
+  déconnexion/reconnexion**
+- Warning SSL `pg-connection-string` (non bloquant)
+- Test fonctionnel `/api/ai/rag` non exécuté (blocage auth)
+
+## Reprise session 13
+
+1. Test fonctionnel `/api/ai/rag` (compte de test dédié + cookie)
+2. Quick wins b/c/d (priorité 6, reportée depuis session 8)
+3. Snapshot T1 (dans 1-2 semaines)
+4. Traiter le warning SSL `pg-connection-string`
+5. RAG Phase 2 (query cleaning, reranking, cache)
