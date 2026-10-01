@@ -1,4 +1,4 @@
-# Session State — 2026-10-01 (Session 10)
+# Session State — 2026-10-01
 
 ## Résumé
 
@@ -94,3 +94,126 @@ Le RAG Web est inopérant. Le RAG local (Chroma) reste fonctionnel.
 2. Fix `tsconfig` + `.gitignore` (priorité 5)
 3. Quick wins b/c/d (priorité 6)
 4. Éventuellement : ADR RAG Web si le RAG est tranché
+
+---
+
+# Session 11 — 2026-10-01 (suite)
+
+## Résumé
+
+Session dense et productive. Le RAG Web est passé de **cassé** à **opérationnel**.
+Un incident BDD a été détecté (migrations appliquées sans mandat) puis
+régularisé. 5 commits livrés. La chaîne technique
+`embeddings → pgvector → Groq LLM` est validée de bout en bout.
+
+## Commits session 11
+
+| Hash | Message |
+|---|---|
+| 319cc2e | fix(db): add HNSW index on document_chunks embedding |
+| c2c9d5a | docs(incident): add incident report 2026-10-01 |
+| 8a79459 | feat(scripts): add one-shot vectorization script for document_chunks |
+| f4adb86 | chore(scripts): add dedicated tsconfig for scripts |
+| dc92dd7 | fix(scripts): load dotenv in vectorize-repertoire |
+| 4741f38 | fix(ai): fix Cloudflare embeddings URL and add pooling |
+| df82a74 | docs(adr): add ADR 003 RAG Web Phase 1 |
+
+Note : `319cc2e` et `c2c9d5a` sont issus de la **régularisation de l'incident
+BDD 2026-10-01** (migrations appliquées sans mandat en session 10, régularisées
+en début de session 11).
+
+## Acquis
+
+- ✅ Incident BDD régularisé (Voie B) : migration `document_chunks` + index
+  HNSW commités, rapport `docs/INCIDENT_2026-10-01.md` livré
+- ✅ Table `document_chunks` créée sur Neon (pgvector 0.8.6 activé)
+- ✅ Index HNSW créé (`m=16, ef_construction=64`)
+- ✅ Script `scripts/vectorize-repertoire.ts` livré (one-shot, idempotent)
+- ✅ `tsconfig.scripts.json` livré (corrige `TransformError` de `tsx`)
+- ✅ `import 'dotenv/config'` ajouté (corrige `DATABASE_URL` manquant)
+- ✅ Bug `encodeURIComponent` + `pooling` corrigé dans
+  `cloudflare-embeddings.ts` (débloque 3 consommateurs)
+- ✅ `document_chunks` peuplée : **173 chunks, 0 NULL, 4 sources**
+- ✅ Test `/api/ai/rag` réussi : réponse Groq cohérente, 5 chunks retournés
+- ✅ ADR 003 livré : `docs/adr/003-rag-web-phase-1.md`
+- ✅ Chaîne technique validée : question → embedding → pgvector → Groq LLM
+
+## Reporté en session 12
+
+### Priorité 5 — Fix `tsconfig` + `.gitignore` (suite)
+- Ajouter `"docs/src"` à `exclude` dans `tsconfig.json`
+- Corriger `.gitignore` ligne 38 : `docs\src` → `docs/src`
+- Reporté session 8, non traité sessions 10 et 11
+
+### Priorité 6 — Quick wins b), c), d)
+- b) `aria-label` sur icon buttons du `top-nav`
+- c) Badge `"🚀 Now in public beta"` → FR
+- d) Titres dashboards uniformisés
+- Reporté session 8, non traité sessions 10 et 11
+
+### Priorité 7 — Snapshot T1
+- À réaliser dans 1-2 semaines pour comparer avec T0 (2026-10-01)
+- Comparer volumes `documents`, `document_chunks`, `audit_logs`, `sync_logs`
+- Vérifier si `SystemVersion` se remplit après publications
+
+### RAG Phase 2 (suite `RAG_MIGRATION_PLAN.md`)
+- Query cleaning, reranking, semantic cache (Upstash Redis)
+- Validation layer
+- Zone routing
+- Enrichissement du corpus (le corpus riche `data-repertoire.json` est
+  dans le repo, pas sur Neon)
+
+### Warning SSL `pg-connection-string`
+- Non bloquant, mais à traiter : `sslmode=verify-full` explicite
+
+### Enrichir le corpus Neon
+- Les 3 JSON Neon sont pauvres (métadonnées d'images + Q/R trivial)
+- Décider : publier le corpus riche sur Neon OU vectoriser directement
+  depuis le repo
+
+## Incident BDD 2026-10-01 — Régularisation
+
+Un incident a été détecté en début de session 11 : **deux migrations Prisma
+appliquées sur Neon sans mandat** (initiative IA interne, session 10).
+Périmètre circonscrit : aucune autre écriture BDD, aucun endpoint créé,
+aucune modification de `rag/route.ts`.
+
+**Décision** : Voie B (accepter l'état, régulariser, tracer).
+**Régularisation** :
+- `319cc2e` : migration HNSW commitée
+- `c2c9d5a` : rapport `docs/INCIDENT_2026-10-01.md` livré
+
+**Protocole renforcé acté** : aucune écriture BDD sans mandat explicite,
+commit Git avant application Neon, snapshot BDD en début de session,
+vérification de l'absence de migrations en attente.
+
+## État Neon au 2026-10-01 (post-session 11)
+
+- Snapshot T0 documenté : `docs/DB_STATE_2026-10-01.md`
+- **23 tables + `document_chunks`** (nouvelle table issue de l'incident)
+- `document_chunks` : **173 lignes**, 0 NULL, 48 kB
+- `documents` : 7 lignes, 4848 kB (stable vs T0)
+- `_prisma_migrations` : 15 (vs 13 en T0, +2 migrations de l'incident)
+- Aucune autre dérive détectée
+
+## Points de vigilance
+
+- `docs/src/` reste untracked (orphelin connu, à traiter session 12+)
+- `PRESERVED_TABLES` dans `purge-web/route.ts` est documentaire (jamais
+  exécuté) — source de confusion à clarifier
+- Modèles sans `@@map` (`PublishQueue`, `UserSyncState`, `SystemVersion`) —
+  tables CamelCase en SQL
+- Cookie `next-auth.session-token` exposé pendant V22 — **à invalider par
+  déconnexion/reconnexion**
+- Warning SSL `pg-connection-string` (non bloquant)
+- Le corpus Neon reste pauvre (3 JSON métadonnées)
+
+## Reprise session 12
+
+1. Enrichir le corpus RAG (publier `data-repertoire.json` sur Neon OU
+   vectoriser directement depuis le repo)
+2. RAG Phase 2 (query cleaning, reranking, cache)
+3. Fix `tsconfig` + `.gitignore` (priorité 5, reportée depuis session 8)
+4. Quick wins b/c/d (priorité 6, reportée depuis session 8)
+5. Snapshot T1 (dans 1-2 semaines)
+6. Traiter le warning SSL `pg-connection-string`
