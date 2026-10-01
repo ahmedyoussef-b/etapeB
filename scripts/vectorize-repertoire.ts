@@ -31,7 +31,7 @@ interface Chunk {
 
 function buildRepertoireChunks(): Chunk[] {
   const raw = fs.readFileSync(REPERTOIRE_PATH, 'utf-8');
-  const doc = JSON.parse(raw) as { Centrale: RepertoireNode };
+  const doc = JSON.parse(raw) as { Centrale: RepertoireNode; Groupes: RepertoireNode; SYSTEM: RepertoireNode };
   const chunks: Chunk[] = [];
   const source = REPERTOIRE_PATH;
 
@@ -59,6 +59,8 @@ function buildRepertoireChunks(): Chunk[] {
   }
 
   walk(doc.Centrale);
+  walk(doc.Groupes);
+  walk(doc.SYSTEM);
   return chunks;
 }
 
