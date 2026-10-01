@@ -1,4 +1,7 @@
-import 'dotenv/config';
+import { config } from 'dotenv';
+config({ path: '.env.local' });
+config({ path: '.env' });
+
 import { getPrismaClient } from '@/lib/services/db';
 import { embedTexts } from '@/lib/ai/cloudflare-embeddings';
 import { randomUUID } from 'node:crypto';
@@ -35,13 +38,46 @@ function buildRepertoireChunks(): Chunk[] {
   const chunks: Chunk[] = [];
   const source = REPERTOIRE_PATH;
 
-  function walk(node: RepertoireNode) {
+  function formatContext(ancestors: RepertoireNode[]): string {
+    return ancestors
+      .map((a) => a.label_fr || a.code || a.path)
+      .filter(Boolean)
+      .join(' > ');
+  }
+
+  function walk(node: RepertoireNode, ancestors: RepertoireNode[]) {
     const parts: string[] = [];
-    if (node.label_fr) parts.push(node.label_fr);
-    if (node.label_en) parts.push(node.label_en);
-    if (node.description_fr) parts.push(node.description_fr);
-    if (node.description_en) parts.push(node.description_en);
-    if (node.path) parts.push(`path: ${node.path}`);
+
+    // Type et code explicites
+    if (node.type) parts.push(`Type: ${node.type}`);
+    if (node.code) parts.push(`Code: ${node.code}`);
+
+    // Label dédupliqué (label_fr prioritaire, label_en seulement s'il diffère)
+    if (node.label_fr) parts.push(`Label: ${node.label_fr}`);
+    if (node.label_en && node.label_en !== node.label_fr) {
+      parts.push(`Label (en): ${node.label_en}`);
+    }
+
+    // Description dédupliquée (par rapport au label et entre fr/en)
+    if (node.description_fr && node.description_fr !== node.label_fr) {
+      parts.push(`Description: ${node.description_fr}`);
+    }
+    if (
+      node.description_en &&
+      node.description_en !== node.description_fr &&
+      node.description_en !== node.label_en
+    ) {
+      parts.push(`Description (en): ${node.description_en}`);
+    }
+
+    // Contexte parent (si on a des ancêtres)
+    if (ancestors.length > 0) {
+      const contextStr = formatContext(ancestors);
+      if (contextStr) parts.push(`Contexte: ${contextStr}`);
+    }
+
+    // Path
+    if (node.path) parts.push(`Path: ${node.path}`);
 
     if (parts.length > 0) {
       chunks.push({
@@ -53,14 +89,14 @@ function buildRepertoireChunks(): Chunk[] {
 
     if (node.children && Array.isArray(node.children)) {
       for (const child of node.children) {
-        walk(child);
+        walk(child, [...ancestors, node]);
       }
     }
   }
 
-  walk(doc.Centrale);
-  walk(doc.Groupes);
-  walk(doc.SYSTEM);
+  walk(doc.Centrale, []);
+  walk(doc.Groupes, []);
+  walk(doc.SYSTEM, []);
   return chunks;
 }
 
