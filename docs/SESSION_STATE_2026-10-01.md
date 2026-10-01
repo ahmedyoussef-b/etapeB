@@ -327,3 +327,86 @@ vérification de l'absence de migrations en attente.
 3. Snapshot T1 (dans 1-2 semaines)
 4. Traiter le warning SSL `pg-connection-string`
 5. RAG Phase 2 (query cleaning, reranking, cache)
+
+---
+
+# Session 13 — 2026-10-01 (suite)
+
+## Résumé
+
+Session à deux priorités. Priorité 6 fermée (dette depuis session 8) :
+francisation top-nav, badge hero FR, harmonisation titres dashboards.
+Priorité 1 partiellement validée : infrastructure RAG fonctionnelle,
+mais rappel insuffisant sur les chunks Groupes/SYSTEM (chunking court).
+Un incident procédural (test hors protocole via script dédié) a été
+détecté, sans conséquence BDD, et régularisé par constat.
+
+## Commits session 13
+
+| Hash | Message |
+|---|---|
+| 2cab719 | chore(ui): close quick wins b/c/d (session 8 debt) |
+
+## Acquis
+
+- ✅ Priorité 6 fermée : 5 fichiers, 6 lignes
+  - `top-nav.tsx` : `Toggle theme` → `Basculer le thème`, `Profile` → `Profil`
+  - `hero.tsx` : `🚀 Now in public beta` → `🚀 En bêta publique`
+  - 3 dashboards rôles : `text-3xl` → `text-2xl`
+- ✅ Priorité 1 partiellement validée : endpoint `/api/ai/rag` fonctionnel
+  de bout en bout (auth Bearer injecté, embeddings Cloudflare, pgvector,
+  Groq LLM)
+- ✅ Non-régression Centrale confirmée (Q3 : CFI = FILTRATION EAU DE
+  REFRIGERATION)
+- ✅ Aucune écriture BDD, aucun incident
+
+## Constats (session 13)
+
+- ⚠️ Rappel insuffisant sur les chunks `Groupes` (B0SY11/21/31/32 absents
+  du top 20) et `SYSTEM` (KCZ001/010/030 absents) — cause probable :
+  chunks trop courts, embedding peu discriminant
+- ⚠️ Les 3 chunks `bank/` et `registry/` ne sont jamais retournés
+- ⚠️ `verifyInjectToken` ne vérifie pas l'existence du `sub` en BDD
+  (durcissement à envisager)
+- ⚠️ `app/tmp/test-rag.ts` : script untracked, hors protocole, non commité
+- ⚠️ Dérive d'application détectée en 2.3b (espaces parasites sur 3 lignes
+  `<h1>`), corrigée en 2.3bis
+
+## Reporté en session 14+
+
+### RAG Phase 2 (hérité)
+- Query cleaning, reranking, semantic cache (Upstash Redis)
+- Validation layer (réduire hallucinations)
+- Zone routing (12 collections dans `docs/src`)
+- Enrichissement du corpus (chunks Groupes/SYSTEM plus verbeux)
+
+### Quick wins restants
+- Traduire la page d'accueil (encore en anglais : `Sign in`, `Get Started`,
+  `Automate workflows...`)
+- Créer des comptes de test par rôle (RONDIER, CHEF_DE_BLOC, CHEF_DE_QUART)
+  pour tester visuellement les dashboards rôles
+
+### Autres
+- Snapshot T1 (dans 1-2 semaines)
+- Warning SSL `pg-connection-string`
+- `docs/src/` (orphelin, contient 8 sous-dossiers projet)
+- Optimisation `vectorize-repertoire.ts` (109 s / 120 s)
+- Purger `app/tmp/test-rag.ts` (ou le commiter en script officiel)
+
+## État Neon au 2026-10-01 (post-session 13)
+
+- `document_chunks` : 252 lignes (stable vs session 12)
+- `documents` : 7 lignes (stable)
+- `_prisma_migrations` : 15 (stable)
+- Aucune dérive
+
+## Points de vigilance (session 14+)
+
+- `docs/src/` untracked (orphelin, 8 sous-dossiers)
+- `app/tmp/test-rag.ts` untracked (script hors protocole session 13)
+- `PRESERVED_TABLES` dans `purge-web/route.ts` documentaire
+- Modèles sans `@@map` (`PublishQueue`, `UserSyncState`, `SystemVersion`)
+- Warning SSL `pg-connection-string`
+- `verifyInjectToken` sans vérification BDD du `sub`
+
+---
