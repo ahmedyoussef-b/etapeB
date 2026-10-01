@@ -1,3 +1,4 @@
+import 'dotenv/config';
 import { getPrismaClient } from '@/lib/services/db';
 import { embedTexts } from '@/lib/ai/cloudflare-embeddings';
 import { randomUUID } from 'node:crypto';
