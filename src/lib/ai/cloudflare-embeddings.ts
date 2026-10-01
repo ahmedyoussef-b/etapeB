@@ -22,7 +22,7 @@ export async function embedTexts(texts: string[]): Promise<number[][]> {
     throw new Error('Configuration Cloudflare manquante');
   }
 
-  const url = `https://api.cloudflare.com/client/v4/accounts/${CLOUDFLARE_ACCOUNT_ID}/ai/run/${encodeURIComponent(CLOUDFLARE_EMBEDDING_MODEL)}`;
+  const url = `https://api.cloudflare.com/client/v4/accounts/${CLOUDFLARE_ACCOUNT_ID}/ai/run/${CLOUDFLARE_EMBEDDING_MODEL}`;
 
   const response = await fetch(url, {
     method: 'POST',
@@ -30,7 +30,7 @@ export async function embedTexts(texts: string[]): Promise<number[][]> {
       Authorization: `Bearer ${CLOUDFLARE_API_TOKEN}`,
       'Content-Type': 'application/json',
     },
-    body: JSON.stringify({ text: texts }),
+    body: JSON.stringify({ text: texts, pooling: 'cls' }),
   });
 
   if (!response.ok) {
