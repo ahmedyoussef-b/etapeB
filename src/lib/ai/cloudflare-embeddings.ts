@@ -1,16 +1,20 @@
 import logger from '@/lib/logger';
 
-const CLOUDFLARE_ACCOUNT_ID = process.env.CLOUDFLARE_ACCOUNT_ID;
-const CLOUDFLARE_API_TOKEN = process.env.CLOUDFLARE_API_TOKEN;
-const CLOUDFLARE_EMBEDDING_MODEL = process.env.CLOUDFLARE_EMBEDDING_MODEL || '@cf/baai/bge-small-en-v1.5';
-const CLOUDFLARE_EMBEDDING_DIMENSIONS = Number(process.env.CLOUDFLARE_EMBEDDING_DIMENSIONS || '384');
+function getCloudflareConfig() {
+  return {
+    accountId: process.env.CLOUDFLARE_ACCOUNT_ID,
+    apiToken: process.env.CLOUDFLARE_API_TOKEN,
+    model: process.env.CLOUDFLARE_EMBEDDING_MODEL || '@cf/baai/bge-small-en-v1.5',
+    dimensions: Number(process.env.CLOUDFLARE_EMBEDDING_DIMENSIONS || '384'),
+  };
+}
 
 export function getCloudflareEmbeddingModel(): string {
-  return CLOUDFLARE_EMBEDDING_MODEL;
+  return getCloudflareConfig().model;
 }
 
 export function getCloudflareEmbeddingDimensions(): number {
-  return CLOUDFLARE_EMBEDDING_DIMENSIONS;
+  return getCloudflareConfig().dimensions;
 }
 
 export async function embedTexts(texts: string[]): Promise<number[][]> {
@@ -18,16 +22,18 @@ export async function embedTexts(texts: string[]): Promise<number[][]> {
     throw new Error('Aucun texte à vectoriser');
   }
 
-  if (!CLOUDFLARE_ACCOUNT_ID || !CLOUDFLARE_API_TOKEN) {
+  const config = getCloudflareConfig();
+
+  if (!config.accountId || !config.apiToken) {
     throw new Error('Configuration Cloudflare manquante');
   }
 
-  const url = `https://api.cloudflare.com/client/v4/accounts/${CLOUDFLARE_ACCOUNT_ID}/ai/run/${CLOUDFLARE_EMBEDDING_MODEL}`;
+  const url = `https://api.cloudflare.com/client/v4/accounts/${config.accountId}/ai/run/${config.model}`;
 
   const response = await fetch(url, {
     method: 'POST',
     headers: {
-      Authorization: `Bearer ${CLOUDFLARE_API_TOKEN}`,
+      Authorization: `Bearer ${config.apiToken}`,
       'Content-Type': 'application/json',
     },
     body: JSON.stringify({ text: texts, pooling: 'cls' }),
