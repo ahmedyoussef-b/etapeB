@@ -25,7 +25,6 @@ const TRUNCATE_ORDER: { model: string; table: string }[] = [
   { model: 'team', table: 'teams' },
   { model: 'publishQueue', table: 'publish_queue' },
   { model: 'userSyncState', table: 'user_sync_states' },
-  { model: 'systemVersion', table: 'system_versions' },
   { model: 'report', table: 'reports' },
   { model: 'syncLog', table: 'sync_logs' },
 ];
