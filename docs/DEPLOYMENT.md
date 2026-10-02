@@ -14,8 +14,8 @@ Deux fichiers locaux (tous deux **gitignorés**) :
 
 | Variable | Exemple | Description |
 |---|---|---|
-| `DATABASE_URL` | `postgresql://...@neon.tech/neondb?sslmode=require` | Connexion Neon (pooled) |
-| `DIRECT_URL` | `postgresql://...@neon.tech/neondb?sslmode=require` | Connexion Neon (directe — migrations Prisma) |
+| `DATABASE_URL` | `postgresql://...@neon.tech/neondb?sslmode=verify-full` | Connexion Neon (pooled) |
+| `DIRECT_URL` | `postgresql://...@neon.tech/neondb?sslmode=verify-full` | Connexion Neon (directe — migrations Prisma) |
 | `NEXTAUTH_SECRET` | `openssl rand -base64 32` | Secret de chiffrement des JWT NextAuth |
 | `NEXTAUTH_URL` | `http://localhost:3000` (dev) / `https://etape-b.vercel.app` (prod) | URL de l'application |
 
