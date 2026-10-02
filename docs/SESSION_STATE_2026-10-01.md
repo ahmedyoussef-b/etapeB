@@ -681,3 +681,122 @@ dashboard Neon **avant** toute requête SQL, et croiser avec le hostname
 8. Priorité 9 : RAG Phase 2
 
 ---
+
+# Session 17 — 2026-10-02
+
+## Résumé
+
+Session structurante : première migration Prisma appliquée avec succès depuis
+session 10 (`users.active`). Le risque résiduel d'ADR 004 (utilisateur
+désactivé authentifiable) est fermé sur les trois points d'entrée
+d'authentification (authorize, NextAuth, Bearer). 4 incidents non liés
+détectés et maîtrisés (migration erronée `DROP INDEX HNSW`, `ALTER TABLE`
+sur mauvais projet Neon, fuites `.env` CLI, script hors protocole).
+2 commits livrés. Tests : 6/6 Vitest.
+
+## Commits session 17
+
+| Hash | Message |
+|---|---|
+| ebffce5 | feat(db): add users.active field (migration + schema) |
+| d9fb4ce | feat(auth): harden auth branches with users.active check (ADR 005) |
+
+## Acquis
+
+- ✅ Migration `users.active` appliquée sur `etapeB / production / neondb` :
+  `ALTER TABLE "users" ADD COLUMN IF NOT EXISTS "active" BOOLEAN NOT NULL DEFAULT true;`
+- ✅ `schema.prisma` mis à jour : `active Boolean @default(true)` dans `model User`
+- ✅ ADR 005 livré : `docs/adr/005-users-active-hardening.md`
+- ✅ `authorize` durci : rejet des utilisateurs désactivés (`src/lib/auth/options.ts`)
+- ✅ `getAuthenticatedUser` durci (branche NextAuth) : vérification BDD `active`
+  à chaque appel + fail-safe (`src/lib/api/auth-guard.ts`)
+- ✅ `getAuthenticatedUser` durci (branche Bearer) : `active` dans le `select`
+  + condition `user && user.active`
+- ✅ `verifyInjectToken` durci : `active` dans le `select` + condition
+  `!user || !user.active`
+- ✅ Tests : T1 adapté (`active: true`), T6 ajouté (utilisateur inactif) — 6/6 passent
+- ✅ Snapshot post-migration : `documents: 7`, `document_chunks: 252`,
+  `_prisma_migrations: 16` (stable +1), `users_active: 5`, `users_inactive: 0`
+- ✅ Protocole respecté : inspection → validation → modification → test → commit
+- ✅ `docs/INCIDENT_2026-10-02.md` livré (4 incidents documentés)
+
+## Décisions de design (ADR 005)
+
+- **Rejet** de la modification du callback `jwt` (mécanisme non fiable —
+  NextAuth ne garantit pas la déconnexion sur `id: undefined`).
+- **Rejet** de la réduction de `session.maxAge` (UX dégradée, ne résout
+  pas le cas ciblé).
+- **Rejet** de l'externalisation cache/DB (hors périmètre).
+- **Retenu** : rejet explicite via `getAuthenticatedUser` (branche NextAuth
+  ET Bearer) + rejet au login via `authorize`.
+
+## Incidents session 17 (voir `docs/INCIDENT_2026-10-02.md`)
+
+1. Migration erronée `DROP INDEX HNSW` — détectée avant application (via
+   `--create-only`), dossier supprimé. **Aucun dégât.**
+2. `ALTER TABLE` sur mauvais projet Neon (`riadh5college`) — détecté par
+   `information_schema.columns`. Projet tiers supprimé volontairement après
+   l'incident. **Aucun impact matériel sur NexaFlow.**
+3. Fuites répétées de métadonnées `.env` par `prisma.config.ts` (nombre de
+   variables seulement, pas de contenu). **À investiguer session 18+.**
+4. `scripts/snapshot-bdd.ts` créé hors protocole — supprimé. **Leçon :**
+   toute création de fichier doit être validée avant.
+
+## État BDD post-session 17
+
+- `documents` : 7 lignes (stable)
+- `document_chunks` : 252 lignes (stable)
+- `_prisma_migrations` : **16** (+1 : `20261002130000_add_users_active`)
+- `audit_logs` : 0
+- `sync_logs` : 0
+- `users` : **5 actifs** (4 du seed + 1 admin propriétaire `ahmedyoussefabbes@gmail.com`)
+- Colonne `users.active` : présente, `BOOLEAN NOT NULL DEFAULT true`
+
+## Points de vigilance (session 18+)
+
+- **Dette structurelle Prisma + pgvector + HNSW** : à formaliser (ADR 006,
+  session 18+). Utiliser `--create-only` obligatoire + inspection manuelle
+  du SQL. Écrire les migrations à la main si nécessaire.
+- **`prisma.config.ts`** : investiguer option de silence des logs `injected env`.
+- **Multi-projets Neon** : documenter la liste des projets actifs et leur
+  rôle, pour éviter les confusions (leçon session 16 + 17).
+- **Dette de tests** : aucun test unitaire pour `auth-guard.ts` ni
+  `options.ts`. Reporté session 18+.
+- **`audit_logs`** toujours à 0 — le mécanisme d'audit ne fonctionne pas.
+- **Fail-safe BDD** : une panne BDD déconnecte tous les utilisateurs (choix
+  assumé). À surveiller en production.
+- Warning Vite config ESM/CommonJS (`vitest.config.ts:1:1`) — préexistant,
+  non traité session 17.
+- KCZ001/010/030 (RAG) — toujours insuffisant (hérité session 14).
+- `/api/ai/chat` vs `/api/ai/rag` (hérité session 14).
+- Warning SSL `pg-connection-string` (hérité session 14).
+- `docs/src/` orphelin (hérité session 14).
+
+## Reporté en session 18+
+
+1. **Dette structurelle Prisma + pgvector + HNSW** (ADR 006) — chantier
+   structurant recommandé.
+2. **Tests unitaires `auth-guard.ts` et `options.ts`** (dette session 17).
+3. **Investigation `prisma.config.ts`** pour masquer les logs `.env`.
+4. **Documentation multi-projets Neon**.
+5. **Fix `audit_logs`** (mécanisme cassé).
+6. **Warning Vite config ESM/CommonJS** (quick win).
+7. **KCZ001/010/030** (query expansion / reranking / hybrid search).
+8. **`/api/ai/chat` vs `/api/ai/rag`**.
+9. **Warning SSL `pg-connection-string`**.
+10. **`docs/src/`** : décision committer / supprimer.
+11. **Quick wins restants** : traduction page d'accueil, comptes test,
+    import `logger` mort, optimisation `vectorize-repertoire.ts`.
+12. **Snapshot T1** (dans 1-2 semaines).
+13. **RAG Phase 2**.
+
+## Reprise session 18
+
+1. **Lire `docs/SESSION_STATE_2026-10-01.md`** (fin de fichier, section
+   Session 17) et `docs/INCIDENT_2026-10-02.md`.
+2. **Lire `docs/adr/005-users-active-hardening.md`**.
+3. **Décider** : ADR 006 (Prisma + pgvector + HNSW) OU tests unitaires
+   `auth-guard`/`options` OU autre priorité.
+4. Rappel : vérifier le **nom du projet Neon** avant toute requête SQL.
+5. Rappel : `prisma migrate dev --create-only` **obligatoire** pour toute
+   future migration Prisma.
