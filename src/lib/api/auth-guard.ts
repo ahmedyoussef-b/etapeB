@@ -156,7 +156,7 @@ export function withAuth<TContext extends Record<string, any> = { user: { id: st
       }
 
       logger.debug('Request authorized', { userId: user.id, role: user.role, url: req.url });
-      return handler(req, { user, ...(args[0] || {}) } as TContext);
+      return await handler(req, { user, ...(args[0] || {}) } as TContext);
     } catch (error) {
       return NextResponse.json(
         { error: "Unauthorized" },

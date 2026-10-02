@@ -312,12 +312,9 @@ describe('withAuth', () => {
     vi.spyOn(Date, 'now').mockRestore();
   });
 
-  // D. BUG CONNU : withAuth n'await pas le handler (ligne 159).
-  // Un handler async qui rejette n'est PAS capté par le try/catch,
-  // ce qui provoque un unhandled rejection au lieu d'un 401 propre.
-  // Ce test documente le comportement actuel — À METTRE À JOUR quand
-  // ADR 007 sera appliqué (session 19+).
-  it('BUG CONNU : handler async qui rejette n\'est pas capté par le catch', async () => {
+  // D. Handler async rejeté → 401 propre (correction ADR 007).
+  // Le try/catch de withAuth capture désormais le rejet.
+  it('handler async qui rejette est capté et retourne 401', async () => {
     mockGetServerSession.mockResolvedValue(MOCK_SESSION as any);
     mockGetPrismaClient.mockReturnValue({
       user: { findUnique: vi.fn().mockResolvedValue(MOCK_DB_USER_ACTIVE) },
@@ -327,8 +324,10 @@ describe('withAuth', () => {
     const wrapped = withAuth(handler);
 
     const req = createRequest();
+    const response = await wrapped(req);
 
-    await expect(wrapped(req)).rejects.toThrow('Handler error');
+    expect(response.status).toBe(401);
+    expect(handler).toHaveBeenCalled();
   });
 
   // Note : le cas fail-closed (store inaccessible → 401) n'est pas testé
