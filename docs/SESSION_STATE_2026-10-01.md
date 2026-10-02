@@ -804,18 +804,18 @@ sur mauvais projet Neon, fuites `.env` CLI, script hors protocole).
 
 ---
 
-# Session 18 — 2026-10-02
+# Session 18 â€” 2026-10-02
 
-## Résumé
+## RÃ©sumÃ©
 
-Session 18 a été marquée par 11 priorités closes et 2 reports. Livrables
+Session 18 a Ã©tÃ© marquÃ©e par 11 prioritÃ©s closes et 2 reports. Livrables
 majeurs : ADR 006 (dette structurelle Prisma + pgvector + HNSW), ADR 007
 (bug withAuth async), tests unitaires auth-guard (25/25) et options (24/24),
 8 notes techniques.
 
-Trois écarts de protocole ont été commis par l'IA interne (commits non
-autorisés, verbatims tronqués) et corrigés. La surveillance stricte a été
-activée en fin de session.
+Trois Ã©carts de protocole ont Ã©tÃ© commis par l'IA interne (commits non
+autorisÃ©s, verbatims tronquÃ©s) et corrigÃ©s. La surveillance stricte a Ã©tÃ©
+activÃ©e en fin de session.
 
 ## Commits session 18
 
@@ -835,46 +835,46 @@ activée en fin de session.
 | 34fa397 | docs(note): resolve SSL pg-connection-string warning + align env example |
 | d4630e5 | docs(note): document docs/src/ reference role (RAG Phase 2) |
 | 560f810 | chore(ai): remove dead logger import in cloudflare-embeddings |
-| (à venir) | docs(session): add session 18 to SESSION_STATE_2026-10-01 |
+| (Ã  venir) | docs(session): add session 18 to SESSION_STATE_2026-10-01 |
 
 ## Acquis
 
-- ? ADR 006 livré : dette structurelle Prisma + pgvector + HNSW
-- ? ADR 007 livré : bug withAuth async découvert par tests
-- ? Tests auth-guard.spec.ts : 25/25 passés
-- ? Tests options.spec.ts : 24/24 passés
-- ? Incident test documenté : INCIDENT_TEST_2026-10-02.md
+- ? ADR 006 livrÃ© : dette structurelle Prisma + pgvector + HNSW
+- ? ADR 007 livrÃ© : bug withAuth async dÃ©couvert par tests
+- ? Tests auth-guard.spec.ts : 25/25 passÃ©s
+- ? Tests options.spec.ts : 24/24 passÃ©s
+- ? Incident test documentÃ© : INCIDENT_TEST_2026-10-02.md
 - ? Note dotenvx : NOTE_PRISMA_DOTENVX_LOGS.md
 - ? Note Neon : NOTE_NEON_MULTI_PROJETS.md
 - ? Note audit_logs : NOTE_AUDIT_LOGS_DIAGNOSTIC.md
 - ? Note Vite config : NOTE_VITE_CONFIG_WARNING.md
 - ? Note KCZ : NOTE_KCZ001_010_030_RAG.md
 - ? Note chat vs rag : NOTE_AI_CHAT_VS_RAG.md
-- ? Note SSL : NOTE_SSL_PG_CONNECTION_STRING.md (warning résolu)
+- ? Note SSL : NOTE_SSL_PG_CONNECTION_STRING.md (warning rÃ©solu)
 - ? Note docs/src : NOTE_DOCS_SRC_REFERENCE.md
-- ? Quick win 3 : import logger mort supprimé
+- ? Quick win 3 : import logger mort supprimÃ©
 
-## Reporté en session 19+
+## ReportÃ© en session 19+
 
-1. Snapshot T1 (écart temporel insuffisant en S18)
+1. Snapshot T1 (Ã©cart temporel insuffisant en S18)
 2. RAG Phase 2 (chantier structurant, ADR 008 requis)
-3. Quick wins 1, 2, 4, 5 (cosmétiques, BDD, benchmark, .gitignore)
-4. Fix withAuth async (ADR 007, correctif à appliquer)
-5. Propager sslmode=verify-full à Vercel et Tauri
+3. Quick wins 1, 2, 4, 5 (cosmÃ©tiques, BDD, benchmark, .gitignore)
+4. Fix withAuth async (ADR 007, correctif Ã  appliquer)
+5. Propager sslmode=verify-full Ã  Vercel et Tauri
 6. Fix audit_logs (couverture insuffisante)
 
 ## Incidents session 18
 
-1. Commit non autorisé ADR 007 (annulé, commit refait)
-2. Reset involontaire (commit incident disparu, restauré via reflog)
-3. Commit non autorisé note Vite (annulé, commit refait)
-4. Commit non autorisé note chat vs rag (annulé, commit refait)
-5. 12 écarts de verbatim intégral (troncatures, absences, squelettes)
+1. Commit non autorisÃ© ADR 007 (annulÃ©, commit refait)
+2. Reset involontaire (commit incident disparu, restaurÃ© via reflog)
+3. Commit non autorisÃ© note Vite (annulÃ©, commit refait)
+4. Commit non autorisÃ© note chat vs rag (annulÃ©, commit refait)
+5. 12 Ã©carts de verbatim intÃ©gral (troncatures, absences, squelettes)
 
-**Mesure activée** : surveillance stricte (verbatim individuel obligatoire,
-feu vert superviseur pour chaque étape Git).
+**Mesure activÃ©e** : surveillance stricte (verbatim individuel obligatoire,
+feu vert superviseur pour chaque Ã©tape Git).
 
-## État BDD post-session 18
+## Ã‰tat BDD post-session 18
 
 - `documents` : 7
 - `document_chunks` : 252
@@ -882,23 +882,23 @@ feu vert superviseur pour chaque étape Git).
 - `sync_logs` : 0
 - `_prisma_migrations` : 16
 - `users actifs` : 5
-- Colonne `users.active` : présente
+- Colonne `users.active` : prÃ©sente
 
 ## Points de vigilance (session 19+)
 
-- Bug `withAuth` async non corrigé (ADR 007)
-- Warning dotenvx accepté (NOTE_PRISMA_DOTENVX_LOGS)
+- Bug `withAuth` async non corrigÃ© (ADR 007)
+- Warning dotenvx acceptÃ© (NOTE_PRISMA_DOTENVX_LOGS)
 - `audit_logs` vide (couverture insuffisante)
-- KCZ001/010/030 non rappelés par RAG
+- KCZ001/010/030 non rappelÃ©s par RAG
 - `/api/ai/chat` sans RAG (web)
-- RAG Phase 2 à planifier (ADR 008)
-- `docs/app/` : entrée `.gitignore` possiblement intentionnelle
-- Vercel/Tauri : sslmode=verify-full à propager
+- RAG Phase 2 Ã  planifier (ADR 008)
+- `docs/app/` : entrÃ©e `.gitignore` possiblement intentionnelle
+- Vercel/Tauri : sslmode=verify-full Ã  propager
 
 ## Reprise session 19
 
 1. Lire `docs/SESSION_STATE_2026-10-01.md` (section Session 18)
 2. Lire `docs/adr/006-...`, `docs/adr/007-...`
 3. Lire les notes techniques de session 18
-4. Décider : RAG Phase 2 (ADR 008) OU correctif withAuth async OU autre
-5. Push en fin de session après validation
+4. DÃ©cider : RAG Phase 2 (ADR 008) OU correctif withAuth async OU autre
+5. Push en fin de session aprÃ¨s validation
