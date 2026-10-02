@@ -1,4 +1,5 @@
-import { createHmac, randomBytes } from 'crypto';
+import { createHmac } from 'crypto';
+import { getPrismaClient } from '@/lib/services/db';
 
 const ALG = 'HS256';
 const TYP = 'JWT';
@@ -31,7 +32,7 @@ export function signInjectToken(userId: string): string {
   return `${header}.${payloadB64}.${signature}`;
 }
 
-export function verifyInjectToken(token: string): { sub: string } | null {
+export async function verifyInjectToken(token: string): Promise<{ sub: string } | null> {
   try {
     const [headerB64, payloadB64, signature] = token.split('.');
     if (!headerB64 || !payloadB64 || !signature) return null;
@@ -41,7 +42,14 @@ export function verifyInjectToken(token: string): { sub: string } | null {
 
     const payload = JSON.parse(Buffer.from(payloadB64.replace(/-/g, '+').replace(/_/g, '/'), 'base64').toString('utf-8'));
     if (typeof payload?.sub !== 'string') return null;
-    if (payload.exp && Date.now() / 1000 > payload.exp) return null;
+    if (typeof payload.exp !== 'number' || Date.now() / 1000 > payload.exp) return null;
+
+    const prisma = getPrismaClient();
+    const user = await prisma.user.findUnique({
+      where: { id: payload.sub },
+      select: { id: true },
+    });
+    if (!user) return null;
 
     return { sub: payload.sub };
   } catch {

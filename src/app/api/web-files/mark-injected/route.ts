@@ -14,7 +14,7 @@ export async function POST(request: Request) {
     }
 
     const token = authHeader.slice('Bearer '.length).trim();
-    const verified = verifyInjectToken(token);
+    const verified = await verifyInjectToken(token);
     if (!verified) {
       return NextResponse.json({ error: 'Invalid or expired token' }, { status: 401 });
     }

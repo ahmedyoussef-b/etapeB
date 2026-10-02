@@ -50,7 +50,7 @@ export async function getAuthenticatedUser(req: NextRequest) {
     const authHeader = req.headers.get("authorization");
     if (authHeader?.startsWith("Bearer ")) {
       const token = authHeader.slice("Bearer ".length).trim();
-      const verified = verifyInjectToken(token);
+      const verified = await verifyInjectToken(token);
       if (verified?.sub) {
         const prisma = getPrismaClient();
         const user = await prisma.user.findUnique({
