@@ -10,8 +10,8 @@ import { SetupGuard } from "@/components/setup/setup-guard";
 const inter = Inter({ subsets: ["latin"], variable: "--font-sans" });
 
 export const metadata: Metadata = {
-  title: "NexaFlow - Automate workflows without the chaos",
-  description: "NexaFlow connects your tools, orchestrates your pipelines, and gives your team superpowers.",
+  title: "NexaFlow - Automatisez vos workflows sans le chaos",
+  description: "NexaFlow connecte vos outils, orchestre vos pipelines et donne des superpouvoirs à votre équipe.",
 };
 
 export default function RootLayout({

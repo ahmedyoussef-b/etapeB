@@ -28,28 +28,28 @@ export function Hero() {
           </Badge>
 
           <h1 className="text-5xl font-extrabold tracking-tight text-foreground sm:text-6xl md:text-7xl">
-            Automate workflows{" "}
-            <span className="bg-gradient-to-r from-primary to-primary/70 bg-clip-text text-transparent">without the chaos</span>
+            Automatisez vos workflows{" "}
+            <span className="bg-gradient-to-r from-primary to-primary/70 bg-clip-text text-transparent">sans le chaos</span>
           </h1>
 
           <p className="mt-8 text-lg leading-8 text-muted-foreground sm:text-xl sm:max-w-2xl mx-auto">
-            NexaFlow connects your tools, orchestrates your pipelines, and gives your team superpowers — all in one elegant interface.
+            NexaFlow connecte vos outils, orchestre vos pipelines et donne des superpouvoirs à votre équipe — le tout dans une interface élégante.
           </p>
 
           <form className="mt-10 flex flex-col sm:flex-row items-center justify-center gap-3" onSubmit={handleSubmit}>
             <Input
               id="email"
               type="email"
-              placeholder="Enter your work email"
+              placeholder="Entrez votre adresse email professionnelle"
               className="w-full sm:w-80 h-12 rounded-xl border-border/60 bg-background/50 backdrop-blur-sm"
             />
             <Button size="lg" type="submit" className="w-full sm:w-auto h-12 rounded-xl px-8 shadow-lg shadow-primary/20">
-              Start for free
+              Commencer gratuitement
             </Button>
           </form>
 
           <p className="mt-5 text-sm text-muted-foreground">
-            Free for up to 5 team members. No credit card required.
+            Gratuit jusqu'à 5 membres. Aucune carte bancaire requise.
           </p>
         </div>
 
@@ -69,7 +69,7 @@ export function Hero() {
                 >
                   <polygon points="5 3 19 12 5 21 5 3" />
                 </svg>
-                <span className="text-sm font-medium">Watch demo</span>
+                  <span className="text-sm font-medium">Voir la démo</span>
               </div>
             </div>
           </div>

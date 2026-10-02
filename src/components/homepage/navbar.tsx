@@ -19,13 +19,13 @@ export function Navbar() {
             href="/login"
             className="hidden sm:inline-flex rounded-xl border border-solid border-transparent bg-transparent px-4 py-2.5 text-sm font-medium text-foreground transition-all hover:bg-muted"
           >
-            Sign in
+            Se connecter
           </Link>
           <Link
             href="/login"
             className="inline-flex rounded-xl bg-primary px-4 py-2.5 text-sm font-medium text-primary-foreground shadow-sm transition-all hover:bg-primary/90 hover:shadow-md"
           >
-            Get Started
+            Commencer
           </Link>
         </div>
       </div>
