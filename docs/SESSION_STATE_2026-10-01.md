@@ -839,20 +839,20 @@ activée en fin de session.
 
 ## Acquis
 
-- ? ADR 006 livré : dette structurelle Prisma + pgvector + HNSW
-- ? ADR 007 livré : bug withAuth async découvert par tests
-- ? Tests auth-guard.spec.ts : 25/25 passés
-- ? Tests options.spec.ts : 24/24 passés
-- ? Incident test documenté : INCIDENT_TEST_2026-10-02.md
-- ? Note dotenvx : NOTE_PRISMA_DOTENVX_LOGS.md
-- ? Note Neon : NOTE_NEON_MULTI_PROJETS.md
-- ? Note audit_logs : NOTE_AUDIT_LOGS_DIAGNOSTIC.md
-- ? Note Vite config : NOTE_VITE_CONFIG_WARNING.md
-- ? Note KCZ : NOTE_KCZ001_010_030_RAG.md
-- ? Note chat vs rag : NOTE_AI_CHAT_VS_RAG.md
-- ? Note SSL : NOTE_SSL_PG_CONNECTION_STRING.md (warning résolu)
-- ? Note docs/src : NOTE_DOCS_SRC_REFERENCE.md
-- ? Quick win 3 : import logger mort supprimé
+- ✅ ADR 006 livré : dette structurelle Prisma + pgvector + HNSW
+- ✅ ADR 007 livré : bug withAuth async découvert par tests
+- ✅ Tests auth-guard.spec.ts : 25/25 passés
+- ✅ Tests options.spec.ts : 24/24 passés
+- ✅ Incident test documenté : INCIDENT_TEST_2026-10-02.md
+- ✅ Note dotenvx : NOTE_PRISMA_DOTENVX_LOGS.md
+- ✅ Note Neon : NOTE_NEON_MULTI_PROJETS.md
+- ✅ Note audit_logs : NOTE_AUDIT_LOGS_DIAGNOSTIC.md
+- ✅ Note Vite config : NOTE_VITE_CONFIG_WARNING.md
+- ✅ Note KCZ : NOTE_KCZ001_010_030_RAG.md
+- ✅ Note chat vs rag : NOTE_AI_CHAT_VS_RAG.md
+- ✅ Note SSL : NOTE_SSL_PG_CONNECTION_STRING.md (warning résolu)
+- ✅ Note docs/src : NOTE_DOCS_SRC_REFERENCE.md
+- ✅ Quick win 3 : import logger mort supprimé
 
 ## Reporté en session 19+
 
