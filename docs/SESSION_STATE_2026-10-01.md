@@ -583,6 +583,101 @@ renforcé respecté de bout en bout.
 5. Warning SSL `pg-connection-string`
 6. `docs/src/` : décision committer / supprimer
 7. Quick wins restants
-8. Snapshot T1
+ 8. Snapshot T1
+
+---
+
+
+# Session 16 — 2026-10-02
+
+## Résumé
+
+Session de validation fonctionnelle. Le durcissement `verifyInjectToken` livré
+en session 15 (ADR 004) est maintenant couvert par 5 tests unitaires Vitest
+(T1–T5), tous passants. Un incident de confusion de projet Neon (dashboard
+ouvert sur un projet tiers) a été diagnostiqué et levé sans impact BDD.
+Aucune écriture BDD, aucun secret exposé, protocole respecté.
+
+## Commits session 16
+
+| Hash | Message |
+|---|---|
+| c96c4b4 | test(auth): add unit tests for verifyInjectToken hardening (ADR 004) |
+
+## Acquis
+
+- ✅ Priorité 1 close : test fonctionnel `verifyInjectToken` (5/5 passent)
+- ✅ Fichier livré : `src/lib/auth/__tests__/inject-token.test.ts` (175 lignes)
+- ✅ Cas couverts : T1 (token valide), T2 (exp absent), T3 (sub inexistant),
+  T4 (signature altérée), T5 (token expiré)
+- ✅ Stratégie de test conforme au protocole : mocks `getPrismaClient`,
+  secret de test via `process.env.NEXTAUTH_SECRET` (valeur factice),
+  aucune lecture `.env`, aucun secret réel manipulé
+- ✅ Commit `c96c4b4` poussé sur `origin/main`
+- ✅ Working tree clean, HEAD synchronisé avec `origin/main`
+- ✅ Protocole respecté : aucune écriture BDD, aucun secret dans le chat
+
+## Incident confusion projet Neon (session 16)
+
+**Nature** : erreur humaine, sans impact BDD.
+
+**Description** : en début de session 16, une requête SQL de vérification
+a été exécutée dans le dashboard Neon sur un **projet tiers** (contexte
+`ahmed2` / `ahmedbddlocale`, tables `procedures`, `media_item`, `qa_pair`,
+`iot_*`, `neon_auth.*`). Le résultat a révélé l'absence des tables NexaFlow
+(`documents`, `document_chunks`, `audit_logs`), entraînant une alerte
+protocolaire.
+
+**Diagnostic** : la base NexaFlow est bien celle pointée par
+`DATABASE_URL` local (`ep-wild-truth-axxruzqa-pooler.c-4.us-east-2.aws.neon.tech`),
+avec 15 migrations Prisma conformes (`npx prisma migrate status` →
+`Database schema is up to date!`). Le dashboard avait été ouvert sur un
+projet Neon distinct, sans rapport avec NexaFlow.
+
+**Résolution** : aucune action BDD, aucun commit, aucun changement de code.
+L'alerte a été levée après inspection locale (`DATABASE_URL`, `prisma migrate status`).
+
+**Leçon** : toujours vérifier le **nom du projet** affiché en haut du
+dashboard Neon **avant** toute requête SQL, et croiser avec le hostname
+`DATABASE_URL` local.
+
+## Constats (session 16)
+
+- ⚠️ Warning Vite config ESM/CommonJS (`vitest.config.ts:1:1`) — préexistant,
+  non bloquant, à traiter session 17+
+- ⚠️ Champ `active` toujours absent du schéma Prisma `User` — bloque la
+  vérification d'utilisateur actif (ADR 004, risque résiduel documenté)
+- ⚠️ KCZ001/010/030 : rappel RAG toujours insuffisant (hérité session 14)
+
+## Reporté en session 17+
+
+- Priorité 2 : migration Prisma `users.active` (plan à valider)
+- Priorité 3 : KCZ001/010/030 (query expansion / reranking / hybrid search)
+- Priorité 4 : `/api/ai/chat` vs `/api/ai/rag`
+- Priorité 5 : warning SSL `pg-connection-string`
+- Priorité 6 : `docs/src/` (décision committer / supprimer)
+- Priorité 7 : quick wins (traduction page d'accueil, comptes test,
+  import `logger` mort, optimisation `vectorize-repertoire.ts`)
+- Priorité 8 : snapshot T1
+- Priorité 9 : RAG Phase 2
+
+## État BDD post-session 16
+
+- `document_chunks` : 252 lignes (stable vs session 15)
+- `documents` : 7 lignes (stable)
+- `_prisma_migrations` : 15 (stable)
+- `audit_logs` : 0
+- `sync_logs` : 0
+
+## Reprise session 17
+
+1. Priorité 2 : migration `users.active` (plan à valider)
+2. Priorité 3 : KCZ001/010/030
+3. Priorité 4 : `/api/ai/chat` vs `/api/ai/rag`
+4. Priorité 5 : warning SSL
+5. Priorité 6 : `docs/src/`
+6. Priorité 7 : quick wins
+7. Priorité 8 : snapshot T1
+8. Priorité 9 : RAG Phase 2
 
 ---
