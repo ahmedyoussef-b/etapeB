@@ -1,5 +1,3 @@
-import logger from '@/lib/logger';
-
 function getCloudflareConfig() {
   return {
     accountId: process.env.CLOUDFLARE_ACCOUNT_ID,
