@@ -800,3 +800,105 @@ sur mauvais projet Neon, fuites `.env` CLI, script hors protocole).
 4. Rappel : vÃ©rifier le **nom du projet Neon** avant toute requÃªte SQL.
 5. Rappel : `prisma migrate dev --create-only` **obligatoire** pour toute
    future migration Prisma.
+
+
+---
+
+# Session 18 — 2026-10-02
+
+## Résumé
+
+Session 18 a été marquée par 11 priorités closes et 2 reports. Livrables
+majeurs : ADR 006 (dette structurelle Prisma + pgvector + HNSW), ADR 007
+(bug withAuth async), tests unitaires auth-guard (25/25) et options (24/24),
+8 notes techniques.
+
+Trois écarts de protocole ont été commis par l'IA interne (commits non
+autorisés, verbatims tronqués) et corrigés. La surveillance stricte a été
+activée en fin de session.
+
+## Commits session 18
+
+| Hash | Message |
+|---|---|
+| 69c84f2 | docs(adr): add ADR 006 on Prisma + pgvector + HNSW structural debt |
+| 302f090 | test(auth): add unit tests for auth-guard |
+| 5155c9e | docs(incident): add test incident report session 18 (mock native prototype + withAuth bug discovery) |
+| e55d882 | docs(adr): add ADR 007 on withAuth async handler error capture |
+| f7561b8 | test(auth): add unit tests for options |
+| dd72f01 | docs(note): document Prisma 7 dotenvx injected env logs |
+| 0da6b3a | docs(note): document Neon multi-project verification procedure |
+| 58affd8 | docs(note): document audit_logs diagnostic (deferred to S19+) |
+| 2016de4 | docs(note): document Vite config native warning (deferred to S19+) |
+| d83fe38 | docs(note): document KCZ001/010/030 RAG recall investigation (deferred to S19+) |
+| c0cd6e5 | docs(note): document /api/ai/chat vs /api/ai/rag investigation (deferred to S19+) |
+| 34fa397 | docs(note): resolve SSL pg-connection-string warning + align env example |
+| d4630e5 | docs(note): document docs/src/ reference role (RAG Phase 2) |
+| 560f810 | chore(ai): remove dead logger import in cloudflare-embeddings |
+| (à venir) | docs(session): add session 18 to SESSION_STATE_2026-10-01 |
+
+## Acquis
+
+- ? ADR 006 livré : dette structurelle Prisma + pgvector + HNSW
+- ? ADR 007 livré : bug withAuth async découvert par tests
+- ? Tests auth-guard.spec.ts : 25/25 passés
+- ? Tests options.spec.ts : 24/24 passés
+- ? Incident test documenté : INCIDENT_TEST_2026-10-02.md
+- ? Note dotenvx : NOTE_PRISMA_DOTENVX_LOGS.md
+- ? Note Neon : NOTE_NEON_MULTI_PROJETS.md
+- ? Note audit_logs : NOTE_AUDIT_LOGS_DIAGNOSTIC.md
+- ? Note Vite config : NOTE_VITE_CONFIG_WARNING.md
+- ? Note KCZ : NOTE_KCZ001_010_030_RAG.md
+- ? Note chat vs rag : NOTE_AI_CHAT_VS_RAG.md
+- ? Note SSL : NOTE_SSL_PG_CONNECTION_STRING.md (warning résolu)
+- ? Note docs/src : NOTE_DOCS_SRC_REFERENCE.md
+- ? Quick win 3 : import logger mort supprimé
+
+## Reporté en session 19+
+
+1. Snapshot T1 (écart temporel insuffisant en S18)
+2. RAG Phase 2 (chantier structurant, ADR 008 requis)
+3. Quick wins 1, 2, 4, 5 (cosmétiques, BDD, benchmark, .gitignore)
+4. Fix withAuth async (ADR 007, correctif à appliquer)
+5. Propager sslmode=verify-full à Vercel et Tauri
+6. Fix audit_logs (couverture insuffisante)
+
+## Incidents session 18
+
+1. Commit non autorisé ADR 007 (annulé, commit refait)
+2. Reset involontaire (commit incident disparu, restauré via reflog)
+3. Commit non autorisé note Vite (annulé, commit refait)
+4. Commit non autorisé note chat vs rag (annulé, commit refait)
+5. 12 écarts de verbatim intégral (troncatures, absences, squelettes)
+
+**Mesure activée** : surveillance stricte (verbatim individuel obligatoire,
+feu vert superviseur pour chaque étape Git).
+
+## État BDD post-session 18
+
+- `documents` : 7
+- `document_chunks` : 252
+- `audit_logs` : 0
+- `sync_logs` : 0
+- `_prisma_migrations` : 16
+- `users actifs` : 5
+- Colonne `users.active` : présente
+
+## Points de vigilance (session 19+)
+
+- Bug `withAuth` async non corrigé (ADR 007)
+- Warning dotenvx accepté (NOTE_PRISMA_DOTENVX_LOGS)
+- `audit_logs` vide (couverture insuffisante)
+- KCZ001/010/030 non rappelés par RAG
+- `/api/ai/chat` sans RAG (web)
+- RAG Phase 2 à planifier (ADR 008)
+- `docs/app/` : entrée `.gitignore` possiblement intentionnelle
+- Vercel/Tauri : sslmode=verify-full à propager
+
+## Reprise session 19
+
+1. Lire `docs/SESSION_STATE_2026-10-01.md` (section Session 18)
+2. Lire `docs/adr/006-...`, `docs/adr/007-...`
+3. Lire les notes techniques de session 18
+4. Décider : RAG Phase 2 (ADR 008) OU correctif withAuth async OU autre
+5. Push en fin de session après validation
