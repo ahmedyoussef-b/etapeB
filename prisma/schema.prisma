@@ -139,6 +139,7 @@ model User {
   role             Role
   blockId          String?
   password         String?
+  active           Boolean               @default(true)
   procedures       Procedure[]           @relation("ProcedureCreatedBy")
   reviewedRequests RegistrationRequest[] @relation("ReviewedBy")
   block            Block?                @relation(fields: [blockId], references: [id])
