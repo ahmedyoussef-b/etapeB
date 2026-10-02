@@ -47,9 +47,9 @@ export async function verifyInjectToken(token: string): Promise<{ sub: string } 
     const prisma = getPrismaClient();
     const user = await prisma.user.findUnique({
       where: { id: payload.sub },
-      select: { id: true },
+      select: { id: true, active: true },
     });
-    if (!user) return null;
+    if (!user || !user.active) return null;
 
     return { sub: payload.sub };
   } catch {

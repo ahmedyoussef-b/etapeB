@@ -79,6 +79,10 @@ export const authOptions: NextAuthOptions = {
           logger.warn('Auth failed: invalid password', { email, userId: user.id });
           return null;
         }
+        if (!user.active) {
+          logger.warn('Auth failed: user inactive', { email, userId: user.id });
+          return null;
+        }
 
         const prismaRole = user.role as string;
         const role = PRISMA_ROLE_TO_APP_ROLE[prismaRole] || "rondier";

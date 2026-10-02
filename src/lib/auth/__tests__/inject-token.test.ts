@@ -78,7 +78,7 @@ describe('verifyInjectToken (ADR 004 hardening)', () => {
   it('T1 : accepte un token valide avec sub existant et exp futur', async () => {
     const prismaMock = {
       user: {
-        findUnique: vi.fn().mockResolvedValue({ id: 'user_existant' }),
+        findUnique: vi.fn().mockResolvedValue({ id: 'user_existant', active: true }),
       },
     };
     vi.mocked(getPrismaClient).mockReturnValue(prismaMock as never);
@@ -90,7 +90,7 @@ describe('verifyInjectToken (ADR 004 hardening)', () => {
     expect(prismaMock.user.findUnique).toHaveBeenCalledTimes(1);
     expect(prismaMock.user.findUnique).toHaveBeenCalledWith({
       where: { id: 'user_existant' },
-      select: { id: true },
+      select: { id: true, active: true },
     });
   });
 
@@ -171,5 +171,23 @@ describe('verifyInjectToken (ADR 004 hardening)', () => {
 
     expect(result).toBeNull();
     expect(prismaMock.user.findUnique).not.toHaveBeenCalled();
+  });
+
+  // -------------------------------------------------------------------------
+  // T6 — token valide, sub existant, active: false
+  // -------------------------------------------------------------------------
+  it('T6 : rejette un token valide avec sub existant mais utilisateur inactif', async () => {
+    const prismaMock = {
+      user: {
+        findUnique: vi.fn().mockResolvedValue({ id: 'user_inactif', active: false }),
+      },
+    };
+    vi.mocked(getPrismaClient).mockReturnValue(prismaMock as never);
+
+    const token = signInjectToken('user_inactif');
+    const result = await verifyInjectToken(token);
+
+    expect(result).toBeNull();
+    expect(prismaMock.user.findUnique).toHaveBeenCalledTimes(1);
   });
 });

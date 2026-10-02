@@ -39,6 +39,24 @@ export async function getAuthenticatedUser(req: NextRequest) {
     const session = await getServerSession(authOptions);
 
     if (session?.user) {
+      let dbUser;
+      try {
+        const prisma = getPrismaClient();
+        dbUser = await prisma.user.findUnique({
+          where: { id: session.user.id },
+          select: { active: true },
+        });
+      } catch (error) {
+        logger.error('Session check failed: DB error, invalidating session (fail-safe)', {
+          userId: session.user.id,
+          error: error instanceof Error ? error.message : String(error),
+        });
+        throw new Error('Unauthorized');
+      }
+      if (!dbUser?.active) {
+        logger.warn('Session invalid: user inactive', { userId: session.user.id });
+        throw new Error('Unauthorized');
+      }
       return {
         id: session.user.id,
         email: session.user.email!,
@@ -55,9 +73,9 @@ export async function getAuthenticatedUser(req: NextRequest) {
         const prisma = getPrismaClient();
         const user = await prisma.user.findUnique({
           where: { id: verified.sub },
-          select: { id: true, email: true, role: true, name: true },
+          select: { id: true, email: true, role: true, name: true, active: true },
         });
-        if (user) {
+        if (user && user.active) {
           // Normalize role to lowercase to match RBAC_MATRIX keys
           const normalizedRole = (user.role as string).toLowerCase();
           const role: Role = (normalizedRole in RBAC_MATRIX ? normalizedRole : "rondier") as Role;
