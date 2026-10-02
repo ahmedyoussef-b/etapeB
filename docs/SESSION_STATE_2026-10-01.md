@@ -500,3 +500,89 @@ Enrichissement structurel de `buildRepertoireChunks()` dans `scripts/vectorize-r
   8. Optimisation `vectorize-repertoire.ts`.
 
 ---
+
+
+# Session 15 — 2026-10-02
+
+## Résumé
+
+Session de durcissement sécurité. `verifyInjectToken` a été durci (ADR 004) :
+`exp` obligatoire, vérification d'existence du `sub` en BDD, fonction devenue
+`async` (5 fichiers impactés). Aucune écriture BDD, aucun incident. Protocole
+renforcé respecté de bout en bout.
+
+## Commits session 15
+
+| Hash | Message |
+|---|---|
+| 53d0d09 | fix(auth): harden verifyInjectToken with BDD sub check and mandatory exp (ADR 004) |
+
+## Acquis
+
+- ✅ ADR 004 livré : `docs/adr/004-verify-inject-token-hardening.md`
+- ✅ `verifyInjectToken` durci : `exp` obligatoire, vérif BDD `sub`
+- ✅ `verifyInjectToken` devient `async` — 5 fichiers modifiés
+- ✅ 4 appelants mis à jour avec `await`
+- ✅ Import `randomBytes` mort purgé de `inject-token.ts`
+- ✅ Tests statiques conformes : `tsc --noEmit` (0 erreur), `npm run lint` (0 warning nouveau)
+- ✅ Commit `53d0d09` poussé sur `origin/main`
+- ✅ Protocole respecté : pas d'écriture BDD, pas de secret exposé, commit avant toute action
+
+## Reporté en session 16+
+
+### Vérification `active` (bloquante migration Prisma)
+- Champ `active` absent du schéma Prisma actuel (`User` n'a pas de `active`)
+- Nécessite migration : `ALTER TABLE users ADD COLUMN active BOOLEAN NOT NULL DEFAULT true`
+- Impact : utilisateur désactivé reste authentifiable jusqu'à expiration (15 min max)
+- Reporté à une session avec migration planifiée
+
+### Option C — Audit/log tentatives échouées
+- Ajout `logger` dans `inject-token.ts` rejeté (couplage crypto/logger non souhaité)
+- Les tentatives échouées restent traçables via `auth-guard.ts`
+
+### Test fonctionnel `verifyInjectToken`
+- Non exécuté en session 15 (nécessite manipulation `NEXTAUTH_SECRET`, hors protocole)
+- À planifier session 16+ avec script dédié conforme
+
+### KCZ001/010/030 (hérité)
+- Rappel RAG insuffisant sur les chunks `SYSTEM`
+- Pistes : query expansion, reranking, hybrid search
+
+### `/api/ai/chat` vs `/api/ai/rag` (hérité)
+- Endpoint `/api/ai/chat` sans RAG — interface `chat-ia` l'utilise
+- Réponse hallucinée constatée en session 14 (Q3)
+- À investiguer : brancher `chat-ia` sur `/api/ai/rag` ?
+
+### Warning SSL `pg-connection-string` (hérité)
+- Non bloquant, à corriger (`sslmode=verify-full`)
+
+### `docs/src/` (hérité)
+- Orphelin Git, 8 sous-dossiers
+- À décider : committer ou supprimer
+
+### Quick wins restants (hérité)
+- Traduire la page d'accueil (encore en anglais)
+- Créer des comptes de test par rôle
+- **Newline final de `SESSION_STATE_2026-10-01.md`** — ✅ clos par ce collage
+- Optimisation `vectorize-repertoire.ts` (~104 s / 120 s)
+
+## État Git
+
+- HEAD : `53d0d09` (poussé sur `origin/main`)
+- Parent : `7c6ace9` (session 14)
+- Working tree : clean
+- Fichiers modifiés : 5 (`inject-token.ts` + 4 appelants)
+- Fichier créé : 1 (`docs/adr/004-verify-inject-token-hardening.md`)
+
+## Reprise session 16
+
+1. Test fonctionnel `verifyInjectToken` (script dédié, conforme protocole)
+2. Vérification `active` (migration Prisma + champ `active`)
+3. KCZ001/010/030 : query expansion / reranking / hybrid search
+4. `/api/ai/chat` vs `/api/ai/rag` : investigation
+5. Warning SSL `pg-connection-string`
+6. `docs/src/` : décision committer / supprimer
+7. Quick wins restants
+8. Snapshot T1
+
+---
