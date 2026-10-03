@@ -2,6 +2,7 @@ import { executeWithDatabase, getPrismaClient } from './db';
 import { Prisma, Role } from '@prisma/client';
 import { TProcedure } from '@/lib/procedures/services/validator.service';
 import logger from '@/lib/logger';
+import { auditService } from './audit';
 
 function toPrismaProcedure(procedure: TProcedure, id?: string) {
   const metadata = procedure.metadata;
@@ -159,15 +160,13 @@ export async function archiveOrDeleteProcedure(
         where: { code },
         data: { status: 'archived' },
       });
-      await prisma.auditLog.create({
-        data: {
-          userId: actorUserId ?? null,
-          action: 'PROCEDURE_ARCHIVED',
-          entity: 'Procedure',
-          entityId: procedure.id,
-          before: { status: procedure.status } as Prisma.InputJsonValue,
-          after: { status: 'archived' } as Prisma.InputJsonValue,
-        },
+      await auditService.log({
+        action: 'PROCEDURE_ARCHIVED',
+        entity: 'Procedure',
+        entityId: procedure.id,
+        userId: actorUserId ?? null,
+        before: { status: procedure.status } as Prisma.InputJsonValue,
+        after: { status: 'archived' } as Prisma.InputJsonValue,
       });
       logger.info('Procedure archived (has executions)', { code, executionCount });
       return { archived: true, executionCount };
@@ -175,15 +174,13 @@ export async function archiveOrDeleteProcedure(
 
     // Hard delete : aucune exécution
     await prisma.procedure.delete({ where: { code } });
-    await prisma.auditLog.create({
-      data: {
-        userId: actorUserId ?? null,
-        action: 'PROCEDURE_DELETED',
-        entity: 'Procedure',
-        entityId: procedure.id,
-        before: { code: procedure.code, title: procedure.title } as Prisma.InputJsonValue,
-        after: Prisma.JsonNull,
-      },
+    await auditService.log({
+      action: 'PROCEDURE_DELETED',
+      entity: 'Procedure',
+      entityId: procedure.id,
+      userId: actorUserId ?? null,
+      before: { code: procedure.code, title: procedure.title } as Prisma.InputJsonValue,
+      after: Prisma.JsonNull,
     });
     logger.info('Procedure deleted (no executions)', { code });
     return { deleted: true };

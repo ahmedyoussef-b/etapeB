@@ -3,6 +3,7 @@ import { getPrismaClient } from '@/lib/services/db';
 import { compare } from 'bcryptjs';
 import { signInjectToken } from '@/lib/auth/inject-token';
 import logger from '@/lib/logger';
+import { auditService } from '@/lib/services/audit';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -42,20 +43,14 @@ function checkRateLimit(ip: string): { allowed: boolean; retryAfter: number | nu
   return { allowed: true, retryAfter: null };
 }
 
-async function logAuditFailure(prisma: ReturnType<typeof getPrismaClient>, email: string, ip: string) {
-  try {
-    await prisma.auditLog.create({
-      data: {
-        action: 'TAURI_TOKEN_FAILED',
-        entity: 'auth',
-        entityId: email,
-        ipAddress: ip,
-        after: { email },
-      },
-    });
-  } catch (auditErr) {
-    logger.warn('Audit log failed', { error: auditErr instanceof Error ? auditErr.message : String(auditErr) });
-  }
+async function logAuditFailure(email: string, ip: string) {
+  auditService.log({
+    action: 'TAURI_TOKEN_FAILED',
+    entity: 'auth',
+    entityId: email,
+    ipAddress: ip,
+    after: { email },
+  });
 }
 
 export async function POST(request: Request) {
@@ -126,7 +121,7 @@ export async function POST(request: Request) {
     logger.info('Tauri token auth: user lookup result', { email: normalizedEmail, found: !!user, role: user?.role, ip });
 
     if (!user || !user.password) {
-      await logAuditFailure(prisma, normalizedEmail, ip);
+      await logAuditFailure(normalizedEmail, ip);
       logger.warn('Tauri token auth: user not found', { email: normalizedEmail, ip });
       return NextResponse.json(
         { error: 'Invalid credentials' },
@@ -145,7 +140,7 @@ export async function POST(request: Request) {
     logger.info('Tauri token auth: password check', { email: normalizedEmail, valid: isPasswordValid, ip });
 
     if (!isPasswordValid) {
-      await logAuditFailure(prisma, normalizedEmail, ip);
+      await logAuditFailure(normalizedEmail, ip);
       logger.warn('Tauri token auth: invalid password', { email: normalizedEmail, userId: user.id, ip });
       return NextResponse.json(
         { error: 'Invalid credentials' },
@@ -164,7 +159,7 @@ export async function POST(request: Request) {
     logger.info('Tauri token auth: role check', { email: normalizedEmail, userId: user.id, role: user.role, isAdmin, ip });
 
     if (!isAdmin) {
-      await logAuditFailure(prisma, normalizedEmail, ip);
+      await logAuditFailure(normalizedEmail, ip);
       logger.warn('Tauri token auth: non-admin role', { email: normalizedEmail, userId: user.id, role: user.role, ip });
       return NextResponse.json(
         { error: 'Invalid credentials' },
