@@ -4,6 +4,7 @@ import { getPrismaClient } from "@/lib/services/db";
 import { Role, RBAC_MATRIX } from "@/lib/types/rbac";
 import { compare } from "bcryptjs";
 import logger from "@/lib/logger";
+import { auditService } from "@/lib/services/audit";
 
 // Guard: warn at startup if NEXTAUTH_SECRET is missing
 const authSecret = process.env.NEXTAUTH_SECRET?.trim();
@@ -77,10 +78,22 @@ export const authOptions: NextAuthOptions = {
         const isPasswordValid = await compare(password, user.password);
         if (!isPasswordValid) {
           logger.warn('Auth failed: invalid password', { email, userId: user.id });
+          auditService.log({
+            action: 'LOGIN_FAILED',
+            entity: 'user',
+            entityId: user.id,
+            after: { reason: 'invalid_password' },
+          });
           return null;
         }
         if (!user.active) {
           logger.warn('Auth failed: user inactive', { email, userId: user.id });
+          auditService.log({
+            action: 'LOGIN_FAILED',
+            entity: 'user',
+            entityId: user.id,
+            after: { reason: 'user_inactive' },
+          });
           return null;
         }
 
@@ -89,6 +102,14 @@ export const authOptions: NextAuthOptions = {
         const permissions = RBAC_MATRIX[role] || [];
 
         logger.info('Auth success', { userId: user.id, email: user.email, role });
+
+        auditService.log({
+          action: 'LOGIN_SUCCESS',
+          entity: 'user',
+          entityId: user.id,
+          userId: user.id,
+          after: { role, email: user.email },
+        });
 
         return {
           id: user.id,
@@ -129,6 +150,9 @@ export const authOptions: NextAuthOptions = {
         logger.info('Session callback', { role: session.user.role, permissionsCount: Array.isArray(session.user.permissions) ? session.user.permissions.length : 'n/a' });
       }
       return session;
+    },
+    async signOut() {
+      auditService.log({ action: 'LOGOUT', entity: 'user', entityId: 'session' });
     },
   },
   pages: {
