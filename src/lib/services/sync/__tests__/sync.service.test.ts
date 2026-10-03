@@ -13,6 +13,10 @@ const createMockWebAdapter = (blocks: any[] = [], equipment: any[] = [], options
 
   const adapter: any = {
     ping: vi.fn().mockResolvedValue(options.ping ?? true),
+    list: vi.fn().mockImplementation(async (path: string) => {
+      if (path === 'Centrale') return blocks.map(b => b.code);
+      return [];
+    }),
     readJSON: vi.fn().mockImplementation(async (path: string) => {
       if (path === 'indexes/blocks.json') return blockIndex;
       if (path === 'indexes/equipment.json') return { items: [], total: 0 };
