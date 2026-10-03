@@ -6,6 +6,7 @@ import { cleanQuery } from '@/lib/ai/query-cleaning';
 import { callGroq, getGroqApiKey } from '@/lib/ai/groq-client';
 import { getPrismaClient } from '@/lib/services/db';
 import { GroqMessage } from '@/lib/ai/types';
+import { searchHybrid, type RagSearchResult } from '@/lib/ai/rag-search';
 import logger from '@/lib/logger';
 
 async function handleRag(
@@ -61,30 +62,12 @@ async function handleRag(
     return NextResponse.json({ error: 'Erreur lors de la génération de l\'embedding' }, { status: 500 });
   }
 
-  const embeddingStr = `[${embedding.join(',')}]`;
-  let results: Array<{
-    id: string;
-    content: string;
-    source: string;
-    chunkIndex: number;
-    similarity: number;
-  }>;
+  let results: RagSearchResult[];
 
   try {
-    results = await prisma.$queryRaw`
-      SELECT
-        id,
-        content,
-        source,
-        "chunkIndex",
-        1 - (embedding <=> ${embeddingStr}::vector) AS similarity
-      FROM document_chunks
-      WHERE embedding IS NOT NULL
-      ORDER BY embedding <=> ${embeddingStr}::vector
-      LIMIT ${topK}
-    `;
+    results = await searchHybrid(prisma, cleaned, embedding, topK);
   } catch (error) {
-    logger.error('RAG pgvector search failed', {
+    logger.error('RAG hybrid search failed', {
       userId: user.id,
       error: error instanceof Error ? error.message : String(error),
     });
