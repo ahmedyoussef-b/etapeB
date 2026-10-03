@@ -153,10 +153,10 @@ NexaFlow est une application hybride **Web + Desktop** destinée à la gestion e
 
 ### 6.1. Les 6 vérifications préalables
 1. **Git** : `git status` + `git log --oneline -5` → working tree clean, HEAD sur le bon commit.
-2. **Prisma Migrate** : `npx prisma migrate status` → 16 migrations, up to date.
+2. **Prisma Migrate** : `npx prisma migrate status` → 17 migrations, up to date.
 3. **UTF-8** : vérification de l'encodage du `SESSION_STATE` de la veille (UTF-8 strict, pas de BOM).
 4. **Neon** : **confirmation visuelle du projet par l'humain** (projet `etapeB`, branche `production`, base `neondb`).
-5. **BDD** : snapshot BDD par l'humain (7 documents / 252 chunks / 0 audit_logs / 0 sync_logs / 16 migrations / 5 users actifs).
+5. **BDD** : snapshot BDD par l'humain (7 documents / 252 chunks / audit_logs alimente depuis S20.2 / 0 sync_logs / 17 migrations / 5 users actifs).
 6. **Working tree** : `git status` → clean.
 
 ### 6.2. Lecture du SESSION_STATE de la veille
@@ -193,6 +193,53 @@ NexaFlow est une application hybride **Web + Desktop** destinée à la gestion e
 - Pas de DROP/ALTER sans validation.
 - Pas de suppression de projet Neon sans confirmation visuelle.
 - Pas de laisser un modal de suppression Neon ouvert.
+
+### 7.5. Audit
+
+Le projet dispose depuis S20.2 d'un service d'audit centralise et d'une route de consultation.
+
+**Service d'audit (`auditService.log()`)**
+
+- Fichier : `src/lib/services/audit.ts`.
+- API : `auditService.log(input: AuditLogInput): Promise<void>`.
+- Comportement **fail-safe** : toute erreur d'insertion est avalee et loggee en `logger.warn`. Une panne d'audit ne casse jamais l'action metier appelante.
+- Type `AuditAction` : 9 constantes (LOGIN_SUCCESS, LOGIN_FAILED, LOGOUT, ADMIN_RESET, ADMIN_PURGE, ADMIN_SYNC_PURGE, PROCEDURE_ARCHIVED, PROCEDURE_DELETED, TAURI_TOKEN_FAILED).
+
+**Points d'appel instrumentes (9)**
+
+| Categorie | Action | Fichier |
+|---|---|---|
+| Auth | `LOGIN_SUCCESS` | `src/lib/auth/options.ts` |
+| Auth | `LOGIN_FAILED` | `src/lib/auth/options.ts` |
+| Auth | `LOGOUT` | `src/lib/auth/options.ts` |
+| Admin | `ADMIN_RESET` | `src/app/api/admin/reset/route.ts` |
+| Admin | `ADMIN_PURGE` | `src/app/api/admin/purge-web/route.ts` |
+| Admin | `ADMIN_SYNC_PURGE` | `src/app/api/admin/sync-purge/route.ts` |
+| Metier | `PROCEDURE_ARCHIVED` | `src/lib/services/procedures.service.ts` |
+| Metier | `PROCEDURE_DELETED` | `src/lib/services/procedures.service.ts` |
+| Auth | `TAURI_TOKEN_FAILED` | `src/app/api/tauri-auth/token/route.ts` |
+
+**Permission RBAC `audit-logs:view`**
+
+- Ajoutee au type `Permission` + a `RBAC_MATRIX['admin']` uniquement.
+- Aucun autre role ne possede cette permission.
+
+**Route de consultation `GET /api/admin/audit-logs`**
+
+- Fichier : `src/app/api/admin/audit-logs/route.ts`.
+- Protection : `withAuth(handler, 'audit-logs:view')`.
+- Pagination : `page` / `limit` (defaut 50, max 200).
+- Filtres : `action`, `entity`, `entityId`, `userId`, `from`, `to`.
+- Ordre : `createdAt: desc`.
+
+**Limites connues (S20.2)**
+
+- `LOGOUT` logge avec `entityId: 'session'` (pas de `userId` dans le callback `signOut` NextAuth).
+- Evenements d'auth logges en fire-and-forget (sans `await`).
+- `ipAddress` / `userAgent` non disponibles dans `authorize` (callback NextAuth sans `NextRequest`).
+- Retention TTL (3 ans) reportee S21+ (cron de purge).
+
+**ADR de reference** : `docs/adr/008-audit-logs-extension.md`.
 
 ---
 
@@ -421,7 +468,7 @@ NexaFlow est une application hybride **Web + Desktop** destinée à la gestion e
 
 ---
 
-**Version** : 1.0 (S19)
-**Dernière mise à jour** : 2026-10-02
-**Auteur** : IA interne (supervisée par le superviseur S19)
-**Validation** : humain + superviseur S19
+**Version** : 1.1 (S20.2)
+**Dernière mise à jour** : 2026-10-03
+**Auteur** : IA interne (supervisée par le superviseur S20.2)
+**Validation** : humain + superviseur S20.2
