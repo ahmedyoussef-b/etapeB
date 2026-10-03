@@ -992,3 +992,95 @@ systématique des messages Git.
 4. Exécuter le seed test users (si mandat)
 5. Documenter les ADR 008 et 009 (décisions S20)
 6. Push en fin de session après validation
+
+---
+
+# Session 20 — 2026-10-03
+
+## Résumé
+
+Session 20 a livré la migration 17 (hybrid search `search_vector`) et
+l'implémentation E2 (RRF fusion). Trois commits, un incident E1.5 (SQL direct
+hors migration) documenté et résolu par rollback, et un état BDD cohérent.
+
+## Commits session 20
+
+| Hash | Message |
+|---|---|
+| cd6a39b | docs(incident): document S20 E1.5 SQL direct incident and rollback |
+| 69129d2 | feat(rag): add hybrid search tsvector migration (Session 20 E1) |
+| 2084313 | feat(rag): implement hybrid search with RRF fusion (Session 20 E2) |
+
+## Acquis
+
+- ✅ Migration 17 livrée : colonne `search_vector` (tsvector), trigger, index GIN
+- ✅ Hybrid Search E2 livré : RRF fusion, API `/api/ai/rag` opérationnelle
+- ✅ Incident E1.5 documenté : INCIDENT_S20_E1.5_SQL_DIRECT.md
+- ✅ Rollback E1.5 exécuté : base revenue à l'état pré-incident
+- ✅ Extension `unaccent` conservée (décision documentée)
+- ✅ 252 chunks peuplés dans `search_vector`
+- ✅ 17 migrations Prisma · up to date
+
+## Décisions tranchées (S20)
+
+- **Q1→Q8 (RAG Phase 2)** : voir ADR 009 (créé S19, décisions tranchées S20)
+  - Q1 → A2 (enrichissement KCZ reporté S21)
+  - Q2 → B1 (architecture d'abord)
+  - Q3 → C1 (Hybrid Search maintenant) ✅ S-E2 faite
+  - Q4 → D2 (unification partielle API, S20.1)
+  - Q5 → E2 (fallback dégradé, S20.1)
+  - Q6 → F2 (sync Desktop↔Web, S21)
+  - Q7 → G2 (corpus riche, S21)
+  - Q8 → H2 (Vision RAG, Phase 3)
+- **Axe 1→4 (audit_logs)** : voir ADR 008 (créé S19, décisions tranchées S20)
+  - Axe 1 → P1 (sécurité uniquement)
+  - Axe 2 → I2 (service ciblé `auditService.log()`)
+  - Axe 3 → J4 (rétention 3 ans, cron S21+)
+  - Axe 4 → K2 (route API uniquement, `admin` uniquement)
+
+## Incident E1.5 — SQL direct hors migration
+
+**Nature** : écriture SQL directe sur Neon au lieu de
+`prisma migrate dev --create-only`.
+
+**Symptômes** : colonne `search_vector` créée hors migration, trigger
+défectueux (dictionnaire `french` inexistant), 0/252 chunks peuplés.
+
+**Résolution** : rollback complet (Option A), base revenue à l'état
+pré-incident.
+
+**Décision dérogatoire R1** : vérification visuelle Neon autorisée pour S20
+(contexte mono-projet, engagement humain). À réactiver en S21.
+
+**Leçon** : `prisma migrate dev --create-only` est non négociable.
+
+## État BDD post-session 20
+
+- `documents` : 7
+- `document_chunks` : 252
+- `audit_logs` : 0
+- `sync_logs` : 0
+- `_prisma_migrations` : 17
+- `users actifs` : 5
+- Colonne `users.active` : présente
+- `search_vector` : **252/252** (peuplement post-E2)
+- Extension `unaccent` : présente (conservée)
+
+## Points de vigilance (session 20.1+)
+
+- Dette Prisma + pgvector + HNSW (ADR 006, hérité S18)
+- Fix withAuth async (ADR 007, hérité S18)
+- `audit_logs` vide (couverture insuffisante)
+- KCZ001/010/030 non rappelés par RAG
+- `/api/ai/chat` sans RAG (web)
+- Warning Vite config ESM/CommonJS (hérité S18)
+- Dictionnaire `french` tsvector : fonction corrigée, vérifier en S21
+- `unaccent` installée hors migration : régulariser en S21
+
+## Priorités planifiées S20.1
+
+1. Poursuivre E3 : Unification partielle API (`/api/ai/chat` vs `/api/ai/rag`)
+2. Poursuivre E4 : Fallback dégradé source=web
+3. Implémenter ADR 008 : audit_logs (chantier D)
+4. Exécuter seed test users
+5. Push final après validation
