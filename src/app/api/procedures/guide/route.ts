@@ -19,10 +19,10 @@ export const GET = withAuth(async () => {
   }
 }, 'procedures:view');
 
-export const POST = withAuth(async (request: NextRequest) => {
+export const POST = withAuth(async (request: NextRequest, context) => {
   try {
     const body = await request.json();
-    const procedure = await safeUpsertProcedure(body);
+    const procedure = await safeUpsertProcedure(body, context.user?.id);
     if (isDatabaseAvailable()) {
       replaySyncQueue().catch((error) => {
         console.error('[API] Failed to replay sync queue:', error);
