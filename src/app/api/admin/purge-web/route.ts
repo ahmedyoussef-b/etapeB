@@ -3,6 +3,7 @@ import { getServerSession } from 'next-auth/next';
 import { authOptions } from '@/lib/auth/options';
 import { getPrismaClient } from '@/lib/services/db';
 import { revalidateTag } from 'next/cache';
+import { auditService } from '@/lib/services/audit';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -53,6 +54,14 @@ export async function POST(request: Request) {
       where: { NOT: { path: { endsWith: '.placeholder' } } },
     });
     const duration = Date.now() - startTime;
+
+    await auditService.log({
+      action: 'ADMIN_PURGE',
+      entity: 'document',
+      entityId: 'documents',
+      userId: (session.user as { id?: string }).id ?? null,
+      after: { purgedTable: 'documents', deleted: result.count, duration },
+    });
 
     revalidateTag('structure-web');
 

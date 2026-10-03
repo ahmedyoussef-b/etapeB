@@ -3,6 +3,7 @@ import { getServerSession } from 'next-auth/next';
 import { authOptions } from '@/lib/auth/options';
 import { getPrismaClient } from '@/lib/services/db';
 import { resolveStorageRoot, readIndex } from '@/lib/services/sync/sync-index';
+import { auditService } from '@/lib/services/audit';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -32,7 +33,7 @@ export async function POST(request: Request) {
 
     if (requestedPaths && pathsToPurge.length !== requestedPaths.length) {
       const rejected = requestedPaths.filter(p => !allIndexedPaths.has(p));
-      console.warn(`[SyncPurge] ${rejected.length} chemins rejetés (non indexés)`, rejected);
+      console.warn(`[SyncPurge] ${rejected.length} chemins rejetes (non indexes)`, rejected);
     }
 
     if (dryRun) {
@@ -56,6 +57,14 @@ export async function POST(request: Request) {
         results.failed.push(p);
       }
     }
+
+    await auditService.log({
+      action: 'ADMIN_SYNC_PURGE',
+      entity: 'document',
+      entityId: 'sync-documents',
+      userId: (session.user as { id?: string }).id ?? null,
+      after: { total: pathsToPurge.length, ...results },
+    });
 
     return NextResponse.json({
       success: true,

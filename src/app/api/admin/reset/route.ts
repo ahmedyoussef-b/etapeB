@@ -3,6 +3,7 @@ import { getAuthenticatedUser } from '@/lib/api/auth-guard';
 import { getPrismaClient } from '@/lib/services/db';
 import { revalidateTag } from 'next/cache';
 import { seedDatabase } from '@/lib/seed-db';
+import { auditService } from '@/lib/services/audit';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -68,6 +69,14 @@ export async function POST(request: NextRequest) {
     usersUpserted = seedResult.usersUpserted;
 
     const duration = Date.now() - startTime;
+
+    await auditService.log({
+      action: 'ADMIN_RESET',
+      entity: 'system',
+      entityId: 'global',
+      userId: user.id,
+      after: { tablesTruncated, filesInserted, usersUpserted, duration },
+    });
 
     revalidateTag('structure-web');
 
