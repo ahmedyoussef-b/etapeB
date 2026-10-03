@@ -1,10 +1,11 @@
-# ADR 009 — RAG Phase 2 : planification et report à S20+
+# ADR 009 — RAG Phase 2 : décisions Q1→Q8 et implémentation S20+
 
-- **Date** : 2026-10-02
-- **Statut** : Accepté (décision de report)
-- **Session** : S19 (Session 19)
+- **Date** : 2026-10-02 (création S19) · 2026-10-03 (décisions S20 · documentation S20.1)
+- **Statut** : Accepté (décisions Q1→Q8 tranchées en S20 · implémentation en cours S20.1)
+- **Session** : S19 (création) · S20 (décisions + Hybrid Search) · S20.1 (documentation)
 - **Concerne** : Evolution du RAG Web (Phase 2+) — suite ADR 003 (Phase 1)
 - **ADR précédent** : `docs/adr/003-rag-web-phase-1.md`
+- **Incident associé** : `docs/INCIDENT_S20_E1.5_SQL_DIRECT.md`
 
 ## Contexte
 
@@ -38,12 +39,44 @@ Groq LLM → réponse.
 de transfert, pas la source de vérité. Le corpus riche (`data-repertoire.json`)
 reste dans le repo.
 
+### Mise à jour S20 — Hybrid Search opérationnel
+
+La Session 20 a franchi une étape structurante de la Phase 2 : le
+**Hybrid Search** (option A4 de la section « Options » de la présente
+ADR) est désormais **opérationnel** en production Web.
+
+**Composants livrés en S20 :**
+
+| Composant | Détail | Session |
+|---|---|---|
+| Migration 17 | Colonne `search_vector` (`tsvector`), trigger de mise à jour automatique, index GIN | S20 (E1) |
+| Peuplement | 252/252 chunks peuplés (`search_vector IS NOT NULL`) | S20 (E1) |
+| Service `src/lib/rag/rag-search.ts` | Recherche hybride vector + full-text avec **RRF** (Reciprocal Rank Fusion) | S20 (E2) |
+| Route `/api/ai/rag` | Modifiée pour appeler `rag-search.ts` | S20 (E2) |
+| Tests | 9 tests unitaires (`vitest run`) + 3 tests manuels OK | S20 (E2) |
+| Commits locaux | `69129d2` (E1) · `2084313` (E2) · `cd6a39b` (incident E1.5) | S20 |
+
+**Incident associé — E1.5 (SQL direct hors migration) :**
+
+Lors de la mise en place de la migration 17, une **écriture SQL directe
+hors migration** a été tentée (colonne `search_vector`, trigger, index
+GIN créés sans passer par `prisma migrate`). Un **rollback complet** a
+été exécuté et documenté dans `docs/INCIDENT_S20_E1.5_SQL_DIRECT.md`.
+
+**Leçon S20 :** `prisma migrate dev --create-only` (ou `migrate deploy`)
+est **non négociable**. Toute écriture SQL directe doit être mandatée
+explicitement.
+
+**Conséquence sur l'ADR :** la décision Q3 (Hybrid Search) est passée
+de « à trancher » à « **C1 — Hybrid Search maintenant** », et l'étape
+correspondante du plan d'implémentation est passée de 📋 à ✅.
+
 ### Plan de migration RAG (référence)
 
 `RAG_MIGRATION_PLAN.md` (28/09/2026) prévoit 5 phases sur 10 semaines :
 
 | Phase | Semaine | Objectif | Statut S19 |
-|---|---|---|---|
+|---|---|---|
 | **Phase 1** | S1-2 | Fondations Web (pgvector, embeddings, vectorizer) | ✅ **FAIT** |
 | **Phase 2** | S3-4 | Enrichissement (query cleaning, reranking, cache, validation, zone routing) | ⏸️ Non initié |
 | **Phase 3** | S5-6 | Stabilisation (HTTP cache, rate limiting, fallbacks) | ⏸️ Non initié |
@@ -194,7 +227,7 @@ Les options sont regroupées par thème.
 ### B. Coût, latence, disponibilité
 
 | Option | Description | Complexité | Impact |
-|---|---|---|---|
+|---|---|---|
 | **B1 — Semantic Cache** | Upstash Redis + DragonMemory compression (768→64 dims, `docs/src`) | Moyenne | Élevé |
 | **B2 — HTTP Cache + ISR** | `revalidate=60`, Cache-Control headers (`RAG_MIGRATION_PLAN.md` Phase 3.1) | Faible | Moyen |
 | **B3 — Rate Limiting** | Upstash Rate Limit + usage tracker (`RAG_MIGRATION_PLAN.md` Phase 3.2) | Faible | Moyen |
@@ -203,14 +236,14 @@ Les options sont regroupées par thème.
 ### C. Qualité des réponses
 
 | Option | Description | Complexité | Impact |
-|---|---|---|---|
+|---|---|---|
 | **C1 — Validation Layer** | Context validator (couverture, hallucinations, `RAG_MIGRATION_PLAN.md` Phase 2.3) | Faible | Élevé |
 | **C2 — Enrichissement corpus KCZ** | Ajouter `description_fr` métier à KCZ001/010/030 + revectoriser | Faible | Élevé |
 
 ### D. Architecture & Sync
 
 | Option | Description | Complexité | Impact |
-|---|---|---|---|
+|---|---|---|
 | **D1 — Unification chat/RAG** | Fusion `/api/ai/chat` + `/api/ai/rag` avec paramètre `rag: true` | Moyenne | Élevé (UX) |
 | **D2 — Migration chat-ia** | Faire appeler `/api/ai/rag` depuis `useAiChat` + fallback (`NOTE_AI_CHAT_VS_RAG.md`) | Moyenne | Élevé |
 | **D3 — Sync Desktop ↔ Web** | Bidirectionnel via `/api/sync/chunks` + Tauri (`RAG_MIGRATION_PLAN.md` Phase 4) | Élevée | Moyen |
@@ -220,82 +253,126 @@ Les options sont regroupées par thème.
 
 ## Décision
 
-**Report de l'implémentation de la RAG Phase 2 à S20+ avec mandat humain.**
+**Décisions Q1→Q8 tranchées en S20. Implémentation démarrée en S20
+(Hybrid Search, S-E2). Poursuite en S20.1+ selon le plan ci-dessous.**
+
+### Décisions Q1→Q8 (Session 20)
+
+| Q | Décision retenue | Référence option | Justification courte |
+|---|---|---|---|
+| **Q1** | **A2** | Enrichir `data-repertoire.json` plus tard | E5 reportée S21 — priorité architecture d'abord |
+| **Q2** | **B1** | Architecture d'abord | Séquence E1→E11 : fondations avant enrichissement |
+| **Q3** | **C1** | Hybrid Search maintenant | **S-E2 exécutée en S20** — colonne `search_vector` + RRF |
+| **Q4** | **D2** | Unification partielle API | S-E3 à faire S20.1 — extraire services partagés |
+| **Q5** | **E2** | Fallback dégradé | S-E4 à faire S20.1 — robustesse terrain |
+| **Q6** | **F2** | Sync Desktop ↔ Web planifiée | S-E7 reportée S21 |
+| **Q7** | **G2** | Corpus riche en S21 | S-E6 reportée S21 — source = repo (ADR 002) |
+| **Q8** | **H2** | Vision RAG en Phase 3 | S-E10 retirée du périmètre Phase 2 |
 
 ### Justification
 
-1. **Phase 1 validée techniquement** : la chaîne bout en bout est
-   opérationnelle (252 chunks, test V22 réussi, coût quasi nul).
-2. **Limitations critiques identifiées mais nécessitent des décisions
-   métier** : enrichissement du corpus KCZ (qui fournit les descriptions ?),
-   unification des routes chat/RAG (impact UX), priorisation des chantiers.
-3. **Phases 2-3 du plan représentent des chantiers structurants** :
-   reranking, cache sémantique, validation layer, fallbacks — ces choix
-   ne peuvent être décidés en fin de S19 sans mandat humain explicite.
-4. **L'ADR 009 acte la planification, pas l'exécution** : elle formalise
-   les options, les questions et le plan d'implémentation pour S20+.
+1. **Phase 1 validée techniquement** : chaîne bout en bout opérationnelle
+   (252 chunks, coût quasi nul).
+2. **Hybrid Search (Q3→C1) déjà exécutée en S20** : colonne `search_vector`
+   peuplée à 100% (252/252), service `rag-search.ts` avec RRF, tests 9/9.
+3. **Décisions métier tranchées en S20** : enrichissement KCZ (Q1→A2,
+   reporté S21), unification API (Q4→D2, partielle en S20.1), fallback
+   (Q5→E2, S20.1), sync Desktop (Q6→F2, S21), corpus riche (Q7→G2, S21),
+   Vision RAG (Q8→H2, Phase 3).
+4. **L'ADR 009 devient l'ADR de référence Phase 2** : décisions actées,
+   plan d'implémentation mis à jour, livrables S20 tracés.
+
+### Numérotation — clarification
+
+Deux numérotations coexistent :
+
+- **`ADR-E{n}`** : étapes du plan d'implémentation **de la présente ADR**
+  (section « Plan d'implémentation » ci-dessous).
+- **`S-E{n}`** : étapes **de session** (E1, E2, E3… telles qu'utilisées
+  dans les prompts de passation S20/S20.1).
+
+La correspondance est explicite dans le tableau du plan.
 
 ---
 
-## Questions à trancher (S20+)
+## Décisions tranchées (S20) — historique
 
-| # | Question | Options | Source |
-|---|----------|---------|--------|
-| **Q1** | Enrichir `data-repertoire.json` pour KCZ001/010/030 ? | (a) Oui — expert métier fournit descriptions → revectoriser / (b) Non — investir RAG (A1-A5, B1-B4, C1-C2) | `NOTE_KCZ001_010_030_RAG.md` |
-| **Q2** | Priorité RAG Phase 2 : quel ordre d'exécution ? | Reranking → Query cleaning → Semantic Cache → Validation → Zone Routing (ordre à confirmer) | `RAG_MIGRATION_PLAN.md` Phases 2-3 |
-| **Q3** | Hybrid Search (vector + full-text) — maintenant ou plus tard ? | Maintenant (A4, complexe) / Phase 3+ / Jamais (pgvector suffit) | `RAG_MIGRATION_PLAN.md` Phase 1.2, `NOTE_KCZ001_010_030_RAG.md` |
-| **Q4** | Unifier `/api/ai/chat` et `/api/ai/rag` ? | (a) Fusionner en `/api/ai/chat` avec `rag: true` / (b) Supprimer `/api/ai/chat`, migrer `chat-ia` / (c) Conserver deux routes, documenter | `NOTE_AI_CHAT_VS_RAG.md` |
-| **Q5** | Ajouter fallback à `/api/ai/rag` ? | Oui (cascade B4) / Non | `NOTE_AI_CHAT_VS_RAG.md` |
-| **Q6** | Sync Desktop ↔ Web — priorité ? | Maintenant (D3) / Phase 3+ / Jamais | `RAG_MIGRATION_PLAN.md` Phase 4 |
-| **Q7** | Corpus riche sur Neon — quand ? | Maintenant (D4, mandat écriture BDD) / Plus tard / Jamais (repo = source, ADR 002) | ADR 003, `RAG_MIGRATION_PLAN.md` |
-| **Q8** | Vision RAG — intégrer ? | Oui (D4, TensorFlow.js MobileNet) / Non / Plus tard | `RAG_MIGRATION_PLAN.md` Phase 5.3 |
+Les questions Q1→Q8 ouvertes en S19 ont été **tranchées en S20**.
+Voir section « Décision » ci-dessus pour le tableau récapitulatif.
 
----
-
-## Plan d'implémentation (S20+)
-
-Les étapes sont conditionnées par les réponses aux questions Q1→Q8.
-
-| Étape | Description | Dépendances | Statut S19 |
+| # | Question (rappel S19) | Décision S20 | Statut implémentation |
 |---|---|---|---|
-| **E1** | Décision humaine sur Q1→Q8 | — | ⏸️ En attente |
-| **E2** | Enrichir `data-repertoire.json` (si Q1 = a) + revectoriser | Q1 = a | 📋 Planifié |
-| **E3** | Implémenter Query Cleaning (A1) + Reranking heuristique (A2) | E2 (optionnel) | 📋 Planifié |
-| **E4** | Implémenter Semantic Cache (B1) + HTTP Cache (B2) | — | 📋 Planifié |
-| **E5** | Implémenter Validation Layer (C1) | E3 | 📋 Planifié |
-| **E6** | Implémenter Zone Routing (A5) | E3 | 📋 Planifié |
-| **E7** | Implémenter Fallbacks cascade (B4) + Rate Limiting (B3) | E4 | 📋 Planifié |
-| **E8** | Unifier routes chat/RAG (D1/D2 selon Q4) | E3, E7 | 📋 Planifié |
-| **E9** | Implémenter Hybrid Search (A4) si Q3 = Maintenant | E3 | 📋 Planifié |
-| **E10** | Implémenter Sync Desktop ↔ Web (D3) si Q6 = Maintenant | E8 | 📋 Planifié |
-| **E11** | Implémenter Vision RAG (D4) si Q8 = Oui | — | 📋 Planifié |
-
-**Livrables S20+ :**
-- `src/lib/rag/query-cleaner.ts` (A1)
-- `src/lib/rag/reranker.ts` (A2)
-- `src/lib/rag/semantic-cache.ts` (B1)
-- `src/lib/rag/validators/context-validator.ts` (C1)
-- `src/lib/rag/zone-router.ts` (A5)
-- `src/lib/rag/fallback-strategy.ts` (B4)
-- `src/lib/api/rate-limit.ts` (B3)
-- `src/app/api/ai/chat/route.ts` modifié (unification D1/D2)
-- `src/app/api/sync/chunks/route.ts` (D3, si Q6 = Maintenant)
-- `src/lib/vision/vision-rag.ts` (D4, si Q8 = Oui)
+| **Q1** | Enrichir `data-repertoire.json` pour KCZ001/010/030 ? | **A2** — Plus tard (S21) | 📋 S-E5 reportée S21 |
+| **Q2** | Priorité RAG Phase 2 : quel ordre d'exécution ? | **B1** — Architecture d'abord (E1→E11) | ✅ Séquence actée |
+| **Q3** | Hybrid Search — maintenant ou plus tard ? | **C1** — Maintenant | ✅ **S-E2 faite S20** |
+| **Q4** | Unifier `/api/ai/chat` et `/api/ai/rag` ? | **D2** — Unification partielle | 📋 S-E3 à faire S20.1 |
+| **Q5** | Ajouter fallback à `/api/ai/rag` ? | **E2** — Oui, fallback dégradé | 📋 S-E4 à faire S20.1 |
+| **Q6** | Sync Desktop ↔ Web — priorité ? | **F2** — Planifiée S21 | 📋 S-E7 reportée S21 |
+| **Q7** | Corpus riche sur Neon — quand ? | **G2** — S21 | 📋 S-E6 reportée S21 |
+| **Q8** | Vision RAG — intégrer ? | **H2** — Phase 3 | 📋 S-E10 retirée Phase 2 |
 
 ---
 
-## Règles de non-régression
+## Plan d'implémentation (S20.1+)
 
-1. **Chaîne RAG Phase 1 préservée** : pgvector + Cloudflare embeddings
-   + Groq LLM + HNSW index ne doivent pas être modifiés pendant les
-   chantiers Phase 2+.
-2. **Endpoint `/api/ai/rag` maintenu** : ne pas casser l'existant pendant
-   la refonte chat/RAG (E8).
-3. **Script `vectorize-repertoire.ts` idempotent** : toute revectorisation
-   (E2, E9) doit utiliser `ON CONFLICT (source, "chunkIndex")`.
-4. **Corpus source = repo** : `data-repertoire.json` reste la référence
-   immuable (ADR 002). Neon = tampon de transfert.
-5. **252 chunks minimum** : ne pas descendre en dessous du snapshot T1
+Les étapes `ADR-E{n}` ci-dessous correspondent au plan **interne à la
+présente ADR**. La colonne « Session » indique la correspondance avec
+les étapes **de session** (`S-E{n}`).
+
+| Étape ADR | Description | Dépendances | Session | Statut |
+|---|---|---|---|---|
+| **ADR-E1** | Décision humaine sur Q1→Q8 | — | S20 | ✅ **Fait S20** |
+| **ADR-E2** | Enrichir `data-repertoire.json` (si Q1=a) + revectoriser | Q1=a | S21 (S-E5) | 📋 Reporté S21 (Q1=A2) |
+| **ADR-E3** | Query Cleaning (A1) + Reranking heuristique (A2) | ADR-E2 (optionnel) | S20.1+ (S-E3) | 📋 En cours S20.1 |
+| **ADR-E4** | Semantic Cache (B1) + HTTP Cache (B2) | — | S21+ | 📋 Planifié |
+| **ADR-E5** | Validation Layer (C1) | ADR-E3 | S21+ | 📋 Planifié |
+| **ADR-E6** | Zone Routing (A5) | ADR-E3 | S21+ (S-E6) | 📋 Planifié |
+| **ADR-E7** | Fallbacks cascade (B4) + Rate Limiting (B3) | ADR-E4 | S20.1 (S-E4) | 📋 À faire S20.1 |
+| **ADR-E8** | Unifier routes chat/RAG (D1/D2) | ADR-E3, ADR-E7 | S20.1 (S-E3) | 📋 À faire S20.1 |
+| **ADR-E9** | **Hybrid Search (A4)** | — | **S20 (S-E2)** | ✅ **Fait S20** |
+| **ADR-E10** | Sync Desktop ↔ Web (D3) | ADR-E8 | S21 (S-E7) | 📋 Reporté S21 (Q6=F2) |
+| **ADR-E11** | Vision RAG (D4) | — | Phase 3 (S-E10) | 📋 Retiré Phase 2 (Q8=H2) |
+
+### Livrables S20 (acquis)
+
+- Migration 17 : `prisma/migrations/..._add_hybrid_search_tsvector/`
+- Colonne `search_vector` (`tsvector`) + trigger + index GIN
+- Peuplement 252/252 chunks
+- `src/lib/rag/rag-search.ts` (RRF fusion)
+- `/api/ai/rag` modifié (hybrid search)
+- 9 tests unitaires + 3 tests manuels OK
+- `docs/INCIDENT_S20_E1.5_SQL_DIRECT.md`
+
+### Livrables S20.1+ (cible)
+
+- `src/lib/ai/groq-client.ts` (service partagé, S-E3)
+- `src/lib/rag/rag-search.ts` (service partagé, S-E3 — déjà partiellement fait)
+- `src/app/api/ai/chat/route.ts` (adaptateur mince, S-E3)
+- `src/app/api/ai/rag/route.ts` (adaptateur mince, S-E3)
+- Fallback dégradé dans `/api/ai/rag` (S-E4)
+- `src/lib/rag/fallback-strategy.ts` (S-E4)
+- `src/app/api/admin/audit-logs/route.ts` (ADR 008, S20.1)
+- `src/lib/services/audit.ts` (ADR 008, S20.1)
+
+### Règles de non-régression — MAJ S20
+
+1. **Hybrid Search opérationnel** : la colonne `search_vector` et le
+   service `rag-search.ts` sont **acquis**. Aucune modification
+   destructive ne doit casser la fusion RRF.
+2. **Peuplement 252/252** : toute revectorisation ou migration doit
+   préserver `search_vector IS NOT NULL` pour les 252 chunks.
+3. **Migration via `prisma migrate`** : toute évolution du schéma
+   (colonne, trigger, index) passe par `prisma migrate dev --create-only`
+   ou `migrate deploy`. **Aucune écriture SQL directe.** (Leçon S20 E1.5.)
+4. **Chaîne RAG Phase 1 préservée** : pgvector + Cloudflare embeddings
+   + Groq LLM + HNSW index inchangés.
+5. **Endpoint `/api/ai/rag` maintenu** : ne pas casser l'existant
+   pendant la refonte chat/RAG (ADR-E8).
+6. **Script `vectorize-repertoire.ts` idempotent** : `ON CONFLICT
+   (source, "chunkIndex")` obligatoire.
+7. **Corpus source = repo** : `data-repertoire.json` reste la référence
+   (ADR 002). Neon = tampon.
+8. **252 chunks minimum** : ne pas descendre en dessous du snapshot T1
    sans validation humaine explicite.
 
 ---
