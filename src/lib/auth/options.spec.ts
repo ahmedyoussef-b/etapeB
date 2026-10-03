@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { Role, RBAC_MATRIX } from '@/lib/types/rbac';
 import { getPrismaClient } from '@/lib/services/db';
 import { compare } from 'bcryptjs';
@@ -93,7 +93,7 @@ describe('NEXTAUTH_SECRET guard', () => {
 describe('authorize', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mockCompare.mockResolvedValue(true);
+    mockCompare.mockResolvedValue(true as never);
   });
 
   // B.1 Credentials manquants
@@ -155,7 +155,7 @@ describe('authorize', () => {
 
   // B.7 Password invalide
   it('retourne null si le password est invalide', async () => {
-    mockCompare.mockResolvedValue(false);
+    mockCompare.mockResolvedValue(false as never);
     setupPrisma(MOCK_DB_USER, null);
     const { authOptions } = await import('@/lib/auth/options');
     const provider = authOptions.providers[0] as any;
@@ -214,7 +214,7 @@ describe('authorize', () => {
 describe('PRISMA_ROLE_TO_APP_ROLE via authorize', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mockCompare.mockResolvedValue(true);
+    mockCompare.mockResolvedValue(true as never);
   });
 
   it('mappe RONDIER -> rondier', async () => {
@@ -258,14 +258,14 @@ describe('PRISMA_ROLE_TO_APP_ROLE via authorize', () => {
     expect(result.role).toBe('rondier');
 
     // null
-    setupPrisma({ ...MOCK_DB_USER, role: null }, null);
+    setupPrisma({ ...MOCK_DB_USER, role: null } as any, null);
     ({ authOptions } = await import('@/lib/auth/options'));
     provider = authOptions.providers[0] as any;
     result = await provider.authorize({ email: 'user@test.com', password: 'x' });
     expect(result.role).toBe('rondier');
 
     // undefined
-    setupPrisma({ ...MOCK_DB_USER, role: undefined }, null);
+    setupPrisma({ ...MOCK_DB_USER, role: undefined } as any, null);
     ({ authOptions } = await import('@/lib/auth/options'));
     provider = authOptions.providers[0] as any;
     result = await provider.authorize({ email: 'user@test.com', password: 'x' });
@@ -280,7 +280,7 @@ describe('callbacks JWT', () => {
 
   it('enrichit le token au premier login (user présent)', async () => {
     const { authOptions } = await import('@/lib/auth/options');
-    const jwtCallback = authOptions.callbacks.jwt;
+    const jwtCallback = authOptions.callbacks!.jwt;
     const token: any = {};
     const user = {
       role: 'admin',
@@ -289,7 +289,7 @@ describe('callbacks JWT', () => {
       blockName: 'Block A',
       permissions: RBAC_MATRIX['admin'],
     };
-    const result = await jwtCallback({ token, user } as any);
+    const result = await jwtCallback!({ token, user } as any);
     expect(result.role).toBe('admin');
     expect(result.id).toBe('user-1');
     expect(result.blockId).toBe('block-1');
@@ -302,17 +302,17 @@ describe('callbacks JWT', () => {
     // Ce test documente le comportement du code : un rôle inconnu
     // du mapping PRISMA_ROLE_TO_APP_ROLE reste inchangé dans le token.
     const { authOptions } = await import('@/lib/auth/options');
-    const jwtCallback = authOptions.callbacks.jwt;
+    const jwtCallback = authOptions.callbacks!.jwt;
     const token: any = { role: 'ADM' };
-    const result = await jwtCallback({ token, user: undefined } as any);
+    const result = await jwtCallback!({ token, user: undefined } as any);
     expect(result.role).toBe('ADM'); // inchangé
   });
 
   it('laisse le token inchangé si le rôle est déjà normalisé', async () => {
     const { authOptions } = await import('@/lib/auth/options');
-    const jwtCallback = authOptions.callbacks.jwt;
+    const jwtCallback = authOptions.callbacks!.jwt;
     const token: any = { role: 'admin' };
-    const result = await jwtCallback({ token, user: undefined } as any);
+    const result = await jwtCallback!({ token, user: undefined } as any);
     expect(result.role).toBe('admin');
   });
 });
@@ -324,7 +324,7 @@ describe('callbacks session', () => {
 
   it('enrichit session.user depuis le token', async () => {
     const { authOptions } = await import('@/lib/auth/options');
-    const sessionCallback = authOptions.callbacks.session;
+    const sessionCallback = authOptions.callbacks!.session;
     const session: any = { user: {} };
     const token: any = {
       role: 'admin',
@@ -333,11 +333,11 @@ describe('callbacks session', () => {
       blockName: 'Block A',
       permissions: RBAC_MATRIX['admin'],
     };
-    const result = await sessionCallback({ session, token } as any);
-    expect(result.user.role).toBe('admin');
-    expect(result.user.id).toBe('user-1');
-    expect(result.user.blockId).toBe('block-1');
-    expect(result.user.blockName).toBe('Block A');
-    expect(result.user.permissions).toEqual(RBAC_MATRIX['admin']);
+    const result = await sessionCallback!({ session, token } as any);
+    expect((result.user as any).role).toBe('admin');
+    expect((result.user as any).id).toBe('user-1');
+    expect((result.user as any).blockId).toBe('block-1');
+    expect((result.user as any).blockName).toBe('Block A');
+    expect((result.user as any).permissions).toEqual(RBAC_MATRIX['admin']);
   });
 });
