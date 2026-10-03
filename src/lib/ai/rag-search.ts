@@ -1,12 +1,13 @@
 // src/lib/ai/rag-search.ts
 // Service de recherche hybride (vectorielle + lexicale) avec fusion RRF.
-// Session 20 — RAG Phase 2 · E2 (Hybrid Search).
-// ADR 009 Q3 → C1 (Hybrid Search maintenant), Q4 → D2 (Unification partielle).
+// Session 20 - RAG Phase 2 E2 (Hybrid Search).
+// Etendu en Session 20.1 - E4 (Fallback degrade, ADR 009 Q5 -> E2).
+// ADR 009 Q3 -> C1 (Hybrid Search maintenant), Q4 -> D2 (Unification partielle).
 
 import type { PrismaClient } from '@prisma/client';
 import logger from '@/lib/logger';
 
-// ----- Paramètres RRF (décisions E2.3) -----
+// ----- Parametres RRF (decisions E2.3) -----
 const RRF_K = 60;
 const VECTOR_WEIGHT = 1.0;
 const LEXICAL_WEIGHT = 1.0;
@@ -32,7 +33,7 @@ interface RawChunk {
   rank?: number;
 }
 
-// ----- Requête vectorielle -----
+// ----- Requete vectorielle -----
 
 async function searchVectorial(
   prisma: PrismaClient,
@@ -60,7 +61,7 @@ async function searchVectorial(
   }
 }
 
-// ----- Requête lexicale -----
+// ----- Requete lexicale -----
 
 async function searchLexical(
   prisma: PrismaClient,
@@ -144,7 +145,7 @@ function fuseRRF(
     }));
 }
 
-// ----- Point d'entrée -----
+// ----- Point d'entree : hybrid search -----
 
 export async function searchHybrid(
   prisma: PrismaClient,
@@ -167,4 +168,30 @@ export async function searchHybrid(
   });
 
   return fuseRRF(vectorial, lexical, topK);
+}
+
+// ----- Fallback lexical seul (E4, ADR 009 Q5 -> E2) -----
+
+/**
+ * Recherche lexicale uniquement (sans embedding).
+ * Utilise comme fallback quand embedTexts() echoue (Cloudflare indisponible,
+ * configuration manquante, erreur reseau).
+ *
+ * Retourne les chunks classes par score lexical (ts_rank), convertis via RRF
+ * (avec une liste vectorielle vide).
+ */
+export async function searchLexicalOnly(
+  prisma: PrismaClient,
+  question: string,
+  topK: number
+): Promise<RagSearchResult[]> {
+  const limit = topK * LIST_MULTIPLIER;
+  const lexical = await searchLexical(prisma, question, limit);
+
+  logger.info('RAG lexical-only search completed', {
+    lexicalCount: lexical.length,
+    topK,
+  });
+
+  return fuseRRF([], lexical, topK);
 }
