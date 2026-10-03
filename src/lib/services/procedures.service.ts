@@ -79,7 +79,10 @@ export async function getProcedureByCode(code: string): Promise<TProcedure | und
   });
 }
 
-export async function createProcedure(procedure: TProcedure): Promise<TProcedure> {
+export async function createProcedure(
+  procedure: TProcedure,
+  actorUserId?: string
+): Promise<TProcedure> {
   return executeWithDatabase(async (prisma) => {
     const data = toPrismaProcedure(procedure);
     const row = await prisma.procedure.create({
@@ -87,11 +90,22 @@ export async function createProcedure(procedure: TProcedure): Promise<TProcedure
       select: { id: true, code: true, title: true, description: true, category: true, priority: true, status: true, estimatedTimeMinutes: true, requiredRoles: true, steps: true, metadata: true, createdAt: true, updatedAt: true },
     });
     logger.info('Procedure created', { code: row.code, title: row.title });
+    await auditService.log({
+      action: 'PROCEDURE_CREATED',
+      entity: 'Procedure',
+      entityId: row.id,
+      userId: actorUserId ?? null,
+      before: undefined,
+      after: { code: row.code, title: row.title } as Prisma.InputJsonValue,
+    });
     return fromPrismaProcedure(row);
   });
 }
 
-export async function upsertProcedure(procedure: TProcedure): Promise<TProcedure> {
+export async function upsertProcedure(
+  procedure: TProcedure,
+  actorUserId?: string
+): Promise<TProcedure> {
   return executeWithDatabase(async (prisma) => {
     const existing = await prisma.procedure.findUnique({ where: { code: procedure.metadata.code } });
     const data = toPrismaProcedure(procedure, existing?.id);
@@ -103,11 +117,23 @@ export async function upsertProcedure(procedure: TProcedure): Promise<TProcedure
       select: { id: true, code: true, title: true, description: true, category: true, priority: true, status: true, estimatedTimeMinutes: true, requiredRoles: true, steps: true, metadata: true, createdAt: true, updatedAt: true },
     });
     logger.info('Procedure upserted', { code: row.code, title: row.title });
+    await auditService.log({
+      action: existing ? 'PROCEDURE_UPDATED' : 'PROCEDURE_CREATED',
+      entity: 'Procedure',
+      entityId: row.id,
+      userId: actorUserId ?? null,
+      before: existing ? { code: existing.code, title: existing.title } : undefined,
+      after: { code: row.code, title: row.title } as Prisma.InputJsonValue,
+    });
     return fromPrismaProcedure(row);
   });
 }
 
-export async function updateProcedure(code: string, procedure: TProcedure): Promise<TProcedure | undefined> {
+export async function updateProcedure(
+  code: string,
+  procedure: TProcedure,
+  actorUserId?: string
+): Promise<TProcedure | undefined> {
   return executeWithDatabase(async (prisma) => {
     const existing = await prisma.procedure.findUnique({ where: { code } });
     if (!existing) return undefined;
@@ -119,6 +145,14 @@ export async function updateProcedure(code: string, procedure: TProcedure): Prom
       select: { id: true, code: true, title: true, description: true, category: true, priority: true, status: true, estimatedTimeMinutes: true, requiredRoles: true, steps: true, metadata: true, createdAt: true, updatedAt: true },
     });
     logger.info('Procedure updated', { code, title: row.title });
+    await auditService.log({
+      action: 'PROCEDURE_UPDATED',
+      entity: 'Procedure',
+      entityId: row.id,
+      userId: actorUserId ?? null,
+      before: { code: existing.code, title: existing.title },
+      after: { code: row.code, title: row.title } as Prisma.InputJsonValue,
+    });
     return fromPrismaProcedure(row);
   });
 }
@@ -127,18 +161,34 @@ export type ArchiveOrDeleteResult =
   | { archived: true; executionCount: number }
   | { deleted: true };
 
-// Conservé pour compatibilité avec replaySyncQueue (replay d'opérations locales,
-// contexte sans exécutions en base).
-export async function deleteProcedure(code: string): Promise<boolean> {
+// Conserve pour compatibilite avec replaySyncQueue (replay d'operations locales,
+// contexte sans executions en base). Le findUnique prealable permet de capturer
+// l'etat avant suppression pour l'audit (fallback sur code si entite absente).
+export async function deleteProcedure(
+  code: string,
+  actorUserId?: string
+): Promise<boolean> {
   return executeWithDatabase(async (prisma) => {
+    const existing = await prisma.procedure.findUnique({
+      where: { code },
+      select: { id: true, code: true, title: true },
+    });
     await prisma.procedure.delete({ where: { code } });
     logger.info('Procedure deleted', { code });
+    await auditService.log({
+      action: 'PROCEDURE_DELETED',
+      entity: 'Procedure',
+      entityId: existing?.id ?? code,
+      userId: actorUserId ?? null,
+      before: existing ? { code: existing.code, title: existing.title } : undefined,
+      after: Prisma.JsonNull,
+    });
     return true;
   });
 }
 
-// Soft delete si exécutions existantes, hard delete sinon.
-// Protection réglementaire des preuves d'exécution (Scenario A).
+// Soft delete si executions existantes, hard delete sinon.
+// Protection reglementaire des preuves d'execution (Scenario A).
 export async function archiveOrDeleteProcedure(
   code: string,
   actorUserId?: string
@@ -172,7 +222,7 @@ export async function archiveOrDeleteProcedure(
       return { archived: true, executionCount };
     }
 
-    // Hard delete : aucune exécution
+    // Hard delete : aucune execution
     await prisma.procedure.delete({ where: { code } });
     await auditService.log({
       action: 'PROCEDURE_DELETED',
