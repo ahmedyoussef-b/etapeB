@@ -51,7 +51,7 @@ ADR) est désormais **opérationnel** en production Web.
 |---|---|---|
 | Migration 17 | Colonne `search_vector` (`tsvector`), trigger de mise à jour automatique, index GIN | S20 (E1) |
 | Peuplement | 252/252 chunks peuplés (`search_vector IS NOT NULL`) | S20 (E1) |
-| Service `src/lib/rag/rag-search.ts` | Recherche hybride vector + full-text avec **RRF** (Reciprocal Rank Fusion) | S20 (E2) |
+| Service `src/lib/ai/rag-search.ts` | Recherche hybride vector + full-text avec **RRF** (Reciprocal Rank Fusion) | S20 (E2) |
 | Route `/api/ai/rag` | Modifiée pour appeler `rag-search.ts` | S20 (E2) |
 | Tests | 9 tests unitaires (`vitest run`) + 3 tests manuels OK | S20 (E2) |
 | Commits locaux | `69129d2` (E1) · `2084313` (E2) · `cd6a39b` (incident E1.5) | S20 |
@@ -338,7 +338,7 @@ les étapes **de session** (`S-E{n}`).
 - Migration 17 : `prisma/migrations/..._add_hybrid_search_tsvector/`
 - Colonne `search_vector` (`tsvector`) + trigger + index GIN
 - Peuplement 252/252 chunks
-- `src/lib/rag/rag-search.ts` (RRF fusion)
+- `src/lib/ai/rag-search.ts` (RRF fusion)
 - `/api/ai/rag` modifié (hybrid search)
 - 9 tests unitaires + 3 tests manuels OK
 - `docs/INCIDENT_S20_E1.5_SQL_DIRECT.md`
@@ -346,7 +346,7 @@ les étapes **de session** (`S-E{n}`).
 ### Livrables S20.1+ (cible)
 
 - `src/lib/ai/groq-client.ts` (service partagé, S-E3)
-- `src/lib/rag/rag-search.ts` (service partagé, S-E3 — déjà partiellement fait)
+- `src/lib/ai/rag-search.ts` (service partagé, S-E3 — déjà partiellement fait)
 - `src/app/api/ai/chat/route.ts` (adaptateur mince, S-E3)
 - `src/app/api/ai/rag/route.ts` (adaptateur mince, S-E3)
 - Fallback dégradé dans `/api/ai/rag` (S-E4)
