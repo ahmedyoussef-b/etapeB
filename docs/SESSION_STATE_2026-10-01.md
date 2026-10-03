@@ -1182,3 +1182,81 @@ Detail complet dans docs/INCIDENT_S20.1.md (cree en S20.2 lors de A3.3).
 4. Bloc 2 : items reportes S19/S20 (QW4, docs/src, warnings)
 5. Bloc 3 : dette documentaire (chemin rag-search.ts, client frontend)
 6. Bloc 4 : cloture + push final (validation explicite humain)
+---
+
+## Session 20.2 - Chantier D (audit_logs) + A3.3
+
+### Acquis S20.2
+
+Total commits S20.2 : 11 (1 A3.3 + 10 Chantier D)
+
+- **A3.3** - Section SESSION_STATE S20.1 + creation docs/INCIDENT_S20.1.md (commit 1ae472b)
+- **Chantier D - audit_logs (10 commits)** :
+  - D.2a (7955b04) : permission RBAC audit-logs:view
+  - D.2b (8bc0ae9) : integration RBAC
+  - D.3 (7d92482) : service src/lib/services/audit.ts (auditService.log() fail-safe)
+  - D.4a (c0fc895) : instrumentation CRUD metier (1/3)
+  - D.4b (829c191) : instrumentation CRUD metier (2/3)
+  - D.4c (515049b) : harmonisation appels audit existants
+  - D.5 (4420f73) : route GET /api/admin/audit-logs (pagination + 6 filtres)
+  - D.6a (ffae47e) : mise a jour ADR 008
+  - D.6b (c9a61c0) : mise a jour NOTE_AUDIT_LOGS_DIAGNOSTIC
+  - D.6c (020d5d9) : mise a jour WORK_GUIDE (section 7.5 + version 1.1)
+
+### Incidents S20.2 (17)
+
+| # | Nature | Gravite |
+|---|---|---|
+| S20.2-1 | Placeholder '<contenu ci-dessus>' ecrit litteralement (A3.3) | Moderee |
+| S20.2-2 | Commit sans feu vert superviseur (A3.3) | Moderee |
+| S20.2-3 | Dette tsc preexistante (30 erreurs options.spec.ts + .next/types) | Moderee |
+| S20.2-4 | Verbatim commit D.2a manquant (recupere apres) | Faible |
+| S20.2-5 | No newline at end of file sur plusieurs fichiers | Cosmetique |
+| S20.2-6 | Placeholder '[contenu audit.ts]' dans verbatim lecture | Moderee |
+| S20.2-7 | Placeholder '[diff complet...]' dans verbatim diff | Moderee |
+| S20.2-8 | D.4a/b/c : aucun verbatim initial (ecriture + tests + commits) | Elevee |
+| S20.2-9 | Bug code mort sync-purge (audit apres return) - corrige | Moderee |
+| S20.2-10 | Saut d'etapes D.4a/b (double verification non fournie) | Elevee |
+| S20.2-11 | Faux positif bug procedures.service.ts (artefact de collage) | Faible |
+| S20.2-12 | Verbatim diff stage substitue par synthese (D.5) | Moderee |
+| S20.2-13 | Fausse alerte D.6b non ecrit (puis confirme) | Faible |
+| S20.2-14 | Ligne vide manquante avant section 7.5 (D.6c) - corrigee | Cosmetique |
+| S20.2-15 | Fichier Objective.txt fourni au lieu du verbatim attendu | Faible |
+| S20.2-16 | A3.4 execute sans mandat + double verif D.6c non fournie | Elevee |
+| S20.2-17 | A3.4 falsifie (14 incidents inventes, mauvais emplacement) - fichier supprime | Critique |
+
+### Lecon principale S20.2
+
+Degradation de la discipline. Incidents critiques : S20.2-8, S20.2-10,
+S20.2-16, S20.2-17. La falsification documentaire (S20.2-17) a conduit
+a la suppression du fichier A3.4 falsifie et au report de sa redaction
+propre en S20.3.
+
+### Regles heritees de S20.2 (actives en S20.3+)
+
+| Regle | Description |
+|---|---|
+| S20.2 (nouvelle) | Arret de la pratique docs/INCIDENT_*.md. Les incidents sont documentes en resume dans la section SESSION_STATE de la session concernee. |
+| S20.3 (nouvelle) | Refus de tout message sans verbatim integral. Un placeholder, une synthese, un fichier de contexte externe = rejet immediat. |
+
+### Etat BDD post-session 20.2
+
+- documents : 7
+- document_chunks : 252
+- search_vector : 252/252 (peuplement 100%)
+- audit_logs : 0
+- sync_logs : 0
+- _prisma_migrations : 17
+- users actifs : 5
+
+### Reprise session 20.3
+
+1. Rituel : 6 verifications prealables
+2. Bloc 0 : A3.4 (cette section) + push final #2
+3. Bloc 1 : consommation auditService.log() dans CRUD metier restants
+             + test fonctionnel GET /api/admin/audit-logs
+4. Bloc 2 : dettes reportees S19/S20 (QW4, docs/src, warnings, drift
+             Prisma, dette tsc, no-newline)
+5. Bloc 3 : dette documentaire (chemin rag-search.ts, client frontend
+             fallback)
+6. Bloc 4 : cloture + push final #3 (si commits)
