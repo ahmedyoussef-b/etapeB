@@ -175,3 +175,63 @@ de non-régression définies ici. En particulier :
   `embedding Unsupported("vector(384)")`.
 - `src/app/api/ai/rag/route.ts` — Opérateur `<=>` (cosine similarity)
   sur `embedding`.
+
+---
+
+## Extension S20.5 - Drift search_vector (non couvert par D1-D4)
+
+### Contexte
+
+La session 20 a introduit la colonne search_vector (type tsvector)
+sur la table document_chunks, ainsi qu'un index GIN
+(document_chunks_search_vector_gin_idx) pour la recherche plein-texte
+(Hybrid Search - RRF). Cette colonne et cet index ont ete crees par
+migration SQL manuelle, car le DSL Prisma ne permet pas de declarer
+tsvector.
+
+Constat S20.5 : le modele DocumentChunk dans prisma/schema.prisma
+ne declare PAS search_vector. Pourtant, la colonne existe en BDD
+(peuplement 252/252 chunks au 2026-10-03, snapshot debut S20.5).
+
+### Dette
+
+| # | Dette | Description |
+|---|---|---|
+| D5 | search_vector hors du DSL Prisma | Non declare dans schema.prisma |
+| D6 | Index GIN hors du DSL Prisma | Non declare dans schema.prisma |
+| D7 | Pas de strategie de migration formalisee | Similaire a D2 (HNSW) |
+
+### Risque
+
+Identique a D1 (HNSW) : une future migration prisma migrate dev pourrait
+generer un DROP COLUMN search_vector ou un DROP INDEX silencieux,
+degradant Hybrid Search en fallback sequentiel.
+
+### Options de resolution
+
+| Option | Description | Avantages | Inconvenients |
+|---|---|---|---|
+| A | Declarer search_vector Unsupported("tsvector")? dans schema.prisma | Coherence formelle ; Prisma connait la colonne | Meme dette que embedding (Unsupported) ; Prisma ne peut pas gerer tsvector natif ; risque de faux positif migrate dev |
+| B | Ne pas declarer (statu quo) + documenter | Aucun risque de migration parasite immediate | Dette reste ouverte ; risque residuel a chaque migrate dev |
+| C | Ne pas declarer + test post-deploy (comme HNSW) | Detection precoce en cas de DROP | Effort additionnel (test integration a creer) |
+
+### Recommandation
+
+Option C : ne pas declarer search_vector dans schema.prisma
+(maintien du statu quo), mais etendre le test post-deploy HNSW
+(section "Pistes de resolution a moyen terme" de cet ADR) pour couvrir
+search_vector ET son index GIN.
+
+Justification :
+- Evite l'introduction d'un nouveau Unsupported dans schema.prisma.
+- Aligne la strategie sur celle deja retenue pour HNSW.
+- Le test post-deploy devient l'unique garde-fou, mais couvre les deux
+  dettes.
+
+### Regles de non-regression (extension)
+
+- [ ] Le test post-deploy doit verifier pg_indexes pour les DEUX index :
+  document_chunks_embedding_hnsw_idx (HNSW) ET
+  document_chunks_search_vector_gin_idx (GIN).
+- [ ] Toute migration Prisma sur document_chunks doit etre relue pour
+  detecter un DROP COLUMN search_vector ou DROP INDEX sur le GIN.
