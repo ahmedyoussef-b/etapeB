@@ -151,6 +151,8 @@ export const authOptions: NextAuthOptions = {
       }
       return session;
     },
+  },
+  events: {
     async signOut() {
       auditService.log({ action: 'LOGOUT', entity: 'user', entityId: 'session' });
     },
