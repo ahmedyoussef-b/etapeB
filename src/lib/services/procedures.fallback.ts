@@ -55,7 +55,10 @@ export async function safeGetProcedureByCode(code: string) {
   }
 }
 
-export async function safeCreateProcedure(procedure: Parameters<typeof createProcedure>[0]) {
+export async function safeCreateProcedure(
+  procedure: Parameters<typeof createProcedure>[0],
+  actorUserId?: string
+) {
   if (!isDatabaseAvailable() || !canUseFallback()) {
     const start = Date.now();
     const result = await localStore.createProcedureLocal(procedure);
@@ -66,7 +69,7 @@ export async function safeCreateProcedure(procedure: Parameters<typeof createPro
 
   try {
     const { result } = await executeWithDatabaseTimed(async (prisma) => {
-      return await createProcedure(procedure);
+      return await createProcedure(procedure, actorUserId);
     });
     return result;
   } catch (error) {
@@ -78,7 +81,11 @@ export async function safeCreateProcedure(procedure: Parameters<typeof createPro
   }
 }
 
-export async function safeUpdateProcedure(code: string, procedure: Parameters<typeof updateProcedure>[1]) {
+export async function safeUpdateProcedure(
+  code: string,
+  procedure: Parameters<typeof updateProcedure>[1],
+  actorUserId?: string
+) {
   if (!isDatabaseAvailable() || !canUseFallback()) {
     const start = Date.now();
     const result = await localStore.updateProcedureLocal(code, procedure);
@@ -89,7 +96,7 @@ export async function safeUpdateProcedure(code: string, procedure: Parameters<ty
 
   try {
     const { result } = await executeWithDatabaseTimed(async (prisma) => {
-      return await updateProcedure(code, procedure);
+      return await updateProcedure(code, procedure, actorUserId);
     });
     return result;
   } catch (error) {
@@ -101,7 +108,10 @@ export async function safeUpdateProcedure(code: string, procedure: Parameters<ty
   }
 }
 
-export async function safeUpsertProcedure(procedure: Parameters<typeof upsertProcedure>[0]) {
+export async function safeUpsertProcedure(
+  procedure: Parameters<typeof upsertProcedure>[0],
+  actorUserId?: string
+) {
   const code = procedure.metadata.code;
 
   if (!isDatabaseAvailable() || !canUseFallback()) {
@@ -114,7 +124,7 @@ export async function safeUpsertProcedure(procedure: Parameters<typeof upsertPro
 
   try {
     const { result } = await executeWithDatabaseTimed(async (prisma) => {
-      return await upsertProcedure(procedure);
+      return await upsertProcedure(procedure, actorUserId);
     });
     return result;
   } catch (error) {
