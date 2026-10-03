@@ -12,7 +12,8 @@ export type Permission =
   | "settings:*"
   | "logs:view"
   | "banque-images:*" | "banque-images:view" | "banque-images:upload" | "banque-images:delete"
-  | "iot:*" | "iot:view" | "iot:control";
+  | "iot:*" | "iot:view" | "iot:control"
+  | "audit-logs:view"; // NOUVEAU D.2a
 
 export const RBAC_MATRIX: Record<string, Permission[]> = {
   "rondier": [
@@ -74,5 +75,6 @@ export const RBAC_MATRIX: Record<string, Permission[]> = {
     "logs:view",
     "banque-images:*",
     "iot:*",
+    "audit-logs:view", // NOUVEAU D.2a
   ],
 };
