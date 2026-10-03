@@ -1361,3 +1361,221 @@ etat stable et reconstruire la discipline en S20.4.
 5. Bloc 3 : dette documentaire (chemin rag-search.ts, client frontend
    fallback)
 6. Bloc 4 : cloture + push final
+---
+
+## Session 20.4 - Arret premature + gouvernance S20.5
+
+### Contexte
+
+Session 20.4 ouverte avec les memes priorites que S20.3 (Bloc 1 :
+instrumentation auditService.log() dans CRUD metier restants).
+Objectif : consommer auditService.log() dans createProcedure,
+upsertProcedure, updateProcedure, deleteProcedure.
+
+### Resultat
+
+- Commits pousses en S20.4 : 0
+- Progression metier : 0
+- Incidents : 21 (dont 1 critique, S20.4-10)
+- Session arretee prematurement par le superviseur S20.4.
+
+### Incidents S20.4 (21)
+
+| # | Nature | Gravite | Statut |
+|---|---|---|---|
+| S20.4-1 | Recidive script externe (bdd-snapshot.js) | Elevee | Resolu |
+| S20.4-2 | Exposition secret Neon en clair | Moderee | A traiter (rotation) |
+| S20.4-3 | Script parasite snapshot-bdd.js | Elevee | Resolu |
+| S20.4-4 | Diagnostic errone + demande exception contraire S20.3-B | Moderee | Consigne |
+| S20.4-5 | Repost integral + non-execution | Elevee | Consigne |
+| S20.4-6 | Echec technique inline (guillemets simples PS 5.1) | Faible | Resolu |
+| S20.4-7 | Solution 2A executee au lieu de 2B | Faible | Consigne |
+| S20.4-8 | 3eme echec inline (dysfonctionnement PS) | Technique | Resolu |
+| S20.4-9 | Verbatim en bloc Markdown | Faible | Consigne |
+| S20.4-10 | 3 ecritures sans autorisation + verbatim substitue | Critique | Resolu (restauration) |
+| S20.4-11 | Repost integral (recidive) | Elevee | Consigne |
+| S20.4-12 | 3 diffs enchaines + pager (END) | Moderee | Consigne |
+| S20.4-13 | Modifications non conformes (4 defauts) | Elevee | Resolu (restauration) |
+| S20.4-14 | Edition non effectuee (malentendu) | Faible | Consigne |
+| S20.4-15 | Indentation non conforme (artefact) | Faible | Resolu |
+| S20.4-16 | Declaration affirmative sans preuve verbatim | Moderee | Consigne |
+| S20.4-17 | Commande non autorisee + fichier temp + verbatim substitue | Elevee | Consigne |
+| S20.4-18 | Environnement PS instable (16 vs 8) | Moderee | Consigne |
+| S20.4-19 | Edition non effectuee | Faible | Consigne |
+| S20.4-20 | Diff transmis sans edition (requalifie) | Moderee | Consigne |
+| S20.4-21 | Edition non appliquee (recidive S20.4-19/20) | Elevee | Consigne |
+
+### Cause racine identifiee
+
+Le canal de production documentaire "dictee superviseur -> edition
+manuelle humaine -> diff" est improductif. 3 recidives d'edition non
+appliquee (S20.4-14, S20.4-19, S20.4-21), 5 reposts (S20.4-5, -11,
+-12, -17, -20), 21 incidents, 0 commit. La charge cognitive de
+l'edition manuelle est trop elevee pour l'humain.
+
+### Decisions de gouvernance S20.5 (issues de S20.4)
+
+1. L'IA interne execute desormais PowerShell (Git, tests, lectures,
+   ecritures) apres feu vert du superviseur. L'humain n'est plus
+   l'executant PowerShell par defaut.
+2. Le superviseur tranche par defaut sur les decisions techniques.
+   L'humain intervient uniquement pour : push final, operations BDD
+   irreversibles, modifications .env / Vercel, arbitrages metier.
+3. La regle S20.3-B est maintenue et renforcee : interdiction de tout
+   script externe (.ps1, .js, .txt, .sh, .bat) ET de tout fichier
+   temporaire cree comme substitut a une commande inline.
+
+### Regles heritees de S20.4 (actives en S20.5+)
+
+| Regle | Description |
+|---|---|
+| S20.5-1 | Avant tout git diff, verifier que l'edition a bien ete appliquee via Select-String ciblee. |
+| S20.5-2 | L'IA interne execute PowerShell apres feu vert superviseur. Le push final reste a l'humain. |
+| S20.5-3 | Refus de tout message sans verbatim integral. Placeholder, synthese, fichier de contexte externe = rejet immediat. |
+
+### Etat BDD post-session 20.4
+
+Identique a post-session 20.3 (aucun commit, aucune ecriture BDD) :
+
+- documents : 7
+- document_chunks : 252
+- search_vector : 252/252 (peuplement 100%)
+- audit_logs : 0
+- sync_logs : 0
+- _prisma_migrations : 17
+- users actifs : 5
+
+### Reprise session 20.5
+
+1. Rituel : 6 verifications prealables (validees).
+2. Lecture 50 dernieres lignes SESSION_STATE (validee).
+3. A3.6 : consignation S20.4 (cette section).
+4. Bloc 1 : instrumentation auditService.log() dans CRUD metier.
+5. Bloc 2 : dettes reportees.
+6. Bloc 3 : dette documentaire.
+7. Bloc 4 : cloture + A3.7 + push final.
+
+---
+
+## Session 20.5 - Gouvernance revisee + Bloc 1 (audit CRUD)
+
+### Contexte
+
+S20.5 marque un changement de gouvernance majeur, acte apres l'echec de
+S20.4 (21 incidents, 0 commit). Trois changements structurels :
+
+1. L'IA interne execute desormais PowerShell (Git, tests, lectures,
+   ecritures) apres feu vert du superviseur. L'humain reste decideur
+   final et autorisateur des risques eleves.
+2. Le superviseur tranche par defaut sur les decisions techniques.
+   L'humain intervient uniquement sur push final, BDD irreversibles,
+   .env/Vercel, arbitrages metier.
+3. La regle S20.3-B est maintenue et renforcee (aucun script externe,
+   aucun fichier temporaire).
+
+### Commits S20.5 (6)
+
+| Hash | Message |
+|---|---|
+| f8dffa4 | feat(audit): add PROCEDURE_CREATED and PROCEDURE_UPDATED actions |
+| caad6cb | feat(audit): instrument CRUD procedures with auditService.log |
+| b8a8f5e | feat(audit): propagate actorUserId through procedures fallback layer |
+| 2ecdfd8 | feat(audit): propagate user id from guide route to procedures audit |
+| f1ae7f2 | docs(adr): extend ADR 006 with search_vector drift (S20.5) |
+| 2d1de00 | docs(adr): fix rag-search.ts path in ADR 009 (S20.5) |
+
+### Bloc 0 - Rituel + A3.6
+
+Rituel 6 verifications valide (HEAD 7c0b89e, 17 migrations, BDD
+7/252/252/0/0/17/5). A3.6 (consignation S20.4) ecrit dans SESSION_STATE.
+
+### Bloc 1 - Instrumentation audit CRUD (TERMINE)
+
+4 fonctions instrumentees dans src/lib/services/procedures.service.ts :
+- createProcedure -> PROCEDURE_CREATED
+- upsertProcedure -> PROCEDURE_CREATED ou PROCEDURE_UPDATED
+- updateProcedure -> PROCEDURE_UPDATED (apres garde)
+- deleteProcedure -> PROCEDURE_DELETED (avec findUnique prealable)
+
+Enum etendu dans audit.ts : PROCEDURE_CREATED, PROCEDURE_UPDATED.
+
+Propagation actorUserId dans procedures.fallback.ts (3 fonctions
+safeCreate/Update/Upsert) et guide/route.ts (POST, context.user?.id).
+
+Non-regression : tsc 0 erreur sur les fichiers touches. vitest : 16
+echecs preexistants (hors perimetre, dette documentee).
+
+### Bloc 2 - Dettes reportees (PARTIEL)
+
+- 2.1 + 2.2 : drift search_vector diagnostique et documente dans ADR 006
+  (D5/D6/D7, option C recommandee). Commit f1ae7f2.
+- 2.3 (dette tsc, 30 erreurs) : reportee session ulterieure.
+- 2.4 (No newline, 85 fichiers .ts/.tsx/.js/.md) : constat, correction
+  en masse rejetee (disproportion).
+- 2.5 (logs .env Prisma) : abandonnee (deja tranchee S18).
+- 2.6 (Upstash warning) : reportee.
+- 2.7 (Vite warning) : reportee.
+- 2.8 (docs/src) : decision S18 maintenue, mise a jour de note
+  abandonnee.
+- 2.9 (QW4 vectorize) : reportee.
+
+### Bloc 3 - Dette documentaire (TERMINE)
+
+- 3.1 : chemin rag-search.ts corrige dans ADR 009 (3 occurrences,
+  src/lib/rag/ -> src/lib/ai/). Commit 2d1de00.
+- 3.2 : constat que le frontend consomme /api/ai/chat (pas
+  /api/ai/rag). Payload answer:null + fallback chunks-only n'atteint
+  jamais le client. Aucune adaptation necessaire. Chantier RAG Web
+  futur a planifier.
+
+### Incidents S20.5 (~25, resume)
+
+Categories principales :
+- Format de verbatim non conforme (recurrent, prompts absents) :
+  S20.5-9, -10, -13, -14, -22, -23.
+- Omission de commandes (git add/commit non executes) :
+  S20.5-4 (resolu par reprise).
+- Doublons et messages non sollicites : S20.5-1, -3, -6, -7.
+- Estimation superviseur erronee (occurrences) : S20.5-S1, S2, S4, S6.
+- Ajustements de protocole : S20.5-S13 (derogation format), S20.5-S21
+  (bug -like PowerShell).
+
+Aucun incident critique. Aucune perte de donnees. Aucune ecriture
+non autorisee.
+
+### Regles S20.5 (nouvelles)
+
+- S20.5-1 : avant tout git diff, verifier l'edition via Select-String
+  ciblee.
+- S20.5-2 : IA interne execute PowerShell apres feu vert superviseur.
+  Push final reste a l'humain.
+- S20.5-3 : refus de tout message sans verbatim integral.
+
+### Etat BDD post-session 20.5
+
+Identique a post-session 20.4 (aucune ecriture BDD, aucune migration) :
+- documents : 7
+- document_chunks : 252
+- search_vector : 252/252 (peuplement 100%)
+- audit_logs : 0 (aucun evenement depuis S20.2)
+- sync_logs : 0
+- _prisma_migrations : 17
+- users actifs : 5
+
+### Dettes ouvertes (fin S20.5)
+
+- Dette tsc : 30 erreurs preexistantes (options.spec.ts,
+  .next/types) - reportee.
+- No newline : 85 fichiers .ts/.tsx/.js/.md - constat, non corrige.
+- vitest : 16 echecs preexistants (4 fichiers) - a investiguer.
+- QW4 : vectorize-repertoire.ts (~104s) - reportee.
+- Frontend RAG Web : consommation /api/ai/rag a planifier.
+
+### Reprise session 20.6
+
+1. Rituel : 6 verifications prealables.
+2. Traiter dette tsc (30 erreurs).
+3. Investiguer 16 echecs vitest.
+4. Bloc 2 restant : QW4, warnings Vite/Upstash.
+5. Bloc 4 S20.5 : push final (si non fait).
+
