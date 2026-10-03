@@ -1084,3 +1084,101 @@ pré-incident.
 3. Implémenter ADR 008 : audit_logs (chantier D)
 4. Exécuter seed test users
 5. Push final après validation
+
+# Session 20.1 — 2026-10-03 (suite)
+
+## Résumé
+
+Session de consolidation documentaire et de préparation S20.2. Livrables :
+completion ADR 009 (Q1-Q8) et ADR 008 (Axe 1-4), ajout sections S19 et
+S20 a SESSION_STATE, extraction services IA (E3), implementation du
+fallback degrade a 3 niveaux (E4). Cinq incidents de discipline ont ete
+detectes et documentes (S20.1-1 a S20.1-5), dont un incident critique
+sur l'outillage Git (commit fantome). Le mode manuel humain a ete rendu
+obligatoire pour toutes les operations Git. 6 commits locaux produits,
+non pousses.
+
+## Commits session 20.1
+
+| Hash | Message |
+|---|---|
+| 692265c | docs(adr): update ADR 009 with Q1-Q8 decisions and S20 hybrid search |
+| 59673a5 | docs(adr): update ADR 008 with Axe 1-4 audit decisions |
+| 9dbc69d | docs(session): add session 19 to SESSION_STATE |
+| 6317f21 | docs(session): add session 20 to SESSION_STATE |
+| 9da2755 | refactor(ai): extract rag-prompts and groq-error-mapping (E3) |
+| fb8b67a | feat(rag): add degraded fallback (lexical-only + chunks-only) (E4) |
+
+## Acquis
+
+- ADR 009 complete : decisions Q1-Q8 (RAG Phase 2) tranchees
+- ADR 008 complete : decisions Axe 1-4 (audit_logs) tranchees
+- SESSION_STATE : sections S19 et S20 ajoutees
+- E3 — Unification partielle API : services rag-prompts.ts et
+  groq-error-mapping.ts extraits de rag/route.ts
+- E4 — Fallback degrade : 3 niveaux (N1 lexical-only, N2 chunks-only,
+  N3 base indisponible) + searchMode expose
+- Tests rag-search : 12/12 (dont 3 nouveaux L1/L2/L3)
+- tsc --noEmit : 0 erreur
+- npm run lint : 0 warning nouveau
+- Working tree clean, main ahead of origin/main by 9 commits
+
+## Incidents session 20.1
+
+Detail complet dans docs/INCIDENT_S20.1.md (cree en S20.2 lors de A3.3).
+
+- S20.1-1 — Commit fantome 63d5f44 : outil d'execution IA produisait des
+  sorties fictives (hash affiche sans commit reel). Resolution : bascule
+  en mode manuel humain + regle S20.1-1 (double verification).
+- S20.1-2 — Working tree divergent : 2 fichiers modifies apres commits
+  reputes reussis (en realite fictifs).
+- S20.1-3 — Ecart de methode A3.2 : outil edit au lieu du script
+  PowerShell inline valide.
+- S20.1-4 — Inversions de role superviseur/executeur : 5 occurrences
+  (V2, V3, V6, A1, A2).
+- S20.1-5 — Chemins relatifs .NET : [System.IO.File] cherche dans
+  C:\WINDOWS\system32 si chemin relatif. Resolution : chemins absolus
+  obligatoires (regle S20.1-5).
+
+## Regles heritees de S20.1 (actives en S20.2+)
+
+| Regle | Description |
+|---|---|
+| S20.1-1 | Tout commit doit etre verifie par double source : git rev-parse HEAD et Get-Content .git\refs\heads\main. Les deux doivent etre identiques. Sinon : incident. |
+| S20.1-5 | Sous PowerShell 5.1, [System.IO.File]::ReadAllBytes et ::WriteAllText n'utilisent pas le repertoire courant PowerShell. Toujours utiliser des chemins absolus (C:\ahmed\ETAPE-B-CCP\app\...). |
+| Mode manuel | Toutes les operations Git sont executees par l'humain (fenetre PowerShell manuelle). L'IA interne n'execute AUCUNE commande Git. |
+
+## Etat BDD post-session 20.1
+
+- documents : 7
+- document_chunks : 252
+- search_vector : 252/252 (peuplement 100%)
+- audit_logs : 0
+- sync_logs : 0
+- _prisma_migrations : 17
+- users actifs : 5
+- Colonne users.active : presente
+- Extension unaccent : presente (conservation documentee)
+
+## Points de vigilance (session 20.2+)
+
+- Mode manuel humain obligatoire pour Git (lecon S20.1-1)
+- Double verification obligatoire des commits (regle S20.1-1)
+- Chemins absolus obligatoires pour [System.IO.File] (regle S20.1-5)
+- Translitteration ASCII obligatoire (messages Git + ecritures TS)
+- A3.3 (cette section) etait reportee de S20.1, livree en S20.2
+- Dette documentaire : chemin rag-search.ts errone dans ADR 009 et
+  SESSION_STATE (src/lib/rag/ au lieu de src/lib/ai/)
+- Client frontend a adapter pour gerer answer: null + fallback
+  chunks-only (E4)
+- Chantier D (audit_logs) et Chantier E (seed test users) non demarres
+- 9 commits locaux non pousses sur origin/main
+
+## Reprise session 20.2
+
+1. Rituel : 6 verifications prealables
+2. Bloc 0 : A3.3 (cette section) + docs/INCIDENT_S20.1.md
+3. Bloc 1 : Chantier D (audit_logs, migration 18) OU Chantier E (seed)
+4. Bloc 2 : items reportes S19/S20 (QW4, docs/src, warnings)
+5. Bloc 3 : dette documentaire (chemin rag-search.ts, client frontend)
+6. Bloc 4 : cloture + push final (validation explicite humain)
