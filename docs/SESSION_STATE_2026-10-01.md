@@ -902,3 +902,93 @@ feu vert superviseur pour chaque étape Git).
 3. Lire les notes techniques de session 18
 4. Décider : RAG Phase 2 (ADR 008) OU correctif withAuth async OU autre
 5. Push en fin de session après validation
+
+---
+
+# Session 19 — 2026-10-02
+
+## Résumé
+
+Session de fondation et de discipline. Trois ADR livrés (008 audit_logs,
+009 RAG Phase 2, plus compléments), un incident d'encodage Windows-1252
+détecté et corrigé (V3), un correctif `withAuth` async (ADR 007) appliqué,
+propagation `sslmode=verify-full` finalisée, homepage internationalisée,
+seed test users préparé. **12 commits, 0 dépassement de protocole,
+0 écart de verbatim.**
+
+## Commits session 19
+
+| Hash | Message |
+|---|---|
+| (12 commits — voir git log --grep="Session 19") | (détail via git log) |
+
+## Acquis
+
+- ✅ ADR 008 livré : `docs/adr/008-audit-logs-extension.md` (planification audit_logs)
+- ✅ ADR 009 livré : `docs/adr/009-rag-phase-2.md` (planification RAG Phase 2)
+- ✅ Correctif `withAuth` async appliqué (ADR 007 de S18)
+- ✅ Propagation `sslmode=verify-full` finalisée : `.env.local`,
+  `.env.local.example`, Vercel, `docs/DEPLOYMENT.md`
+- ✅ Homepage internationalisée (FR)
+- ✅ `docs/WORK_GUIDE.md` livré (guide de travail)
+- ✅ `docs/COMPTES_TEST.md` livré (documentation comptes de test)
+- ✅ `docs/DB_STATE_2026-10-02.md` livré (snapshot T1)
+- ✅ `docs/NOTE_GIT_COMMIT_ENCODING.md` livré (leçon V3)
+- ✅ Script `scripts/seed-test-users.ts` préparé (exécution reportée S20.1)
+- ✅ Incident V3 (encodage Windows-1252) détecté et résolu — 51 octets
+  corrompus sur le bloc Session 18, propagé sur `origin/main`, corrigé
+- ✅ Protocole respecté : 12 commits, 0 dépassement, 0 écart de verbatim
+
+## Décisions tranchées (S19)
+
+- **ADR 008 (audit_logs)** : report de l'implémentation à S20+ · 5 questions
+  ouvertes (Q1→Q5) · statut « Accepté (décision de report) »
+- **ADR 009 (RAG Phase 2)** : report de l'implémentation à S20+ · 8 questions
+  ouvertes (Q1→Q8) · statut « Accepté (décision de report) »
+
+## Incident V3 — Encodage Windows-1252
+
+**Nature** : encodage non conforme lors de l'ajout du bloc Session 18 à
+`docs/SESSION_STATE_2026-10-01.md`. Le bloc a été encodé en Windows-1252
+au lieu d'UTF-8 strict.
+
+**Symptômes** : 51 octets corrompus, caractères accentués mal affichés.
+
+**Propagation** : le fichier corrompu a été poussé sur `origin/main` avant
+détection.
+
+**Résolution** : bloc ré-encodé en UTF-8 strict, sans BOM, et poussé en
+correctif. Leçon documentée dans `docs/NOTE_GIT_COMMIT_ENCODING.md`.
+
+**Leçon** : toujours utiliser `-Encoding UTF8` explicitement sous
+PowerShell 5.1, en lecture **et** en écriture. Translittération ASCII
+systématique des messages Git.
+
+## État BDD post-session 19
+
+- `documents` : 7
+- `document_chunks` : 252
+- `audit_logs` : 0
+- `sync_logs` : 0
+- `_prisma_migrations` : 16 (stable vs S18)
+- `users actifs` : 5
+- Colonne `users.active` : présente
+- `search_vector` : **non encore présente** (migration S20)
+
+## Points de vigilance (session 20+)
+
+- RAG Phase 2 : décisions Q1→Q8 à trancher en S20
+- ADR 008 : décisions Axe 1→4 à trancher en S20
+- Seed test users : exécution à planifier S20.1
+- Encodage UTF-8 strict : règle réaffirmée (leçon V3)
+- Warning Vite config ESM/CommonJS (hérité S18)
+- Dette Prisma + pgvector + HNSW (ADR 006, hérité S18)
+
+## Reprise session 20
+
+1. Décider Q1→Q8 (RAG Phase 2) et Axe 1→4 (audit_logs)
+2. Démarrer E1 : migration 17 (hybrid search `search_vector`)
+3. Implémenter E2 : Hybrid Search avec RRF
+4. Exécuter le seed test users (si mandat)
+5. Documenter les ADR 008 et 009 (décisions S20)
+6. Push en fin de session après validation
