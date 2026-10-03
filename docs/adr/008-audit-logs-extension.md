@@ -1,9 +1,10 @@
 # ADR 008 — Extension de la couverture d'audit
 
-- **Date** : 2026-10-02
-- **Statut** : Accepté (décision de report)
-- **Session** : 19
+- **Date** : 2026-10-02 (création S19) · 2026-10-03 (décisions S20 · documentation S20.1)
+- **Statut** : Accepté (décisions Axe 1→4 tranchées en S20 · implémentation en cours S20.1)
+- **Session** : S19 (création) · S20 (décisions) · S20.1 (documentation + implémentation)
 - **Concerne** : audit_logs, couverture d'audit, middleware Prisma, politique de rétention
+- **Chantier associé** : S20.1 Bloc 2.3 (implémentation audit_logs · ordre prioritaire arrêté)
 
 ## Contexte
 
@@ -19,6 +20,34 @@ Couverture actuelle :
 
 La dette est documentée dans INCIDENT_2026-10-02.md (ligne 137, reformulée
 en S19) et dans DB_STATE_2026-10-02.md (snapshot T1 : audit_logs = 0).
+
+### Mise à jour S20 — décisions Axe 1→4 tranchées
+
+La Session 20 a tranché les 4 axes structurants qui bloquaient
+l'implémentation de l'extension d'audit. Ces décisions sont documentées
+dans la section « Décision » ci-dessous.
+
+**Correspondance Axe (S20) / Question (S19) :**
+
+| Axe S20 | Question S19 | Objet |
+|---|---|---|
+| **Axe 1** | Q1 | Périmètre : quelles actions auditer ? |
+| **Axe 2** | Q2 | Approche : middleware / service / hybride ? |
+| **Axe 3** | Q3 | Rétention : TTL sur `audit_logs` ? |
+| **Axe 4** | Q4 | Exposition : route admin ? |
+| (—) | Q5 | Performance : volume max, purge auto ? — **laissée ouverte** |
+
+**Décisions retenues (résumé) :**
+
+| Axe | Décision | Libellé court |
+|---|---|---|
+| **Axe 1** | **P1** | Sécurité uniquement (connexions + mutations admin) |
+| **Axe 2** | **I2** | Service ciblé (`auditService.log()`) |
+| **Axe 3** | **J4** | Rétention 3 ans (cron S21+) |
+| **Axe 4** | **K2** | Route API uniquement · `admin` uniquement |
+
+**Implémentation planifiée S20.1 (chantier D).** Voir section « Plan
+d'implémentation (S20.1) » ci-dessous.
 
 ## Problème
 
@@ -108,88 +137,136 @@ Inconvénients :
 
 ## Décision
 
-**Report de l'extension de la couverture d'audit à la session 20+ avec
-mandat humain.**
+**Décisions Axe 1→4 tranchées en S20. Implémentation planifiée S20.1.**
 
-Le présent ADR acte la décision de **ne pas implémenter** l'extension en
-S19. Les raisons :
+### Décisions Axe 1→4 (Session 20)
 
-1. Les décisions d'architecture (périmètre d'audit, choix middleware vs
-   service, TTL) nécessitent une validation explicite de l'humain.
-2. Le risque de régression en fin de S19 est trop élevé pour une
-   implémentation non préparée.
-3. La dette est documentée, les options sont clarifiées : l'implémentation
-   peut être démarrée en S20+ sans blocage.
+| Axe | Décision | Correspondance ADR | Justification courte |
+|---|---|---|---|
+| **Axe 1 — Périmètre** | **P1** — Sécurité uniquement | Q1 restreint | Connexions + mutations admin suffisent pour la conformité initiale |
+| **Axe 2 — Approche** | **I2** — Service ciblé (`auditService.log()`) | **Option 2** retenue | Maîtrise du périmètre, performance préservée, logs pertinents |
+| **Axe 3 — Rétention** | **J4** — 3 ans (cron S21+) | Q3 (TTL) | Conformité secteur énergétique · cron reporté S21 |
+| **Axe 4 — Exposition** | **K2** — Route API uniquement · `admin` uniquement | Q4 (route admin) | Pas d'UI admin en S20.1 · API seule, protégée `withAuth(['admin'])` |
 
-## Questions à trancher (S20+)
+### Justification
 
-1. **Périmètre** : quelles actions doivent être auditées ?
-   - Connexions / déconnexions ?
-   - Création / modification / suppression de toutes les entités métier ?
-   - Actions admin (reset, purge, sync) ?
-   - Échecs d'authentification (au-delà de Tauri) ?
+1. **Axe 1 → P1 (Sécurité uniquement)** : le périmètre d'audit est
+   **restreint** aux connexions/déconnexions et aux mutations admin.
+   L'audit exhaustif des CRUD métier (Option 1 / hybride) est **écarté**
+   pour éviter l'impact performance et le volume de logs.
+2. **Axe 2 → I2 (Service ciblé)** : l'**Option 2** de l'ADR est retenue.
+   Un service dédié `auditService.log()` est créé et appelé
+   explicitement aux points d'audit critiques. Les Options 1 (middleware
+   global) et 3 (hybride) sont **écartées**.
+3. **Axe 3 → J4 (Rétention 3 ans)** : la rétention cible est de **3 ans**,
+   cohérente avec les exigences du secteur énergétique. Le **cron de
+   purge** est **reporté en S21+** — S20.1 n'implémente **pas** la purge.
+4. **Axe 4 → K2 (Route API uniquement, `admin` uniquement)** : une route
+   `GET /api/admin/audit-logs` est créée, protégée par
+   `withAuth(['admin'])`. **Aucune UI admin** n'est livrée en S20.1.
 
-2. **Approche** : middleware Prisma global, service ciblé, ou hybride ?
+### Q5 (Performance) — statut
 
-3. **Rétention** : faut-il un TTL sur audit_logs ? Si oui, quelle durée
-   (30 jours, 90 jours, 1 an) ?
+La question Q5 (volume max, purge automatique) **reste ouverte**. Elle
+n'est pas bloquante pour l'implémentation S20.1 (service ciblé, faible
+volume attendu). Elle sera traitée **en S21+** conjointement avec le
+cron de rétention (Axe 3 → J4).
 
-4. **Exposition** : faut-il exposer audit_logs via une route admin ? Si
-   oui, quel format (table, export CSV) ?
+### Truncate `POST /api/admin/reset` — clarification
 
-5. **Performance** : quel est le volume maximal acceptable d'audit_logs
-   par jour ? Faut-il un mécanisme de purge automatique ?
+Le truncate existant dans `POST /api/admin/reset` **reste en place**
+(règle de non-régression). Il est **distinct** de la rétention TTL :
 
-## Plan d'implémentation (S20+)
+- **Truncate** : reset **volontaire** par un admin (opération explicite,
+  traçable en amont).
+- **TTL / purge** : suppression **automatique** des logs dépassant la
+  durée de rétention (3 ans), via cron S21+.
+
+Les deux mécanismes coexistent sans conflit.
+
+## Décisions tranchées (S20) — historique
+
+Les questions Q1→Q5 ouvertes en S19 ont été traitées en S20. Les
+questions Q1→Q4 ont donné lieu à des décisions actées (mappées en
+Axe 1→4) ; la question Q5 reste ouverte.
+
+| # | Question (rappel S19) | Décision S20 | Statut implémentation |
+|---|---|---|---|
+| **Q1** | Périmètre d'audit | **P1** — Sécurité uniquement (connexions + mutations admin) | 📋 S20.1 (chantier D) |
+| **Q2** | Approche (middleware / service / hybride) | **I2** — Service ciblé (`auditService.log()`) | 📋 S20.1 (chantier D) |
+| **Q3** | Rétention / TTL | **J4** — 3 ans (cron S21+) | 📋 S21+ (cron) |
+| **Q4** | Exposition admin | **K2** — Route API uniquement · `admin` uniquement | 📋 S20.1 (chantier D) |
+| **Q5** | Performance / purge auto | ⏸️ **Laissée ouverte** | 📋 S21+ |
+
+## Plan d'implémentation (S20.1)
 
 ### Étape 1 — Validation du périmètre par l'humain
 
-- Répondre aux 5 questions ci-dessus.
-- Valider le choix d'approche (middleware / service / hybride).
+- ✅ **Fait S20** : décisions Axe 1→4 tranchées (P1 / I2 / J4 / K2).
+- ⏸️ Q5 (performance) reste ouverte.
 
-### Étape 2 — Implémentation du middleware / service d'audit
+### Étape 2 — Implémentation du service d'audit
 
-- Si middleware : créer un middleware Prisma générique, l'enregistrer
-  dans prisma.config.ts ou src/lib/database/connection-manager.ts.
-- Si service ciblé : ajouter les appels prisma.auditLog.create() dans
-  les services métier concernés.
-- Si hybride : combiner les deux approches.
+- 📋 **À faire S20.1 (chantier D)**.
+- **Approche retenue** : service ciblé (I2).
+- Créer `src/lib/services/audit.ts` exposant `auditService.log()`.
+- Ajouter les ~8 points d'appel (connexions + mutations admin), selon
+  le périmètre P1.
 
 ### Étape 3 — Configuration de la rétention
 
-- Implémenter un job de purge automatique (cron ou node-cron) si TTL
-  décidé.
-- Ajouter un test de non-régression pour vérifier que le purge ne
-  supprime pas les logs récents.
+- 📋 **Reporté S21+ (Axe 3 → J4)**.
+- Implémenter un cron de purge (3 ans).
+- Test de non-régression : vérifier que la purge ne supprime pas les
+  logs récents.
 
 ### Étape 4 — Exposition admin
 
-- Créer une route API GET /api/admin/audit-logs (si décidé).
-- Ajouter un composant UI dans le dashboard admin.
+- 📋 **À faire S20.1 (chantier D)**.
+- Créer `GET /api/admin/audit-logs`, protégée `withAuth(['admin'])` (K2).
+- **Pas d'UI admin** en S20.1.
 
 ### Étape 5 — Tests de non-régression
 
-- Vérifier que les 3 actions existantes (PROCEDURE_ARCHIVED,
-  PROCEDURE_DELETED, TAURI_TOKEN_FAILED) continuent de fonctionner.
-- Vérifier que le truncate admin/reset ne casse pas les nouvelles règles
-  de rétention.
+- 📋 **À faire S20.1**.
+- Vérifier que les 3 actions existantes (`PROCEDURE_ARCHIVED`,
+  `PROCEDURE_DELETED`, `TAURI_TOKEN_FAILED`) continuent de fonctionner.
+- Vérifier que le truncate `POST /api/admin/reset` reste fonctionnel.
 
 ### Étape 6 — Documentation
 
-- Mettre à jour docs/WORK_GUIDE.md (section 7 BDD/Neon) avec les
+- 📋 **À faire S20.1**.
+- Mettre à jour `docs/WORK_GUIDE.md` (section 7 BDD/Neon) avec les
   nouvelles règles d'audit.
-- Mettre à jour docs/NOTE_AUDIT_LOGS_DIAGNOSTIC.md avec le statut
+- Mettre à jour `docs/NOTE_AUDIT_LOGS_DIAGNOSTIC.md` avec le statut
   « implémenté ».
+
+### Livrables S20.1 (cible)
+
+- `src/lib/services/audit.ts` (service `auditService.log()`)
+- ~8 points d'appel (connexions + mutations admin)
+- `src/app/api/admin/audit-logs/route.ts` (`GET`, `withAuth(['admin'])`)
+- Tests unitaires + intégration
+- Documentation mise à jour
+
+### Livrables S21+ (rétention)
+
+- Cron de purge 3 ans
+- Mesures de performance (Q5)
+- UI admin (optionnelle, hors périmètre K2)
 
 ## Règles de non-régression
 
 - Conserver les 3 actions existantes : PROCEDURE_ARCHIVED,
   PROCEDURE_DELETED, TAURI_TOKEN_FAILED.
 - Ne pas modifier POST /api/admin/reset sans validation explicite de
-  l'humain (impact sur la rétention).
+  l'humain (impact sur la rétention). **Clarification S20** : le truncate
+  est un reset volontaire admin, distinct du TTL (cf. section Décision).
 - Ne pas ajouter d'appel d'audit dans une boucle critique sans mesure de
   performance.
 - Tester après chaque ajout d'action d'audit (unit test + intégration).
+- **Ne pas implémenter le cron de purge en S20.1** (reporté S21+).
+- **Ne pas créer d'UI admin en S20.1** (K2 = route API uniquement).
 
 ## Références
 
